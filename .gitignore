@@ -1,0 +1,6 @@
+.vs
+Source/ansic/**/*.o
+Source/csharp/**/*.user
+bin
+obj
+packages
