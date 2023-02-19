@@ -2966,21 +2966,18 @@ bool isdelimdiscardingwhite (std::istream & is, char delim)
 
 bool RunnerLine::do_input ()
 {
-
-	// Get optional prompt or channel
-
-        std::string prompt;
 	gettoken ();
 	BlChannel channel= 0;
-	switch (token.code)
-        {
-	case '#':
+	if (token.code == '#')
+	{
 		channel= expectchannel ();
 		requiretoken (',');
 		gettoken ();
-		break;
+	}
+        std::string prompt;
+	switch (token.code)
+	{
 	case keySTRING:
-		//getfile (0) << token.str;
                 prompt= token.str;
 		gettoken ();
 		switch (token.code)
@@ -2988,7 +2985,6 @@ bool RunnerLine::do_input ()
 		case ';':
 			break;
 		case ',':
-			//getfile (0) << "? ";
                         prompt+= "? ";
 			break;
 		default:
@@ -2998,7 +2994,6 @@ bool RunnerLine::do_input ()
 		gettoken ();
 		break;
 	default:
-		//getfile (0) << "? ";
                 prompt= "? ";
 	}
 
@@ -3080,7 +3075,10 @@ bool RunnerLine::do_input ()
 			cursorvisible ();
 		}
 		if (! prompt.empty () )
-			in << prompt;
+		{
+			if (channel == 0 || in.istextwindow () )
+				in << prompt;
+		}
 		in.getline (input);
 		if (channel == 0)
 			cursorinvisible ();

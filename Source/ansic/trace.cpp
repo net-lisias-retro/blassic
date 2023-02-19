@@ -13,15 +13,11 @@ using std::endl;
 using std::ofstream;
 #include <string>
 using std::string;
-#include <list>
 
 #include <cstdlib>
 using std::getenv;
 
 #include <stdexcept>
-#include <algorithm>
-#include <iterator>
-#include <functional>
 
 namespace {
 
@@ -30,12 +26,6 @@ namespace {
 ofstream * pof= 0;
 bool flag= true;
 size_t indent= 0;
-
-// Changed to not use std::list, seems to be unusable during
-// initialization of statics, at least in some gcc versions.
-
-//typedef std::list <TraceFunc *> TraceList;
-//TraceList tracelist;
 
 TraceFunc * initial= NULL;
 TraceFunc * * lastpos= & initial;
@@ -70,7 +60,7 @@ TraceFunc::TraceFunc (const char * strFuncName) :
 	//tracelist.push_back (this);
 	previous= lastpos;
 	* lastpos= this;
-	lastpos= & this->next;
+	lastpos= & next;
 
 	if (pof)
 		* pof << string (indent, ' ') << "Entra " << strfunc << endl;
@@ -83,16 +73,11 @@ TraceFunc::~TraceFunc ()
 	if (pof)
 	{
 		* pof << string (indent, ' ') << "Sale ";
-		#if 0
-		if (uncaught_exception () )
+		if (std::uncaught_exception () )
 			* pof << "(throwing) ";
-		#endif
 		* pof << strfunc << endl;
 	}
-	//if (tracelist.back () != this)
-	//	throw std::logic_error ("Bad use of TraceFunc");
-	//tracelist.pop_back ();
-	if (lastpos != & this->next)
+	if (lastpos != & next)
 		throw std::logic_error ("Bad use of TraceFunc");
 	lastpos= previous;
 	* lastpos= NULL;
@@ -115,26 +100,13 @@ void TraceFunc::show (int)
 
 	#ifndef NDEBUG
 
-	//if (tracelist.size () == 0)
 	if (initial == NULL)
 		cerr << "TraceFunc: no calls.";
 	else
 	{
 		cerr << "TraceFunc dump of calls: \r\n";
-		#if 0
-		//std::ostream_iterator <const char *> oit (cerr, "\r\n");
-		//std::transform (tracelist.begin (), tracelist.end (), oit,
-		//	std::mem_fun (& TraceFunc::strfunc) );
-		for (TraceList::iterator it= tracelist.begin ();
-			it != tracelist.end ();
-			++it)
-		{
-			cerr << (* it)->strfunc << "\r\n";
-		}
-		#else
 		for (TraceFunc * act= initial; act != NULL; act= act->next)
 			cerr << act->strfunc << "\r\n";
-		#endif
 		cerr << "TraceFunc dump ended.";
 	}
 

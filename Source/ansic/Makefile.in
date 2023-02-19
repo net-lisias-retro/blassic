@@ -161,10 +161,10 @@ blassic_LDADD = -lncurses @SVGALIB_LIBS@ -L/usr/X11R6/lib -lX11
 EXAMPLE_PROGS = \
 	4raya.bas anime.bas anime2.bas args.bas ascii.bas asnorojo.bas \
 	automod.bas autoview.bas batnum.bas bench.bas bingrep.bas \
-	biorritmo.bas bubble.bas chart.bas colores.bas deepsea.bas \
-	defchar.bas deriv.bas drawtest.bas eliza.bas error.bas \
-	estrella.bas euler.bas europa.bas fecha.bas flip.bas fnfact.bas \
-	fnfactrec.bas fnrecur.bas fractale.bas genmucha.bas \
+	biorritmo.bas bubble.bas chart.bas circle.bas colores.bas \
+	deepsea.bas defchar.bas deriv.bas drawtest.bas eliza.bas \
+	error.bas estrella.bas euler.bas europa.bas fecha.bas flip.bas \
+	fnfact.bas fnfactrec.bas fnrecur.bas fractale.bas genmucha.bas \
 	graficos3d.bas graph.bas hamurs.bas hockey.bas htget.bas \
 	interpolacion.bas invert.bas label.bas labeldata.bas lineas.bas \
 	liscua.bas list.bas machinecode.bas maildrop.bas mastermind.bas \

@@ -11,6 +11,7 @@
 //#include "cursor.h"
 #include "key.h"
 #include "util.h"
+#include "trace.h"
 
 // Para depuracion
 #include <iostream>
@@ -707,6 +708,8 @@ void init_xcolors ()
 
 void graphics::initialize (const char * progname)
 {
+	TraceFunc tr ("graphics::initialize");
+
 	#ifdef BLASSIC_USE_SVGALIB
 	if (geteuid () == 0) {
 		std::string prog (progname);
@@ -724,20 +727,30 @@ void graphics::initialize (const char * progname)
 	#endif
 
 	#ifdef BLASSIC_USE_X
-	if (getenv ("DISPLAY") != NULL)
+	const char * strDisplay;
+	if ( (strDisplay= getenv ("DISPLAY") ) != NULL &&
+		strDisplay [0] != '\0')
 	{
+		tr.message (std::string ("Opening ") + strDisplay);
 		display= XOpenDisplay (0);
 		if (display)
 		{
+			tr.message ("Display opened");
 			inited= true;
 			screen= DefaultScreen (display);
 			init_xcolors ();
 		}
 		else
+		{
+			tr.message ("Error opening display");
 			cerr << "Error al abrir display." << endl;
+		}
 	}
 	else
+	{
+		tr.message ("No DISPLAY value");
 		cerr << "Sin soporte de graficos." << endl;
+	}
 	#endif
 
         #ifdef  BLASSIC_USE_WINDOWS
@@ -768,6 +781,8 @@ void graphics::initialize (const char * progname)
 
 void graphics::uninitialize ()
 {
+	TraceFunc tr ("graphics::uninitialize");
+
 	if (! inited) return;
 
 	if (actualmode != 0)
@@ -784,9 +799,11 @@ void graphics::uninitialize ()
 	#ifdef BLASSIC_USE_X
 	if (display)
 	{
+		tr.message ("closing display");
 		//if (window_created)
 		//	destroy_window ();
 		XCloseDisplay (display);
+		tr.message ("display is closed");
 	}
 	#endif
 
@@ -1132,11 +1149,14 @@ void recreate_windows ();
 
 void setmode (int width, int height, int mode)
 {
+	TraceFunc tr ("setmode");
+
 	sysvar::set16 (sysvar::GraphicsWidth, short (width) );
 	sysvar::set16 (sysvar::GraphicsHeight, short (height) );
 	screenwidth= width;
 	screenheight= height;
 	activetransform= TransformIdentity;
+	fSynchro= false;
 
 	#ifdef BLASSIC_USE_SVGALIB
 
@@ -1165,6 +1185,12 @@ void setmode (int width, int height, int mode)
 
 	if (mode != actualmode || mode == user_mode)
 	{
+		{
+			std::ostringstream oss;
+			oss << "Changing mode from " << actualmode <<
+				" to " << mode;
+			tr.message (oss.str () );
+		}
 		if (window_created)
 			destroy_window ();
 		if (mode != text_mode)
@@ -2038,6 +2064,9 @@ void graphics::arccircle (int x, int y, int radius,
 
 void graphics::ellipse (int ox, int oy, int rx, int ry)
 {
+	// Based on "A fast Bresenham type algorithm
+	// for drawing ellipses", by John Kennedy.
+
 	//#define DEBUG_ELLIPSE
 
 	#ifdef DEBUG_ELLIPSE
@@ -2053,18 +2082,24 @@ void graphics::ellipse (int ox, int oy, int rx, int ry)
 
 	const int ry2= ry * ry;
 	const int rx2= rx * rx;
+	//const int dimy= int (ry2 / sqrt (ry2 + rx2) + 0.5);
+	const int dimy= int (ry2 / sqrt (ry2 + rx2) ) + 1;
+	#ifdef DEBUG_ELLIPSE
+	cerr << "Dimy: " << dimy << endl;
+	#endif
+	util::auto_buffer <int> py (dimy);
+	//#define SIMPLER
+	#ifndef SIMPLER
 	const int ry2_2= ry2 * 2;
 	const int rx2_2= rx2 * 2;
-	const int dimy= int (ry2 / sqrt (ry2 + rx2) + 0.5);
-	//const int dimy= int (rx2 / sqrt (rx2 + ry2) + 0.5);
-	util::auto_buffer <int> py (dimy);
-	#if 1
 	int xchange= ry2 * (1 - 2 * rx);
 	int ychange= rx2;
 	int ellipseerror= 0;
 	for (int y= 0, x= rx; y < dimy; ++y)
 	{
 		py [y]= x;
+		if (x == 0) // Needed for little rx
+			continue;
 		ellipseerror+= ychange;
 		ychange+= rx2_2;
 		if (2 * ellipseerror + xchange > 0)
@@ -2079,16 +2114,21 @@ void graphics::ellipse (int ox, int oy, int rx, int ry)
 		py [y]= int (rx * sqrt (ry * ry - y * y) / ry + 0.5);
 	#endif
 
-	int aux= py [dimy - 1];
+	int aux= dimy > 0 ? py [dimy - 1] : rx;
 	const int dimx= aux < 0 ? 0 : aux;
+	#ifdef DEBUG_ELLIPSE
+	cerr << "Dimx: " << dimx << endl;
+	#endif
 	util::auto_buffer <int> px (dimx);
-	#if 1
+	#ifndef SIMPLER
 	xchange= ry2;
 	ychange= rx2 * (1 - 2 * ry);
 	ellipseerror= 0;
 	for (int x= 0, y= ry; x < dimx; ++x)
 	{
 		px [x]= y;
+		if (y == 0) // Needed for little ry
+			continue;
 		ellipseerror+= xchange;
 		xchange+= ry2_2;
 		if (2 * ellipseerror + ychange > 0)
@@ -2189,7 +2229,9 @@ void graphics::arcellipse (int ox, int oy, int rx, int ry,
 		// Change quadrant when needed, adjusting directions.
 		if ( (q & 1) == 0)
 		{
-			if (px == 0)
+			// Take care that in very eccentric ellipses
+			// can be in 0 before the extreme point.
+			if (px == 0 && abs (py) == ry)
 			{
 				if (qe == q)
 					break;
@@ -2199,7 +2241,7 @@ void graphics::arcellipse (int ox, int oy, int rx, int ry,
 		}
 		else
 		{
-			if (py == 0)
+			if (py == 0 && abs (px) == rx)
 			{
 				if (qe == q)
 					break;
@@ -2530,7 +2572,8 @@ public:
 		foreground= default_foreground;
 		background= default_background;
 	}
-	int getwidth () { return width; }
+	int getwidth () const { return width; }
+	int getxpos () const { return x; }
 	void gotoxy (int x, int y)
 	{
 		this->x= x; this->y= y;
@@ -2781,7 +2824,7 @@ BlWindow windowzero;
 typedef std::map <BlChannel, BlWindow *> MapWindow;
 MapWindow mapwindow;
 
-void killwindowifnotzero (MapWindow::value_type & mw)
+void killwindowifnotzero (const MapWindow::value_type & mw)
 {
 	if (mw.first != BlChannel (0) )
 		delete mw.second;
@@ -2792,7 +2835,8 @@ void recreate_windows ()
 	windowzero.setdefault ();
 	windowzero.defaultcolors ();
 	windowzero.cls ();
-	for_each (mapwindow.begin (), mapwindow.end (), killwindowifnotzero);
+	std::for_each (mapwindow.begin (), mapwindow.end (),
+                killwindowifnotzero);
 	mapwindow.clear ();
 	mapwindow [0]= & windowzero;
 }
@@ -2895,6 +2939,11 @@ size_t graphics::getlinewidth ()
 	#endif
 }
 
+size_t graphics::getlinewidth (BlChannel ch)
+{
+	return mapwindow [ch]->getwidth ();
+}
+
 void graphics::charout (char c)
 {
 	//do_charout (c);
@@ -2990,6 +3039,11 @@ void graphics::movecharforward (size_t n)
 	#endif
 }
 
+void graphics::movecharforward (BlChannel ch, size_t n)
+{
+	mapwindow [ch]->movecharforward (n);
+}
+
 void graphics::movecharback (size_t n)
 {
 	#if 0
@@ -3011,6 +3065,11 @@ void graphics::movecharback (size_t n)
 	#endif
 }
 
+void graphics::movecharback (BlChannel ch, size_t n)
+{
+	mapwindow [ch]->movecharback (n);
+}
+
 void graphics::movecharup (size_t n)
 {
 	#if 0
@@ -3020,6 +3079,11 @@ void graphics::movecharup (size_t n)
 	#endif
 }
 
+void graphics::movecharup (BlChannel ch, size_t n)
+{
+	mapwindow [ch]->movecharup (n);
+}
+
 void graphics::movechardown (size_t n)
 {
 	#if 0
@@ -3027,6 +3091,11 @@ void graphics::movechardown (size_t n)
 	#else
 	windowzero.movechardown (n);
 	#endif
+}
+
+void graphics::movechardown (BlChannel ch, size_t n)
+{
+	mapwindow [ch]->movechardown (n);
 }
 
 void graphics::definesymbol (int symbol, const unsigned char (& byte) [8] )
@@ -3069,10 +3138,15 @@ int graphics::xmouse () { return xmousepos; }
 int graphics::ymouse () { return ymousepos; }
 
 int graphics::xpos () { return lastx; }
+int graphics::xpos (BlChannel ch)
+{
+	return mapwindow [ch]->getxpos ();
+}
 int graphics::ypos () { return lasty; }
 
 namespace {
 
+#if 0
 void invertcursor ()
 {
 	int x1= tcol * 8;
@@ -3101,6 +3175,7 @@ void invertcursor ()
         }
 	#endif
 }
+#endif
 
 }
 
@@ -3114,6 +3189,16 @@ void graphics::hidecursor ()
 {
 	//invertcursor ();
 	windowzero.invertcursor ();
+}
+
+void graphics::showcursor (BlChannel ch)
+{
+	mapwindow [ch]->invertcursor ();
+}
+
+void graphics::hidecursor (BlChannel ch)
+{
+	mapwindow [ch]->invertcursor ();
 }
 
 // Fin de graphics.cpp

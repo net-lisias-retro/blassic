@@ -118,32 +118,35 @@ void initkeytable ();
 struct str_terminfo {
 	const char * & str;
 	const char * tinfoname;
+        str_terminfo (const char * & str, const char * tinfoname) :
+                str (str), tinfoname (tinfoname)
+        { }
 };
 
 const str_terminfo strinfo []= {
-	{ strCls, "clear" },
-	{ strCup, "cup" },
+	str_terminfo (strCls, "clear" ),
+	str_terminfo (strCup, "cup" ),
 
-	{ strCursorNormal, "cnorm" },
-	{ strCursorInvisible, "civis" },
+	str_terminfo (strCursorNormal, "cnorm" ),
+	str_terminfo (strCursorInvisible, "civis" ),
 
-	{ strForeground, "setaf" },
-	{ strBackground, "setab" },
+	str_terminfo (strForeground, "setaf" ),
+	str_terminfo (strBackground, "setab" ),
 
-	{ strEnterBold, "bold" },
-	{ strExitBold, "sgr0" },
+	str_terminfo (strEnterBold, "bold" ),
+	str_terminfo (strExitBold, "sgr0" ),
 
-	{ strMoveForward, "cuf1" },
-	{ strMoveBack, "cub1" },
-	{ strMoveForwardN, "cuf" },
-	{ strMoveBackN, "cub" },
-	{ strMoveUp, "cuu1" },
-	{ strMoveDown, "cud1" },
-	{ strMoveUpN, "cuu" },
-	{ strMoveDownN, "cud" },
+	str_terminfo (strMoveForward, "cuf1" ),
+	str_terminfo (strMoveBack, "cub1" ),
+	str_terminfo (strMoveForwardN, "cuf" ),
+	str_terminfo (strMoveBackN, "cub" ),
+	str_terminfo (strMoveUp, "cuu1" ),
+	str_terminfo (strMoveDown, "cud1" ),
+	str_terminfo (strMoveUpN, "cuu" ),
+	str_terminfo (strMoveDownN, "cud" ),
 
-	{ strSaveCursorPos, "sc" },
-	{ strRestoreCursorPos, "rc" },
+	str_terminfo (strSaveCursorPos, "sc" ),
+	str_terminfo (strRestoreCursorPos, "rc" ),
 };
 
 void init ()
@@ -782,8 +785,8 @@ std::string readkey (ReadType type)
 class MapSpecial {
 public:
 	enum Result { NoMapped, Found, MoreNeeded };
-	void addkey (const string & str, string::size_type pos,
-		const string & keyname)
+	void addkey (const std::string & str, std::string::size_type pos,
+		const std::string & keyname)
 	{
 		//TraceFunc tr ("MapSpecial::addkey");
 
@@ -798,15 +801,15 @@ public:
 			kmap [c].addkey (str, pos + 1, keyname);
 		}
 	}
-	Result findkey (const string & str, string::size_type pos,
-		string & keyname, string::size_type & consumed)
+	Result findkey (const std::string & str, std::string::size_type pos,
+		std::string & keyname, std::string::size_type & consumed)
 	{
 		if (pos >= str.size () )
 			return MoreNeeded;
 		char c= str [pos];
 		//cout << "Buscando: " << c << endl;
 		{
-			map <char, std::string>::iterator it= kname.find (c);
+			std::map <char, std::string>::iterator it= kname.find (c);
 			if (it != kname.end () )
 			{
 				keyname= it->second;
@@ -814,7 +817,7 @@ public:
 				return Found;
 			}
 		}
-		map <char, MapSpecial>::iterator it= kmap.find (c);
+		std::map <char, MapSpecial>::iterator it= kmap.find (c);
 		if (it != kmap.end () )
 			return it->second.findkey
 				(str, pos + 1, keyname, consumed);
@@ -822,14 +825,18 @@ public:
 			return NoMapped;
 	}
 private:
-	map <char, std::string> kname;
-	map <char, MapSpecial> kmap;
+	std::map <char, std::string> kname;
+	std::map <char, MapSpecial> kmap;
 };
 
 struct KeyDescription {
 	const char * tiId;
 	//const char * blName;
 	const std::string & blName;
+        KeyDescription (const char * tiId, const std::string & blName) :
+                tiId (tiId),
+                blName (blName)
+        { }
 };
 
 const std::string
@@ -839,37 +846,37 @@ const std::string
 	strDIV ("/");
 
 const KeyDescription keyname [] = {
-	{ "kpp",   strPAGEUP },    // previous-page key
-	{ "knp",   strPAGEDOWN },  // next-page key
-	{ "kend",  strEND },       // end key
-	{ "kslt",  strEND },       // select key
-	{ "kc1",   strEND },       // lower left of keypad
-	{ "khome", strHOME },      // home key
-	{ "kfnd",  strHOME },      // find key
-	{ "ka1",   strHOME },      // upper left of keypad
-	{ "kcub1", strLEFT },      // left-arrow key
-	{ "kcuu1", strUP },        // up-arrow key
-	{ "kcuf1", strRIGHT },     // right-arrow key
-	{ "kcud1", strDOWN },      // down-arrow key
-	{ "kich1", strINSERT },    // insert-character key
-	{ "kdch1", strDELETE },    // delete-character key
-	{ "kent",  strENTER },     // enter/send key
-	{ "kf1",   strF1 },        // F1 function key
-	{ "kf2",   strF2 },        // F2 function key
-	{ "kf3",   strF3 },        // F3 function key
-	{ "kf4",   strF4 },        // F4 function key
-	{ "kf5",   strF5 },        // F5 function key
-	{ "kf6",   strF6 },        // F6 function key
-	{ "kf7",   strF7 },        // F7 function key
-	{ "kf8",   strF8 },        // F8 function key
-	{ "kf9",   strF9 },        // F9 function key
-	{ "kf10",  strF10 },       // F10 function key
-	{ "kf11",  strF11 },       // F11 function key
-	{ "kf12",  strF12 },       // F12 function key
-	{ "kf54",  strDIV },       // F54 function key, / in xterm
-	{ "kf55",  strMULT },      // F55 function key, * in xterm
-	{ "kf56",  strMINUS },     // F56 function key, - in xterm
-	{ "kf57",  strPLUS },      // f57 function key, + in xterm
+	KeyDescription ("kpp",   strPAGEUP),    // previous-page key
+	KeyDescription ("knp",   strPAGEDOWN),  // next-page key
+	KeyDescription ("kend",  strEND),       // end key
+	KeyDescription ("kslt",  strEND),       // select key
+	KeyDescription ("kc1",   strEND),       // lower left of keypad
+	KeyDescription ("khome", strHOME),      // home key
+	KeyDescription ("kfnd",  strHOME),      // find key
+	KeyDescription ("ka1",   strHOME),      // upper left of keypad
+	KeyDescription ("kcub1", strLEFT),      // left-arrow key
+	KeyDescription ("kcuu1", strUP),        // up-arrow key
+	KeyDescription ("kcuf1", strRIGHT),     // right-arrow key
+	KeyDescription ("kcud1", strDOWN),      // down-arrow key
+	KeyDescription ("kich1", strINSERT),    // insert-character key
+	KeyDescription ("kdch1", strDELETE),    // delete-character key
+	KeyDescription ("kent",  strENTER),     // enter/send key
+	KeyDescription ("kf1",   strF1),        // F1 function key
+	KeyDescription ("kf2",   strF2),        // F2 function key
+	KeyDescription ("kf3",   strF3),        // F3 function key
+	KeyDescription ("kf4",   strF4),        // F4 function key
+	KeyDescription ("kf5",   strF5),        // F5 function key
+	KeyDescription ("kf6",   strF6),        // F6 function key
+	KeyDescription ("kf7",   strF7),        // F7 function key
+	KeyDescription ("kf8",   strF8),        // F8 function key
+	KeyDescription ("kf9",   strF9),        // F9 function key
+	KeyDescription ("kf10",  strF10),       // F10 function key
+	KeyDescription ("kf11",  strF11),       // F11 function key
+	KeyDescription ("kf12",  strF12),       // F12 function key
+	KeyDescription ("kf54",  strDIV),       // F54 function key, / in xterm
+	KeyDescription ("kf55",  strMULT),      // F55 function key, * in xterm
+	KeyDescription ("kf56",  strMINUS),     // F56 function key, - in xterm
+	KeyDescription ("kf57",  strPLUS),      // f57 function key, + in xterm
 };
 
 #ifndef NDEBUG
@@ -949,7 +956,7 @@ void wait_event ()
 	} while ( (r= pi.poll () ) == 0);
 	if (r < 0)
 	{
-		cerr << "Error in poll: " << strerror (errno) << endl;
+		std::cerr << "Error in poll: " << strerror (errno) << std::endl;
 	}
 }
 

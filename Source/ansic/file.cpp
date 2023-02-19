@@ -6,6 +6,7 @@
 #include "error.h"
 #include "var.h"
 #include "cursor.h"
+#include "edit.h"
 #include "graphics.h"
 #include "util.h"
 using util::to_string;
@@ -138,6 +139,42 @@ void BlFile::field (const std::vector <field_element> &)
 void BlFile::assign (const std::string &, const std::string &, Align)
 { }
 
+size_t BlFile::getwidth ()
+{ throw ErrFileMode; }
+
+void BlFile::movecharforward ()
+{ throw ErrFileMode; }
+
+void BlFile::movecharforward (size_t)
+{ throw ErrFileMode; }
+
+void BlFile::movecharback ()
+{ throw ErrFileMode; }
+
+void BlFile::movecharback (size_t)
+{ throw ErrFileMode; }
+
+void BlFile::movecharup ()
+{ throw ErrFileMode; }
+
+void BlFile::movecharup (size_t)
+{ throw ErrFileMode; }
+
+void BlFile::movechardown ()
+{ throw ErrFileMode; }
+
+void BlFile::movechardown (size_t)
+{ throw ErrFileMode; }
+
+void BlFile::showcursor ()
+{ throw ErrFileMode; }
+
+void BlFile::hidecursor ()
+{ throw ErrFileMode; }
+
+std::string BlFile::getkey ()
+{ throw ErrFileMode; }
+
 std::string BlFile::read (size_t)
 { throw ErrFileMode; }
 
@@ -176,6 +213,66 @@ bool BlFileConsole::eof ()
 void BlFileConsole::flush ()
 {
         out << std::flush;
+}
+
+size_t BlFileConsole::getwidth ()
+{
+	return ::getwidth ();
+}
+
+void BlFileConsole::movecharforward ()
+{
+	::movecharforward ();
+}
+
+void BlFileConsole::movecharforward (size_t n)
+{
+	::movecharforward (n);
+}
+
+void BlFileConsole::movecharback ()
+{
+	::movecharback ();
+}
+
+void BlFileConsole::movecharback (size_t n)
+{
+	::movecharback (n);
+}
+
+void BlFileConsole::movecharup ()
+{
+	::movecharup ();
+}
+
+void BlFileConsole::movecharup (size_t n)
+{
+	::movecharup (n);
+}
+
+void BlFileConsole::movechardown ()
+{
+	::movechardown ();
+}
+
+void BlFileConsole::movechardown (size_t n)
+{
+	::movechardown (n);
+}
+
+void BlFileConsole::showcursor ()
+{
+	::showcursor ();
+}
+
+void BlFileConsole::hidecursor ()
+{
+	::hidecursor ();
+}
+
+std::string BlFileConsole::getkey ()
+{
+	return ::getkey ();
 }
 
 void BlFileConsole::getline (std::string & str)
@@ -347,9 +444,78 @@ void BlFileWindow::flush ()
 	// Nothing to do
 }
 
-void BlFileWindow::getline (std::string &)
+size_t BlFileWindow::getwidth ()
 {
-	throw ErrNotImplemented;
+	return graphics::getlinewidth (ch);
+}
+
+void BlFileWindow::movecharforward ()
+{
+	graphics::movecharforward (ch, 1);
+}
+
+void BlFileWindow::movecharforward (size_t n)
+{
+	graphics::movecharforward (ch, n);
+}
+
+void BlFileWindow::movecharback ()
+{
+	graphics::movecharback (ch, 1);
+}
+
+void BlFileWindow::movecharback (size_t n)
+{
+	graphics::movecharback (ch, n);
+}
+
+void BlFileWindow::movecharup ()
+{
+	graphics::movecharup (ch, 1);
+}
+
+void BlFileWindow::movecharup (size_t n)
+{
+	graphics::movecharup (ch, n);
+}
+
+void BlFileWindow::movechardown ()
+{
+	graphics::movechardown (1);
+}
+
+void BlFileWindow::movechardown (size_t n)
+{
+	graphics::movechardown (n);
+}
+
+void BlFileWindow::showcursor ()
+{
+	graphics::showcursor (ch);
+}
+
+void BlFileWindow::hidecursor ()
+{
+	graphics::hidecursor (ch);
+}
+
+std::string BlFileWindow::getkey ()
+{
+	std::string str;
+	do
+	{
+		str= graphics::getkey ();
+	} while (str.empty () );
+	return str;
+}
+
+void BlFileWindow::getline (std::string & str)
+{
+	std::string auxstr;
+	int inicol= graphics::xpos (ch);
+	while (! editline (* this, auxstr, 0, inicol) )
+		continue;
+	swap (str, auxstr);
 }
 
 std::string BlFileWindow::read (size_t)

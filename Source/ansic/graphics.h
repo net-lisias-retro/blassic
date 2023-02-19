@@ -60,6 +60,7 @@ void definewindow (BlChannel n, int x1, int x2, int y1, int y2);
 void undefinewindow (BlChannel ch);
 
 size_t getlinewidth ();
+size_t getlinewidth (BlChannel ch);
 
 //void locate (int row, int col);
 void gotoxy (int x, int y);
@@ -67,9 +68,13 @@ void gotoxy (BlChannel ch, int x, int y);
 void tab (size_t n);
 void tab (BlChannel ch, size_t x);
 void movecharforward (size_t n);
+void movecharforward (BlChannel ch, size_t n);
 void movecharback (size_t n);
+void movecharback (BlChannel ch, size_t n);
 void movecharup (size_t n);
+void movecharup (BlChannel ch, size_t n);
 void movechardown (size_t n);
+void movechardown (BlChannel ch, size_t n);
 
 void definesymbol (int symbol, const unsigned char (& byte) [8] );
 void synchronize (bool mode);
@@ -81,10 +86,14 @@ int xmouse ();
 int ymouse ();
 
 int xpos ();
+int xpos (BlChannel ch);
 int ypos ();
 
 void showcursor ();
 void hidecursor ();
+
+void showcursor (BlChannel ch);
+void hidecursor (BlChannel ch);
 
 } // namespace graphics
 

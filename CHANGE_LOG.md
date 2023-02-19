@@ -1,5 +1,9 @@
 # Blassic :: Change Log
 
+* 2003-0322: 0.5.3 (Julián Albo)
+	+ Bugs in ellipses and arcs of ellipses with high eccentricity, corrected.
+	+ INPUT & LINE INPUT now works in graphics mode.
+	+ Corrected bug synchronized mode not reset when changing mode.
 * 2003-0128: 0.5.2 (Julián Albo)
 	+ CIRCLE extended to ellipses.
 * 2003-0126: 0.5.1 (Julián Albo)

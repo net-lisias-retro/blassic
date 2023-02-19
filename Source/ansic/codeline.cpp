@@ -633,7 +633,8 @@ void CodeLine::scan (const std::string & line)
 	{
 		strcontent= new unsigned char [len];
 		owner= true;
-		memcpy (strcontent, newcontent.data (), len);
+		//memcpy (strcontent, newcontent.data (), len);
+		newcontent.copy ( (char *) strcontent, len);
 	}
 	else
 	{

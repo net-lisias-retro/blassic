@@ -33,6 +33,19 @@ public:
         virtual ~BlFile ();
 	virtual bool eof ();
 	virtual void flush ();
+	virtual bool istextwindow () { return false; }
+	virtual size_t getwidth ();
+	virtual void movecharforward ();
+	virtual void movecharforward (size_t n);
+	virtual void movecharback ();
+	virtual void movecharback (size_t n);
+	virtual void movecharup ();
+	virtual void movecharup (size_t n);
+	virtual void movechardown ();
+	virtual void movechardown (size_t n);
+	virtual void showcursor ();
+	virtual void hidecursor ();
+	virtual std::string getkey ();
 	virtual void getline (std::string & str);
 	char delimiter () { return cDelimiter; }
 	void delimiter (char delim) { cDelimiter= delim; }
@@ -73,6 +86,18 @@ public:
         BlFileConsole (std::istream & nin, std::ostream & nout);
 	virtual bool eof ();
 	virtual void flush ();
+	virtual size_t getwidth ();
+	virtual void movecharforward ();
+	virtual void movecharforward (size_t n);
+	virtual void movecharback ();
+	virtual void movecharback (size_t n);
+	virtual void movecharup ();
+	virtual void movecharup (size_t n);
+	virtual void movechardown ();
+	virtual void movechardown (size_t n);
+	virtual void showcursor ();
+	virtual void hidecursor ();
+	virtual std::string getkey ();
 	void getline (std::string & str);
 	std::string read (size_t n);
 	void tab (size_t n);
@@ -98,6 +123,19 @@ public:
 	void reset (int x1, int x2, int y1, int y2);
 	virtual bool eof ();
 	virtual void flush ();
+	virtual size_t getwidth ();
+	virtual void movecharforward ();
+	virtual void movecharforward (size_t n);
+	virtual void movecharback ();
+	virtual void movecharback (size_t n);
+	virtual void movecharup ();
+	virtual void movecharup (size_t n);
+	virtual void movechardown ();
+	virtual void movechardown (size_t n);
+	virtual void showcursor ();
+	virtual void hidecursor ();
+	virtual std::string getkey ();
+	virtual bool istextwindow () { return true; }
 	void getline (std::string & str);
 	std::string read (size_t n);
 	void tab (size_t n);

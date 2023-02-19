@@ -1,6 +1,6 @@
 // edit.cpp
 
-#include "cursor.h"
+//#include "cursor.h"
 #include "graphics.h"
 #include "error.h"
 #include "trace.h"
@@ -57,24 +57,28 @@ void showstring (BlFile & bf, const std::string & str)
 
 class Edit {
 public:
-	Edit (BlFile & bf, std::string & str, size_t npos) :
+	Edit (BlFile & bf, std::string & str, size_t npos, size_t inicol) :
 		bf (bf),
 		str (str),
 		npos (npos),
-		width (getwidth () )
+		inicol (inicol),
+		width (bf.getwidth () ),
+		textwindow (bf.istextwindow () )
 	{
-                graphics::synchronize_suspend ();
+		graphics::synchronize_suspend ();
 	}
-        ~Edit ()
-        {
-                graphics::synchronize_restart ();
-        }
+	~Edit ()
+	{
+		graphics::synchronize_restart ();
+	}
 	bool do_it ();
 private:
 	BlFile & bf;
 	std::string & str;
 	size_t npos;
+	size_t inicol;
 	size_t width;
+	bool textwindow;
 
 	//void getwidth ();
 	void back ();
@@ -110,33 +114,45 @@ void Edit::getwidth ()
 
 void Edit::back ()
 {
-	if (npos-- % width != 0)
-		movecharback ();
+	if (textwindow)
+	{
+		--npos;
+		bf.movecharback ();
+		return;
+	}
+	if ( (npos-- + inicol) % width != 0)
+		bf.movecharback ();
 	else
 	{
-		movecharup ();
-		movecharforward (width - 1);
+		bf.movecharup ();
+		bf.movecharforward (width - 1);
 	}
 }
 
 void Edit::forward ()
 {
 	++npos;
-	if (npos % width != 0)
-		movecharforward ();
+	if (textwindow)
+	{
+		bf.movecharforward ();
+		return;
+	}
+	if ( (npos + inicol) % width != 0)
+		bf.movecharforward ();
 	else
 	{
 		if (npos == str.size () )
 		{
-			movecharforward ();
+			//bf.movecharforward ();
 			bf << '\n';
+			bf.flush ();
 		}
 		else
 		{
 			//bf << '\r';
 			//bf.flush ();
-			movecharback (width - 1);
-			movechardown ();
+			bf.movecharback (width - 1);
+			bf.movechardown ();
 		}
 	}
 }
@@ -164,36 +180,40 @@ void Edit::showrest ()
 	showstring (bf, str.substr (npos) );
 
 	size_t l= str.size ();
-	size_t nlines= l / width;
-	size_t actualline= npos / width;
-	size_t actualcol= npos % width;
-	size_t lastcol= l % width;
-	#ifndef __WIN32__
+	size_t nlines= (l + inicol) / width;
+	size_t actualline= (npos + inicol) / width;
+	size_t actualcol= (npos + inicol) % width;
+	size_t lastcol= (l + inicol) % width;
 	if (lastcol == 0 && nlines > 0)
 	{
-		--nlines;
-		// The cursor position remains in the last valid column.
-		lastcol= width - 1;
-		//lastcol= width;
+		if (! textwindow)
+		{
+			#ifndef __WIN32__
+			--nlines;
+			// The cursor position remains
+			// in the last valid column.
+			lastcol= width - 1;
+			//lastcol= width;
+			#endif
+		}
 	}
-	#endif
-	movecharup (nlines - actualline);
+	bf.movecharup (nlines - actualline);
 	if (actualcol < lastcol)
 	{
 		tr.message (std::string ("moving back " +
 			to_string (lastcol - actualcol) ) );
-		movecharback (lastcol - actualcol);
+		bf.movecharback (lastcol - actualcol);
 	}
 	else if (actualcol > lastcol)
 	{
 		tr.message ("moving forward");
-		movecharforward (actualcol - lastcol);
+		bf.movecharforward (actualcol - lastcol);
 	}
 	else if (actualcol == width - 1)
 	{
 		// Without this the cursor sometimes keep in the next line.
-		movecharback ();
-		movecharforward ();
+		bf.movecharback ();
+		bf.movecharforward ();
 	}
 }
 
@@ -202,12 +222,13 @@ void Edit::showinitial ()
 	//bf << '\r' << str;
 	//bf.flush ();
 	bf << '\r';
+	bf.movecharforward (inicol);
 	showstring (bf, str);
 
-	size_t l= str.size ();
+	size_t l= str.size () + inicol;
 	size_t nlines= l / width;
-	size_t actualline= npos / width;
-	size_t actualcol= npos % width;
+	size_t actualline= (npos + inicol) / width;
+	size_t actualcol= (npos + inicol) % width;
 	size_t lastcol= l % width;
         #ifndef __WIN32__
 	if (lastcol == 0 && nlines > 0)
@@ -217,11 +238,11 @@ void Edit::showinitial ()
 	}
         #endif
 
-	movecharup (nlines - actualline);
+	bf.movecharup (nlines - actualline);
 	if (actualcol < lastcol)
-		movecharback (lastcol - actualcol);
+		bf.movecharback (lastcol - actualcol);
 	else
-		movecharforward (actualcol - lastcol);
+		bf.movecharforward (actualcol - lastcol);
 	//bf << '\r';
 	//bf.flush ();
 	//movecharforward (npos);
@@ -235,9 +256,9 @@ bool Edit::do_it ()
 	bool retval= true;
 	while (editing)
 	{
-		showcursor ();
-		std::string key= getkey ();
-		hidecursor ();
+		bf.showcursor ();
+		std::string key= bf.getkey ();
+		bf.hidecursor ();
 		if (key.size () == 1)
 		{
 			char c= key [0];
@@ -333,9 +354,16 @@ bool Edit::do_it ()
 
 } // namespace
 
-bool editline (BlFile & bf, std::string & str, size_t npos)
+bool editline (BlFile & bf, std::string & str, size_t npos, size_t inicol)
 {
-	Edit edit (bf, str, npos);
+	TraceFunc tr ("editline");
+	{
+		ostringstream oss;
+		oss << "Inicol: " << inicol;
+		tr.message (oss.str () );
+	}
+
+	Edit edit (bf, str, npos, inicol);
 	return edit.do_it ();
 }
 
