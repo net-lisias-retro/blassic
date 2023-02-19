@@ -1,8 +1,12 @@
 // file.h
-// Revision 1-jun-2003
+// Revision 13-aug-2003
 
-#ifndef FILE_H_
-#define FILE_H_
+#ifndef INCLUDE_FILE_H_
+#define INCLUDE_FILE_H_
+
+#ifdef __BORLANDC__
+#pragma warn -8022
+#endif
 
 #include <iostream>
 #include <fstream>
@@ -60,8 +64,11 @@ public:
         friend BlFile & operator << (BlFile & bf, BlNumber n);
         friend BlFile & operator << (BlFile & bf, BlInteger n);
         friend BlFile & operator << (BlFile & bf, BlLineNumber l);
+        friend BlFile & operator << (BlFile & bf, unsigned short n);
 	void putspaces (size_t n);
+	virtual void tab ();
 	virtual void tab (size_t n);
+	virtual void endline ();
 	virtual void put (size_t pos);
         virtual void get (size_t pos);
         virtual void field (const std::vector <field_element> & elem);
@@ -70,11 +77,18 @@ public:
 	virtual std::string read (size_t n);
 	virtual void gotoxy (int x, int y);
 	virtual void setcolor (int color);
+	virtual int getcolor ();
 	virtual void setbackground (int color);
+	virtual int getbackground ();
 	virtual void cls ();
 	virtual std::string copychr ();
 	virtual int pos ();
 	virtual int vpos ();
+	virtual void tag ();
+	virtual void tagoff ();
+	virtual bool istagactive ();
+	virtual void inverse (bool active);
+	virtual bool getinverse ();
 private:
         virtual void outstring (const std::string & str);
         virtual void outchar (char c);
@@ -148,14 +162,23 @@ public:
 	virtual bool istextwindow () { return true; }
 	void getline (std::string & str);
 	std::string read (size_t n);
+	void tab ();
 	void tab (size_t n);
+	void endline ();
 	void gotoxy (int x, int y);
 	virtual void setcolor (int color);
+	virtual int getcolor ();
 	virtual void setbackground (int color);
+	virtual int getbackground ();
 	virtual void cls ();
 	std::string copychr ();
 	int pos ();
 	int vpos ();
+	void tag ();
+	void tagoff ();
+	bool istagactive ();
+	void inverse (bool active);
+	bool getinverse ();
 private:
         void outstring (const std::string & str);
         void outchar (char c);

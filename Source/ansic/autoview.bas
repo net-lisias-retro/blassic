@@ -44,7 +44,7 @@
    9500 REM
    9510 REM Carga la tabla de codigos
    9520 REM
-   9530 numcod= 211
+   9530 numcod= 216
    9540 dim name$ (numcod), cod (numcod)
    9550 for i= 1 to numcod
    9560     read name$ (i), cod (i)
@@ -184,7 +184,12 @@
   11118 DATA "DEFSNG", 365
   11119 DATA "DEFDBL", 366
   11120 DATA "INK", 367
-  11130 DATA "SET_TITLE", 368
+  11121 DATA "SET_TITLE", 368
+  11122 DATA "TAG", 369
+  11123 DATA "TAGOFF", 370
+  11124 DATA "ORIGIN", 371
+  11125 DATA "DEG", 372
+  11126 DATA "RAD", 373
   12000 REM Funciones de cadena
   12001 DATA "MID$",513
   12002 DATA "LEFT$",514

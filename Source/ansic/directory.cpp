@@ -1,11 +1,33 @@
 // directory.cpp
-// Revision 23-may-2003
+// Revision 13-ago-2003
 
 #include "directory.h"
+#include "error.h"
 
-#if defined __unix__ || defined __linux__
-#include <glob.h>
+// We use the unix style even on windows under cygwin.
+#if defined __unix__ || defined __linux__ || defined __NetBSD__
+#define USE_UNIX
 #endif
+
+#ifdef USE_UNIX
+#include <errno.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/utsname.h>
+#include <glob.h>
+#else
+#include <windows.h>
+#include <dir.h>
+#include <dos.h>
+#ifdef __MINGW32__
+#include <io.h>
+#else
+using std::unlink;
+#endif
+#endif
+
+// ********************* Directory::Internal *************************
 
 class Directory::Internal {
 public:
@@ -16,7 +38,7 @@ public:
 	void closesearch ();
 private:
 	bool finding;
-	#if defined __unix__ || defined __linux__
+	#ifdef USE_UNIX
 	glob_t g;
 	size_t n;
 	#else
@@ -41,7 +63,7 @@ std::string Directory::Internal:: findfirst (const std::string & str)
 	if (finding)
 		closesearch ();
 	finding= true;
-	#if defined __unix__ || defined __linux__
+	#ifdef USE_UNIX
 	glob (str.c_str (), 0, NULL, & g);
 	if (g.gl_pathc == 0)
 	{
@@ -65,7 +87,7 @@ std::string Directory::Internal:: findnext ()
 {
 	if (! finding)
 		return std::string ();
-	#if defined __unix__ || defined __linux__
+	#ifdef USE_UNIX
 	if (n >= g.gl_pathc)
 	{
 		closesearch ();
@@ -85,7 +107,7 @@ std::string Directory::Internal:: findnext ()
 
 void Directory::Internal::closesearch ()
 {
-	#if defined __unix__ || defined __linux__
+	#ifdef USE_UNIX
 	globfree (& g);
 	#else
 	if (h != INVALID_HANDLE_VALUE)
@@ -116,5 +138,43 @@ std::string Directory::findnext ()
 	return pin->findnext ();
 }
 
+// ********************* Other functions *************************
+
+void remove_file (const std::string & filename)
+{
+	if (unlink (filename.c_str () ) != 0)
+	{
+		switch (errno)
+		{
+		case ENOENT:
+			throw ErrFileNotFound;
+		default:
+			throw ErrOperatingSystem;
+		}
+	}
+}
+
+void change_dir (const std::string & dirname)
+{
+	if (chdir (dirname.c_str () ) != 0)
+		throw ErrOperatingSystem;
+}
+
+void make_dir (const std::string & dirname)
+{
+	#ifdef USE_UNIX
+	int r= mkdir (dirname.c_str (), 0777);
+	#else
+	int r= mkdir (dirname.c_str () );
+	#endif
+	if (r != 0)
+		throw ErrOperatingSystem;
+}
+
+void remove_dir (const std::string & dirname)
+{
+	if (rmdir (dirname.c_str () ) != 0)
+		throw ErrOperatingSystem;
+}
 
 // End of directory.cpp

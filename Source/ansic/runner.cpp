@@ -1,5 +1,5 @@
 // runner.cpp
-// Revision 9-jun-2003
+// Revision 13-aug-2003
 
 #include "runner.h"
 #include "keyword.h"
@@ -70,9 +70,13 @@ GlobalRunner::GlobalRunner (Program & prog) :
 	datanumline (0),
 	datachunk (0),
 	dataelem (0),
-	blnErrorGoto (0)
+	blnErrorGoto (0),
+	fn_current_level (0)
 {
-	chanfile [0]= new BlFileConsole (std::cin, std::cout);
+	TraceFunc tr ("GlobalRunner::GlobalRunner");
+
+	resetfile0 ();
+	trigonometric_default ();
 }
 
 GlobalRunner::~GlobalRunner ()
@@ -94,6 +98,14 @@ void GlobalRunner::setfile (BlChannel channel, BlFile * npfile)
         if (it != chanfile.end () )
                 delete it->second;
         chanfile [channel]= npfile;
+}
+
+void GlobalRunner::resetfile0 ()
+{
+	setfile (0, graphics::ingraphicsmode () ?
+		static_cast <BlFile *> (new BlFileWindow (0) ) :
+		static_cast <BlFile *>
+			(new BlFileConsole (std::cin, std::cout) ) );
 }
 
 void GlobalRunner::close_all ()
@@ -173,6 +185,20 @@ void GlobalRunner::tronline (BlLineNumber n)
 	file.flush ();
 }
 
+void GlobalRunner::inc_fn_level ()
+{
+	if (fn_current_level >= sysvar::get32 (sysvar::MaxFnLevel) )
+		throw ErrFnRecursion;
+	++fn_current_level;
+}
+
+void GlobalRunner::dec_fn_level ()
+{
+	if (fn_current_level == 0)
+		throw ErrBlassicInternal;
+	--fn_current_level;
+}
+
 //************************************************
 //		LocalLevel
 //************************************************
@@ -200,6 +226,8 @@ private:
 //void GosubElement::Internal::addlocal (const std::string & name)
 void LocalLevel::Internal::addlocal (const std::string & name)
 {
+	TraceFunc tr ("LocalLevel::Internal::addlocal");
+
 	if (maploc.find (name) != maploc.end () )
 		return;
 	BlResult result;
@@ -210,6 +238,8 @@ void LocalLevel::Internal::addlocal (const std::string & name)
 			BlNumber n= 0;
 			std::swap (n, * addrvarnumber (name) );
 			result= n;
+			tr.message (std::string ("Saving ") + name +
+				" " + util::to_string (n) );
 		}
 		break;
 	case VarInteger:
@@ -217,12 +247,17 @@ void LocalLevel::Internal::addlocal (const std::string & name)
 			BlInteger n= 0;
 			std::swap (n, * addrvarinteger (name) );
 			result= n;
+			tr.message (std::string ("Saving ") + name +
+				" " + util::to_string (n) );
 		}
+		break;
 	case VarString:
 		{
 			std::string str;
 			swap (str, * addrvarstring (name) );
 			result= str;
+			tr.message (std::string ("Saving ") + name +
+				" " + str);
 		}
 		break;
 	default:
@@ -236,16 +271,24 @@ namespace {
 
 void freelocal (const std::pair <std::string, BlResult> & p)
 {
+	TraceFunc tr ("freelocal");
+
 	switch (p.second.type () )
 	{
 	case VarNumber:
 		assignvarnumber (p.first, p.second.number () );
+		tr.message (std::string ("Restoring ") + p.first +
+			" to " + util::to_string (p.second.number () ) );
 		break;
 	case VarInteger:
 		assignvarinteger (p.first, p.second.integer () );
+		tr.message (std::string ("Restoring ") + p.first +
+			" to " + util::to_string (p.second.integer () ) );
 		break;
 	case VarString:
 		assignvarstring (p.first, p.second.str () );
+		tr.message (std::string ("Restoring ") + p.first +
+			" to " + p.second.str () );
 		break;
 	default:
 		throw ErrBlassicInternal;
@@ -355,6 +398,8 @@ Runner::~Runner ()
 void Runner::clear ()
 {
 	close_all ();
+
+	// Clear loops stacks.
 	while (! forstack.empty () )
 		for_pop ();
 	gosubstack.erase ();
@@ -362,6 +407,9 @@ void Runner::clear ()
 		repeatstack.pop ();
 	while (! whilestack.empty () )
 		whilestack.pop ();
+
+	// Do RESTORE
+	setreadline (0);
 }
 
 #if 0
@@ -591,9 +639,15 @@ inline bool Runner::checkstatus (CodeLine & line, const CodeLine & line0)
 
 void Runner::runline (CodeLine & codeline)
 {
+	// 11-ago-2003 Change to work around a problem found on arm
+	// processsor that fails on rethrowing BlError: instead of
+	// rethrow we use the breakloop flag and throw again the error
+	// outside the catch statement and the loop.
+
 	line= codeline;
 	CodeLine line0= codeline;
 	//RunnerLine runnerline (* this, line, program);
+	bool breakloop= false;
 	do
 	{
 		try
@@ -628,16 +682,30 @@ void Runner::runline (CodeLine & codeline)
 			seterror (berr);
 			BlLineNumber errorgoto= geterrorgoto ();
 			if (errorgoto == 0)
-				throw;
-			CodeLine aux;
-			program.getline (errorgoto, aux);
-			if (aux.number () != errorgoto)
 			{
-				BlError newerr (berr, ErrLineNotExist);
-				seterror (newerr);
-				throw newerr;
+				if (globalrunner.fn_level () > 0)
+				{
+					// The position of the error
+					// will be defined by the
+					// first fn caller.
+					throw berr.geterr ();
+				}
+				else
+					//throw;
+					breakloop= true;
 			}
-			jump_to (errorgoto);
+			else
+			{
+				CodeLine aux;
+				program.getline (errorgoto, aux);
+				if (aux.number () != errorgoto)
+				{
+					BlError newerr (berr, ErrLineNotExist);
+					seterror (newerr);
+					throw newerr;
+				}
+				jump_to (errorgoto);
+			}
 		}
 		catch (BlBreak &)
 		{
@@ -646,6 +714,8 @@ void Runner::runline (CodeLine & codeline)
 			switch (getbreakstate () )
 			{
 			case BreakStop:
+				if (globalrunner.fn_level () > 0)
+					throw;
 				{
 					BlFile & bf= getfile (0);
 					bf << strbreak;
@@ -664,7 +734,9 @@ void Runner::runline (CodeLine & codeline)
 				break;
 			}
 		}
-	} while (checkstatus (line, line0) );
+	} while (! breakloop && checkstatus (line, line0) );
+	if (breakloop)
+		throw geterror ();
 }
 
 bool Runner::processline (const std::string & line)
@@ -733,6 +805,7 @@ void Runner::interactive ()
 
 	set_title ("blassic");
 	{
+		#if 0
 		std::ostringstream oss;
 		oss << "\nBlassic " <<
 			version::Major << '.' << version::Minor << '.' <<
@@ -740,6 +813,17 @@ void Runner::interactive ()
 			"(C) 2001-2002 Julian Albo\n"
 			"\n";
 		getfile (0) << oss.str ();
+		#else
+		BlFile & f (getfile (0) );
+		f.endline ();
+		f << "Blassic " << version::Major << '.' <<
+			version::Minor << '.' <<
+			version::Release;
+		f.endline ();
+		f << "(C) 2001-2003 Julian Albo";
+		f.endline ();
+		f.endline ();
+		#endif
 	}
 	bool showprompt= true;
 	for (;;)
@@ -755,7 +839,12 @@ void Runner::interactive ()
 		else
 		{
 			if (showprompt)
-				getfile (0) << strPrompt;
+			{
+				//getfile (0) << strPrompt;
+				BlFile & f= getfile (0);
+				f << strPrompt;
+				f.endline ();
+			}
 			//cout << "] " << flush;
 			#if 0
 			cursorvisible ();
@@ -791,7 +880,10 @@ void Runner::interactive ()
 		}
 		catch (BlError & be)
 		{
-			getfile (0) << util::to_string (be);
+			//getfile (0) << util::to_string (be);
+			BlFile & f= getfile (0);
+			f << util::to_string (be);
+			f.endline ();
 			setstatus (ProgramStopped);
 		}
 	} // for

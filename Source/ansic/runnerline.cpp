@@ -1,5 +1,5 @@
 // runnerline.cpp
-// Revision 5-jun-2003
+// Revision 14-aug-2003
 
 #include "runnerline.h"
 
@@ -13,6 +13,7 @@
 #include "edit.h"
 #include "util.h"
 #include "using.h"
+#include "trace.h"
 
 #include <sstream>
 #include <iomanip>
@@ -31,7 +32,19 @@ using std::isalpha;
 using std::cerr;
 using std::endl;
 
+#ifndef BLASSIC_USE_WINDOWS
+// For sleep and usleep
+#include <unistd.h>
+#endif
+
+#if defined __unix__ || defined __linux__
+// Using uname on unix, linux and cygwin.
+#include <sys/utsname.h>
+#endif
+
+#if 0
 #if defined __unix__ || defined __linux__ // Kylix defines only __linux__
+// Here we use the unix-style functions in cygwin.
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -41,6 +54,7 @@ using std::endl;
 using std::unlink;
 #include <dir.h>
 #endif
+#endif
 
 #include <cassert>
 #define ASSERT assert
@@ -48,7 +62,7 @@ using std::unlink;
 namespace {
 
 #if defined __unix__ || defined __linux__
-
+// Even in windows with cygwin.
 const char * os_family= "unix";
 
 #else
@@ -94,6 +108,15 @@ inline bool iscomp (BlCode code)
 
 typedef std::map <std::string, Function> mapfunction_t;
 mapfunction_t mapfunction;
+
+#ifdef M_PIl
+const BlNumber value_pi= M_PIl;
+#else
+const BlNumber value_pi= 4.0 * atan (1);
+#endif
+
+const BlNumber value_pi_div_180= value_pi / 180.0;
+const BlNumber value_180_div_pi= 180.0 / value_pi;
 
 } // namespace
 
@@ -151,11 +174,12 @@ RunnerLine::mapfunc_t RunnerLine::initmapfunc ()
 	m [keyTROFF]=        & RunnerLine::do_troff;
 	m [keyLET]=          & RunnerLine::do_let;
 	m [keyIDENTIFIER]=   & RunnerLine::do_let;
-	m [keyGOTO]=         & RunnerLine::do_goto;
+	m [keyGOTO]=         & RunnerLine::do_goto_gosub;
 	m [keySTOP]=         & RunnerLine::do_stop;
 	m [keyCONT]=         & RunnerLine::do_cont;
 	m [keyCLEAR]=        & RunnerLine::do_clear;
-	m [keyGOSUB]=        & RunnerLine::do_gosub;
+	// GOSUB use same function as GOTO.
+	m [keyGOSUB]=        & RunnerLine::do_goto_gosub;
 	m [keyRETURN]=       & RunnerLine::do_return;
 	m [keyPOKE]=         & RunnerLine::do_poke;
 	m [keyREAD]=         & RunnerLine::do_read;
@@ -240,6 +264,14 @@ RunnerLine::mapfunc_t RunnerLine::initmapfunc ()
 	m [keyDEFDBL]=       & RunnerLine::do_defint;
 	m [keyINK]=          & RunnerLine::do_ink;
 	m [keySET_TITLE]=    & RunnerLine::do_set_title;
+	// TAG and TAGOFF use same function.
+	m [keyTAG]=          & RunnerLine::do_tag_tagoff;
+	m [keyTAGOFF]=       & RunnerLine::do_tag_tagoff;
+	m [keyORIGIN]=       & RunnerLine::do_origin;
+	// DEG and RAD use same function.
+	m [keyDEG]=          & RunnerLine::do_deg_rad;
+	m [keyRAD]=          & RunnerLine::do_deg_rad;
+	m [keyINVERSE]=      & RunnerLine::do_inverse;
 	return m;
 }
 
@@ -505,6 +537,40 @@ void RunnerLine::valnumericfunc2 (double (* f) (double, double),
 	result= callnumericfunc (f, n, n2);
 }
 
+void RunnerLine::valtrigonometricfunc
+	(double (* f) (double), BlResult & result)
+{
+	getparenarg (result);
+	BlNumber n= result.number ();
+	switch (runner.trigonometric_mode () )
+	{
+	case TrigonometricDeg:
+		n*= value_pi_div_180;
+		break;
+	case TrigonometricRad:
+		break;
+	}
+	result= callnumericfunc (f, n);
+}
+
+void RunnerLine::valtrigonometricinvfunc
+	(double (* f) (double), BlResult & result)
+{
+	getparenarg (result);
+	BlNumber n= result.number ();
+	n= callnumericfunc (f, n);
+	// Provisional
+	switch (runner.trigonometric_mode () )
+	{
+	case TrigonometricDeg:
+		n*= value_180_div_pi;
+		break;
+	case TrigonometricRad:
+		break;
+	}
+	result= n;
+}
+
 namespace { // Auxiliary math functions
 
 double auxFIX (double n)
@@ -534,7 +600,7 @@ void RunnerLine::valasc (BlResult & result)
 {
 	getparenarg (result);
 	const std::string & str= result.str ();
-	if (str.empty () ) result= 0;
+	if (str.empty () ) result= 0L;
 	else result= BlInteger ( (unsigned char) str [0] );
 }
 
@@ -849,7 +915,7 @@ void RunnerLine::valval (BlResult & result)
 		if (str.find_first_not_of (" \t")
 			== std::string::npos)
 		{
-			result= 0;
+			result= 0L;
 			break;
 		}
 		str= std::string ("0 ") + str;
@@ -906,14 +972,14 @@ void RunnerLine::valvarptr (BlResult & result)
 		default:
 			throw ErrBlassicInternal;
 		}
-		result= 0;
+		result= 0L;
 		gettoken ();
 		break;
 	case '(':
 		// Array
 		{
 		Dimension dims= expectdims ();
-		result= 0;
+		result= 0L;
 		requiretoken (')');
 		switch (type)
 		{
@@ -941,11 +1007,18 @@ void RunnerLine::valvarptr (BlResult & result)
 	result= BlNumber (addr);
 }
 
+namespace {
+
+// Workaround for a problem on gcc.
+double zero= 0.0;
+
+}
+
 void RunnerLine::valsgn (BlResult & result)
 {
 	getparenarg (result);
 	BlNumber d= result.number ();
-	result= d < 0 ? -1 : d > 0 ? 1 : 0;
+	result= d < zero ? -1L : d > zero ? 1L : 0L;
 }
 
 void RunnerLine::valcvi (BlResult & result)
@@ -1028,12 +1101,12 @@ void RunnerLine::valtest (BlResult & result, bool relative)
 	int y= expectinteger ();
 	requiretoken (')');
 	gettoken ();
-	result= graphics::test (x, y, relative);
+	result= static_cast <BlInteger> (graphics::test (x, y, relative) );
 }
 
 void RunnerLine::valpos (BlResult & result)
 {
-	result= getparenfile ().pos () + 1;
+	result= static_cast <BlInteger> (getparenfile ().pos () + 1);
 }
 
 void RunnerLine::valvpos (BlResult & result)
@@ -1151,17 +1224,18 @@ void RunnerLine::valosname_s (BlResult & result)
 {
 	gettoken ();
 
-	#ifdef _Windows
-
-	result= "Windows";
-
-	#elif defined __unix__
+	#if defined __unix__ || defined __linux__
+	// Even in cygwin
 
 	struct utsname buf;
 	if (uname (&buf) != 0)
 		result= "unknown";
 	else
 		result= buf.sysname;
+
+	#elif defined BLASSIC_USE_WINDOWS
+
+	result= "Windows";
 
 	#else
 
@@ -1456,6 +1530,25 @@ void RunnerLine::valdec_s (BlResult & result)
 	gettoken ();
 }
 
+namespace {
+
+class FnLevelIncrementer {
+public:
+	FnLevelIncrementer (Runner & r) :
+		r (r)
+	{
+		r.inc_fn_level ();
+	}
+	~FnLevelIncrementer ()
+	{
+		r.dec_fn_level ();
+	}
+private:
+	Runner & r;
+};
+
+}
+
 void RunnerLine::valfn (BlResult & result)
 {
         expecttoken (keyIDENTIFIER);
@@ -1517,6 +1610,7 @@ void RunnerLine::valfn (BlResult & result)
 				else
 					fInterrupted= false;
 			}
+			FnLevelIncrementer fli (runner);
 			fnrunline.expect (result);
 			ll.freelocals ();
 		}
@@ -1532,7 +1626,10 @@ void RunnerLine::valfn (BlResult & result)
 			fnrun.gosub_push (ll);
 			CodeLine jumpline;
 			jumpline.scan ("CONT");
-			fnrun.runline (jumpline);
+			{
+				FnLevelIncrementer fli (runner);
+				fnrun.runline (jumpline);
+			}
 			switch (typeofvar (fname) )
 			{
 			case VarNumber:
@@ -1749,32 +1846,32 @@ void RunnerLine::valbase (BlResult & result)
 		valnumericfunc (std::floor, result);
 		break;
 	case keySIN:
-		valnumericfunc (std::sin, result);
+		valtrigonometricfunc (std::sin, result);
 		break;
 	case keyCOS:
-		valnumericfunc (std::cos, result);
+		valtrigonometricfunc (std::cos, result);
 		break;
 	case keyPI:
-		result= M_PI;
+		result= value_pi;
 		gettoken ();
 		break;
 	case keyTAN:
-		valnumericfunc (std::tan, result);
+		valtrigonometricfunc (std::tan, result);
 		break;
 	case keySQR:
 		valnumericfunc (std::sqrt, result);
 		break;
 	case keyASIN:
-		valnumericfunc (std::asin, result);
+		valtrigonometricinvfunc (std::asin, result);
 		break;
 	case keyACOS:
-		valnumericfunc (std::acos, result);
+		valtrigonometricinvfunc (std::acos, result);
 		break;
 	case keyINSTR:
 		valinstr (result, instr_direct);
 		break;
 	case keyATAN:
-		valnumericfunc (std::atan, result);
+		valtrigonometricinvfunc (std::atan, result);
 		break;
 	case keyABS:
 		valnumericfunc (std::fabs, result);
@@ -1808,7 +1905,7 @@ void RunnerLine::valbase (BlResult & result)
 		gettoken ();
 		break;
         case keyERR:
-		result= runner.geterr ();
+		result= static_cast <BlInteger> (runner.geterr () );
                 gettoken ();
                 break;
         case keyERL:
@@ -1844,11 +1941,11 @@ void RunnerLine::valbase (BlResult & result)
 		valnumericfunc (auxFIX, result);
 		break;
 	case keyXMOUSE:
-		result= graphics::xmouse ();
+		result= static_cast <BlInteger> (graphics::xmouse () );
 		gettoken ();
 		break;
 	case keyYMOUSE:
-		result= graphics::ymouse ();
+		result= static_cast <BlInteger> (graphics::ymouse () );
 		gettoken ();
 		break;
 	case keyXPOS:
@@ -2262,6 +2359,7 @@ void RunnerLine::make_clear ()
 	clearvars ();
 	Function::clear ();
 	definevar (VarNumber, 'A', 'Z');
+	runner.trigonometric_default ();
 }
 
 bool RunnerLine::do_empty_sentence ()
@@ -2350,9 +2448,14 @@ bool RunnerLine::do_load ()
 		is.seekg (0, std::ios::end);
 		size_t size= is.tellg ();
 		is.seekg (0, std::ios::beg);
-		util::auto_buffer <char> aux (size);
-		is.read (aux, size);
-		std::string result (aux, size);
+		std::string result;
+		// Opening a block to avoid an error on Borland C++ that
+		// calls ~auto_buffer when throwing ErrFileNotFound
+		{
+			util::auto_buffer <char> aux (size);
+			is.read (aux, size);
+			result.assign (aux, size);
+		}
 		assignvarstring (varname, result);
 	}
 	else
@@ -2498,6 +2601,8 @@ bool RunnerLine::do_run ()
 
 void RunnerLine::print_using (BlFile & out)
 {
+	TraceFunc tr ("RunnerLine::print_using");
+
 	std::string format= expectstring ();
 	VectorUsing usingf;
 	parseusing (format, usingf);
@@ -2545,7 +2650,8 @@ void RunnerLine::print_using (BlFile & out)
 		}
 		if (endsentence () )
 		{
-			out << '\n';
+			//out << '\n';
+			out.endline ();
 			break;
 		}
 		if (token.code == ';' || token.code == ',')
@@ -2556,6 +2662,63 @@ void RunnerLine::print_using (BlFile & out)
 		}
 	}
 }
+
+namespace {
+
+class ChannelSave {
+	BlFile & bf;
+	bool inversesaved;
+	bool inversevalue;
+	bool inksaved;
+	int inkvalue;
+	bool papersaved;
+	int papervalue;
+public:
+	ChannelSave (BlFile & bf) :
+		bf (bf),
+		inversesaved (false),
+		inksaved (false),
+		papersaved (false)
+	{ }
+	~ChannelSave ()
+	{
+		if (inversesaved)
+			bf.inverse (inversevalue);
+		if (inksaved)
+			bf.setcolor (inkvalue);
+		if (papersaved)
+			bf.setbackground (papervalue);
+	}
+	void inverse (bool inv)
+	{
+		if (! inversesaved)
+		{
+			inversevalue= bf.getinverse ();
+			inversesaved= true;
+		}
+		bf.inverse (inv);
+	}
+	void ink (int color)
+	{
+		if (! inksaved)
+		{
+			inkvalue= bf.getcolor ();
+			inksaved= true;
+		}
+		bf.setcolor (color);
+	}
+	void paper (int color)
+	{
+		if (! papersaved)
+		{
+			papervalue= bf.getbackground ();
+			papersaved= true;
+		}
+		bf.setbackground (color);
+	}
+};
+
+} // namespace
 
 bool RunnerLine::do_print ()
 {
@@ -2570,6 +2733,8 @@ bool RunnerLine::do_print ()
 			require_endsentence ();
         }
 	BlFile & out= getfile (channel);
+	ChannelSave channelsave (out);
+
 	if (token.code == '@')
 	{
 		BlResult result;
@@ -2590,7 +2755,8 @@ bool RunnerLine::do_print ()
 	}
 	if (endsentence () )
 	{
-		out << '\n';
+		//out << '\n';
+		out.endline ();
 		return false;
 	}
 	BlResult result;
@@ -2600,7 +2766,7 @@ bool RunnerLine::do_print ()
                 switch (token.code) {
                 case ',':
                 case ';':
-                	// Line if it were preceded by an empty statement
+                	// Separators can be before any statement,
                 	break;
 		case keyUSING:
 			print_using (out);
@@ -2639,6 +2805,27 @@ bool RunnerLine::do_print ()
 				#endif
                         }
                         break;
+		case keyINK:
+			out.flush ();
+			{
+				BlInteger color= expectinteger ();
+				channelsave.ink (color);
+			}
+			break;
+		case keyPAPER:
+			out.flush ();
+			{
+				BlInteger color= expectinteger ();
+				channelsave.paper (color);
+			}
+			break;
+		case keyINVERSE:
+			out.flush ();
+			{
+				BlInteger inv= expectinteger ();
+				channelsave.inverse (inv);
+			}
+			break;
                 default:
                         eval (result);
                         switch (result.type () ) {
@@ -2660,14 +2847,31 @@ bool RunnerLine::do_print ()
 			break;
                 if (endsentence () )
                 {
-                        out << '\n';
+                        //out << '\n';
+			out.endline ();
                         break;
                 }
+		#if 0
 		if (token.code != ';' && token.code != ',')
 			throw ErrSyntax;
 		if (token.code == ',')
-                        out << '\x09';
+			out.tab ();
 		gettoken ();
+		#else
+		// Now separator is not required
+		switch (token.code)
+		{
+		case ',':
+			out.tab ();
+			gettoken ();
+			break;
+		case ';':
+			gettoken ();
+			break;
+		default:
+			; // Nothing
+		}
+		#endif
 	} while (! endsentence () );
 	out.flush ();
 	return false;
@@ -2675,70 +2879,54 @@ bool RunnerLine::do_print ()
 
 bool RunnerLine::do_for ()
 {
-	//ProgramPos posfor= runner.getposactual ();
+	const BlInteger one= 1;
 	ProgramPos posfor (getposactual () );
-	//posfor.nextchunk ();
 	expecttoken (keyIDENTIFIER);
 	std::string varname= token.str;
 	expecttoken ('=');
 
-	//BlNumber initial= expectnum ();
-	BlResult initial;
-	expect (initial);
-
-	requiretoken (keyTO);
-
-	//BlNumber final= expectnum ();
-	BlResult final;
-	expect (final);
-
-	//BlNumber step= (token.code == keySTEP) ? expectnum () : 1;
-	BlResult step;
-	if (token.code == keySTEP)
-		expect (step);
-	else
-		step= 1;
-
+	std::auto_ptr <ForElement> pelement;
+	switch (typeofvar (varname) )
+	{
+	case VarNumber:
+		{
+			BlNumber initial= expectnum ();
+			requiretoken (keyTO);
+			BlNumber final= expectnum ();
+			BlNumber step= (token.code == keySTEP) ?
+				expectnum () : 1.0;
+			pelement.reset (newForElementNumber (varname, posfor,
+				initial, final, step) );
+		}
+		break;
+	case VarInteger:
+		{
+			BlInteger initial= expectinteger ();
+			requiretoken (keyTO);
+			BlInteger final= expectinteger ();
+			BlInteger step= (token.code == keySTEP) ?
+				expectinteger () : one;
+			pelement.reset (newForElementInteger (varname, posfor,
+				initial, final, step) );
+		}
+		break;
+	default:
+		throw ErrMismatch;
+	}
+		
 	switch (token.code)
 	{
 	case ':':
-		posfor.nextchunk ();
+		pelement->nextchunk ();
 		break;
 	case keyENDLINE:
-		#if 1
-		posfor.nextline ();
-		#else
-		{
-			BlLineNumber num= program.getnextnum (line);
-			if (num != 0)
-				posfor= num;
-		}
-		#endif
+		pelement->nextline ();
 		break;
 	default:
 		throw ErrSyntax;
 	}
-	switch (typeofvar (varname) )
-	{
-	case VarNumber:
-		runner.push_for (new ForElementNumber
-			(varname, posfor, initial.number (),
-				final.number (), step.number () ) );
-			//(varname, posfor, initial,
-			//	final, step) );
-		break;
-	case VarInteger:
-		runner.push_for (new ForElementInteger
-			(varname, posfor, initial.integer (),
-				final.integer (), step.integer () ) );
-			//(varname, posfor, initial,
-			//	final, step) );
-		break;
-	case VarString:
-		throw ErrMismatch;
-	default:
-		throw ErrBlassicInternal;
-	}
+	runner.push_for (pelement.get () );
+	pelement.release ();
 	return false;
 }
 
@@ -2912,12 +3100,17 @@ bool RunnerLine::do_let ()
 	return false;
 }
 
-bool RunnerLine::do_goto ()
+bool RunnerLine::do_goto_gosub ()
 {
+	BlCode code= token.code;
+	ASSERT (code == keyGOTO || code == keyGOSUB);
 	gettoken ();
-	BlLineNumber bln= evallinenumber ();
+	BlLineNumber dest= evallinenumber ();
 	require_endsentence ();
-	runner.goto_line (bln);
+	if (code == keyGOTO)
+		runner.goto_line (dest);
+	else
+		gosub_line (dest);
 	return true;
 }
 
@@ -2930,7 +3123,8 @@ bool RunnerLine::do_stop ()
 	//	f << " in " << line.number ();
 	if (pline->number () != 0)
 		f << " in " << pline->number ();
-	f << '\n';
+	//f << '\n';
+	f.endline ();
 	//ProgramPos posbreak (runner.getposactual () );
 	ProgramPos posbreak (getposactual () );
 	posbreak.nextchunk ();
@@ -2941,6 +3135,7 @@ bool RunnerLine::do_stop ()
 
 bool RunnerLine::do_cont ()
 {
+	errorifparam ();
 	runner.jump_break ();
         return true;
 }
@@ -2969,15 +3164,6 @@ bool RunnerLine::do_clear ()
 	return false;
 }
 
-bool RunnerLine::do_gosub ()
-{
-	gettoken ();
-        BlLineNumber dest= evallinenumber ();
-	require_endsentence ();
-        gosub_line (dest);
-	return true;
-}
-
 bool RunnerLine::do_return ()
 {
 	errorifparam ();
@@ -2991,7 +3177,8 @@ bool RunnerLine::do_poke ()
 {
 	BlNumber bnAddr= expectnum ();
 	requiretoken (',');
-	BlChar * addr= (BlChar *) (unsigned int) bnAddr;
+	//BlChar * addr= (BlChar *) (unsigned int) bnAddr;
+	BlChar * addr= (BlChar *) (size_t) bnAddr;
 	BlNumber bnValue= expectnum ();
 	require_endsentence ();
 	BlChar value= (BlChar) (unsigned int) bnValue;
@@ -3043,7 +3230,7 @@ otra:
         }
 	if (datatok.code == keyENDLINE)
 	{
-		cerr << "Read searching next line" << endl;
+		//cerr << "Read searching next line" << endl;
 		//dataline= program.getnextline (dataline);
 		program.getnextline (dataline);
 		goto otra;
@@ -3295,7 +3482,8 @@ bool RunnerLine::do_input ()
 			else
 			{
 				fInterrupted= false;
-				in << '\n';
+				//in << '\n';
+				in.endline ();
 				continue;
 			}
 		}
@@ -3513,7 +3701,8 @@ void RunnerLine::do_line_input ()
 			else
 			{
 				fInterrupted= false;
-				in << '\n';
+				//in << '\n';
+				in.endline ();
 				continue;
 			}
 		}
@@ -3955,24 +4144,23 @@ bool RunnerLine::do_locate ()
 		requiretoken (',');
 		gettoken ();
 	}
-	BlResult brRow;
-	eval (brRow);
+	//BlResult brRow;
+	//eval (brRow);
+	BlInteger row= evalinteger ();
 	requiretoken (',');
 	//BlNumber bnCol= expectnum ();
-	BlResult brCol;
-	expect (brCol);
+	//BlResult brCol;
+	//expect (brCol);
+	BlInteger col= expectinteger ();
 	require_endsentence ();
-	#if 0
-        if (graphics::ingraphicsmode () )
-                //graphics::locate (int (bnRow), int (bnCol) );
-		graphics::locate (brRow.integer (), brCol.integer () );
-        else
-	        //locate (int (bnRow), int (bnCol) );
-		locate (brRow.integer (), brCol.integer () );
-	#else
 	BlFile & out= getfile (ch);
-	out.gotoxy (brCol.integer () - 1, brRow.integer () - 1);
-	#endif
+	//out.gotoxy (brCol.integer () - 1, brRow.integer () - 1);
+	if (sysvar::get (sysvar::Flags1) & BlChar (1) )
+	{
+		// LOCATE style Amstrad CPC: col, row
+		std::swap (row, col);
+	}
+	out.gotoxy (col - 1, row - 1);
 	return false;
 }
 
@@ -4033,7 +4221,8 @@ bool RunnerLine::do_write ()
                 else break;
         }
 	require_endsentence ();
-	out << '\n';
+	//out << '\n';
+	out.endline ();
 	return false;
 }
 
@@ -4043,39 +4232,74 @@ bool RunnerLine::do_mode ()
 	BlResult result;
 	expect (result);
 
-	BlInteger mode;
+	bool spectrummode= false;
+	//BlInteger mode;
 	if (result.type () == VarString)
 	{
 		require_endsentence ();
-		graphics::setmode (result.str () );
-		mode= 1;
+		const std::string & strmode= result.str ();
+		graphics::setmode (strmode);
+		//mode= 1;
+		if (strmode == "spectrum")
+			spectrummode= true;
 	}
 	else
 	{
-		mode= result.integer ();
+		BlInteger mode= result.integer ();
 		if (endsentence () )
 			graphics::setmode (mode);
 		else
 		{
 			requiretoken (',');
-			//BlNumber height= expectnum ();
-			expect (result);
-			BlInteger height= result.integer ();
+			BlInteger height= expectinteger ();
 			bool inverty= false;
+			BlInteger zoomx= 1, zoomy= 1;
 			if (token.code == ',')
 			{
-				expect (result);
-				inverty= result.integer ();
+				gettoken ();
+				if (token.code != ',')
+					inverty= evalinteger ();
+				if (token.code == ',')
+				{
+					gettoken ();
+					if (token.code != ',')
+						zoomx= evalinteger ();
+					if (token.code == ',')
+						zoomy= expectinteger ();
+				}
 			}
 			require_endsentence ();
-			graphics::setmode (mode, height, inverty);
+			graphics::setmode (mode, height, inverty,
+				zoomx, zoomy);
 		}
 	}
 	runner.destroy_windows ();
+	#if 0
 	if (mode != 0)
 		runner.setfile (0, new BlFileWindow (0) );
 	else
 		runner.setfile (0, new BlFileConsole (std::cin, std::cout) );
+	#else
+	runner.resetfile0 ();
+	#endif
+	if (spectrummode)
+	{
+		BlFileWindow & f0= static_cast <BlFileWindow &>
+			(runner.getfile (0) );
+		f0.reset (1, 32, 1, 22);
+		if (! runner.isfileopen (1) )
+			runner.setfile (1,
+				new BlFileWindow (1, 1, 32, 23, 24) );
+		else
+		{
+			BlFileWindow * pf1= dynamic_cast <BlFileWindow *>
+				(& runner.getfile (1) );
+			if (pf1 != NULL)
+				pf1->reset (1, 32, 23, 24);
+		}
+		graphics::origin (0, 16);
+		graphics::limits (0, 256, 16, 192);
+	}
 	return false;
 }
 
@@ -4098,32 +4322,31 @@ bool RunnerLine::do_move ()
 bool RunnerLine::do_color ()
 {
         gettoken ();
+        BlFile & out= getfile (0);
         if (token.code != ',')
         {
-	        BlNumber color= evalnum ();
-	        if (graphics::ingraphicsmode () )
-			graphics::setcolor (int (color) );
-		else
-			textcolor (int (color) );
-                if (endsentence () )
-                        return false;
-                requiretoken (',');
-        }
+		BlInteger color= evalinteger ();
+		out.setcolor (color);
+		if (graphics::ingraphicsmode () )
+			graphics::setcolor (color);
+		if (endsentence () )
+			return false;
+		requiretoken (',');
+	}
         gettoken ();
         if (token.code != ',')
         {
-                BlNumber mode= evalnum ();
+                BlInteger back= evalinteger ();
+		out.setbackground (back);
 		if (graphics::ingraphicsmode () )
-			graphics::setbackground (int (mode) );
-		else
-			textbackground (int (mode) );
+			graphics::setbackground (back);
                 if (endsentence () )
                         return false;
                 requiretoken (',');
         }
         gettoken ();
         // Border color in Gwbasic. Ignored.
-        evalnum ();
+        evalinteger ();
 	require_endsentence ();
 	return false;
 }
@@ -4955,6 +5178,7 @@ bool RunnerLine::do_kill ()
 {
 	std::string strFile= expectstring ();
 	require_endsentence ();
+	#if 0
 	if (unlink (strFile.c_str () ) != 0)
 	{
 		switch (errno)
@@ -4965,6 +5189,9 @@ bool RunnerLine::do_kill ()
 			throw ErrOperatingSystem;
 		}
 	}
+	#else
+	remove_file (strFile);
+	#endif
 	return false;
 }
 
@@ -4972,8 +5199,21 @@ bool RunnerLine::do_files ()
 {
         std::string param;
         gettoken ();
-        if (! endsentence () )
-                param= evalstring ();
+	BlChannel ch= 0;
+	if (token.code == '#')
+	{
+		ch= expectchannel ();
+		if (! endsentence () )
+		{
+			requiretoken (',');
+			param= expectstring ();
+		}
+	}
+	else
+	{
+		if (! endsentence () )
+			param= evalstring ();
+	}
 	require_endsentence ();
         if (param.empty () )
                 param= "*";
@@ -4987,18 +5227,34 @@ bool RunnerLine::do_files ()
 		file.push_back (r);
 
         const size_t l= file.size ();
+
+	// GwBasic do this, I mimic it.
+	if (l == 0)
+		throw ErrFileNotFound;
+
         size_t maxlength= 0;
         for (size_t i= 0; i < l; ++i)
                 maxlength= std::max (maxlength, file [i].size () );
         ++maxlength;
-        size_t width= getwidth ();
+	BlFile & bf= getfile (ch);
+	size_t width= 0;
+	try
+	{
+		width= bf.getwidth ();
+	}
+	catch (...)
+	{
+	}
 	size_t cols= width / maxlength;
-	BlFile & bf= getfile (0);
-        if (cols <= 1)
-        {
-                for (size_t i= 0; i < l; ++i)
-                        bf << file [i] << '\n';
-        }
+	if (cols <= 1)
+	{
+		for (size_t i= 0; i < l; ++i)
+		{
+			//bf << file [i] << '\n';
+			bf << file [i];
+			bf.endline ();
+		}
+	}
         else
         {
                 const size_t widthcol= width / cols;
@@ -5007,13 +5263,15 @@ bool RunnerLine::do_files ()
                         const std::string & str= file [i];
                         bf << file [i];
                         if (i % cols == cols - 1)
-                                bf << '\n';
+                                //bf << '\n';
+				bf.endline ();
                         else
                                 bf << std::string
                                 	(widthcol - str.size (), ' ');
                 }
                 if ( l > 0 && l % cols != 0)
-                        bf << '\n';
+                        //bf << '\n';
+			bf.endline ();
         }
 	return false;
 }
@@ -5028,16 +5286,16 @@ bool RunnerLine::do_paper ()
 		requiretoken (',');
 		gettoken ();
 	}
-	BlNumber color= evalnum ();
+	BlInteger color= evalinteger ();
 	require_endsentence ();
 	#if 0
         if (graphics::ingraphicsmode () )
-	        graphics::setbackground (int (color) );
+	        graphics::setbackground (color);
         else
-                textbackground (int (color) );
+                textbackground (color);
 	#else
 	BlFile & out= getfile (ch);
-	out.setbackground (int (color) );
+	out.setbackground (color);
 	#endif
 	return false;
 }
@@ -5056,14 +5314,14 @@ bool RunnerLine::do_pen ()
 	if (token.code != ',')
 	{
 		// All parameters can't be omitted
-		BlNumber color= evalnum ();
+		BlInteger color= evalinteger ();
 		#if 0
                 if (graphics::ingraphicsmode () )
 		        graphics::setcolor (int (color) );
                 else
                         textcolor (int (color) );
 		#else
-		out.setcolor (int (color) );
+		out.setcolor (color);
 		#endif
 		if (token.code != ',')
 		{
@@ -5074,16 +5332,16 @@ bool RunnerLine::do_pen ()
 	gettoken ();
         if (token.code != ',')
         {
-	        BlNumber bgmode= evalnum ();
-	        graphics::settransparent (int (bgmode) );
+	        BlInteger bgmode= evalinteger ();
+	        graphics::settransparent (bgmode);
                 if (token.code != ',')
                 {
                         require_endsentence ();
                         return false;
                 }
         }
-        BlNumber mode= expectnum ();
-        graphics::setdrawmode (int (mode) );
+        BlInteger mode= expectinteger ();
+        graphics::setdrawmode (mode);
 	require_endsentence ();
 	return false;
 }
@@ -5096,7 +5354,7 @@ bool RunnerLine::do_shell ()
 	std::string command= evalstring ();
 	require_endsentence ();
 	int r= system (command.c_str () );
-	std::cerr << "Result: " << r << endl;
+	//std::cerr << "Result: " << r << endl;
 	if (r == -1)
 		throw ErrOperatingSystem;
 	sysvar::set (sysvar::ShellResult, char (r >> 8) );
@@ -5116,8 +5374,12 @@ bool RunnerLine::do_chdir ()
 {
 	std::string dirname= expectstring ();
 	require_endsentence ();
+	#if 0
 	if (chdir (dirname.c_str () ) != 0)
 		throw ErrOperatingSystem;
+	#else
+	change_dir (dirname);
+	#endif
 	return false;
 }
 
@@ -5125,6 +5387,7 @@ bool RunnerLine::do_mkdir ()
 {
 	std::string dirname= expectstring ();
 	require_endsentence ();
+	#if 0
         #ifdef _Windows
         int r= mkdir (dirname.c_str () );
         #else
@@ -5132,6 +5395,9 @@ bool RunnerLine::do_mkdir ()
         #endif
         if (r != 0)
 		throw ErrOperatingSystem;
+	#else
+	make_dir (dirname);
+	#endif
 	return false;
 }
 
@@ -5139,8 +5405,12 @@ bool RunnerLine::do_rmdir ()
 {
 	std::string dirname= expectstring ();
 	require_endsentence ();
+	#if 0
 	if (rmdir (dirname.c_str () ) != 0)
 		throw ErrOperatingSystem;
+	#else
+	remove_dir (dirname);
+	#endif
 	return false;
 }
 
@@ -5159,13 +5429,16 @@ bool RunnerLine::do_synchronize ()
 
 bool RunnerLine::do_pause ()
 {
+	TraceFunc tr ("do_pause");
+
 	BlNumber bln= expectnum ();
 	require_endsentence ();
 	unsigned long n= static_cast <unsigned long> (bln);
+
 	// Allow pending writes in graphic window before the pause.
 	graphics::idle ();
 
-	#ifdef __WIN32__
+	#ifdef BLASSIC_USE_WINDOWS
 
 	Sleep (static_cast <DWORD> (n) );
 
@@ -5174,9 +5447,12 @@ bool RunnerLine::do_pause ()
 	n*= 1000;
 	unsigned int sec= n / 1000000;
 	n%= 1000000;
-	if (sec != 0)
+	tr.message (util::to_string (sec) + " sec, " +
+		util::to_string (n) + " microsec");
+	if (sec > 0)
 		sleep (sec);
-	usleep (n);
+	if (n > 0)
+		usleep (n);
 
 	#endif
 
@@ -5260,7 +5536,9 @@ bool RunnerLine::do_edit ()
 		buffer= bfos.str ();
 		if (buffer.empty () )
 		{
-			bfos << dest << " \n";
+			//bfos << dest << " \n";
+			bfos << dest;
+			bfos.endline ();
 			buffer= bfos.str ();
 		}
 	}
@@ -5349,7 +5627,7 @@ bool RunnerLine::do_poke16 ()
 {
 	BlNumber bnAddr= expectnum ();
 	requiretoken (',');
-	BlChar * addr= (BlChar *) (unsigned int) bnAddr;
+	BlChar * addr= (BlChar *) (size_t) bnAddr;
 	BlNumber bnValue= expectnum ();
 	require_endsentence ();
 	unsigned short value= (unsigned short) bnValue;
@@ -5361,7 +5639,7 @@ bool RunnerLine::do_poke32 ()
 {
 	BlNumber bnAddr= expectnum ();
 	requiretoken (',');
-	BlChar * addr= (BlChar *) (unsigned int) bnAddr;
+	BlChar * addr= (BlChar *) (size_t) bnAddr;
 	BlNumber bnValue= expectnum ();
 	require_endsentence ();
 	BlInteger value= BlInteger (bnValue);
@@ -5569,7 +5847,12 @@ void  RunnerLine::do_graphics_paper ()
 void  RunnerLine::do_graphics_cls ()
 {
 	gettoken ();
-	require_endsentence ();
+	if (! endsentence () )
+	{
+		BlInteger ink= evalinteger ();
+		require_endsentence ();
+		graphics::setbackground (ink);
+	}
 	graphics::cls ();
 }
 
@@ -5622,6 +5905,12 @@ bool RunnerLine::do_defint ()
 bool RunnerLine::do_ink ()
 {
 	int inknum= expectinteger ();
+	if (endsentence () )
+	{
+		// INK Spectrum style (set pen color).
+		getfile (0).setcolor (inknum);
+		return false;
+	}
 	requiretoken (',');
 	int r= expectinteger ();
 	if (endsentence () )
@@ -5629,6 +5918,7 @@ bool RunnerLine::do_ink ()
 		graphics::ink (inknum, r);
 		return false;
 	}
+	requiretoken (',');
 	int g= expectinteger ();
 	if (endsentence () )
 	{
@@ -5637,6 +5927,7 @@ bool RunnerLine::do_ink ()
 		graphics::ink (inknum, r);
 		return false;
 	}
+	requiretoken (',');
 	int b= expectinteger ();
 	require_endsentence ();
 	graphics::ink (inknum, r, g, b);
@@ -5648,6 +5939,71 @@ bool RunnerLine::do_set_title ()
 	std::string str= expectstring ();
 	require_endsentence ();
 	set_title (str);
+	return false;
+}
+
+bool RunnerLine::do_tag_tagoff ()
+{
+	BlCode code= token.code;
+	ASSERT (code == keyTAG || code == keyTAGOFF);
+	BlChannel ch= 0;
+	gettoken ();
+	if (token.code == '#')
+		ch= expectchannel ();
+	require_endsentence ();
+	BlFile & f= runner.getfile (ch);
+	if (code == keyTAG)
+		f.tag ();
+	else
+		f.tagoff ();
+	return false;
+}
+
+bool RunnerLine::do_origin ()
+{
+	BlInteger x= expectinteger ();
+	requiretoken (',');
+	BlInteger y= expectinteger ();
+	if (! endsentence () )
+	{
+		requiretoken (',');
+		BlInteger minx= expectinteger ();
+		requiretoken (',');
+		BlInteger maxx= expectinteger ();
+		requiretoken (',');
+		BlInteger miny= expectinteger ();
+		requiretoken (',');
+		BlInteger maxy= expectinteger ();
+		require_endsentence ();
+		graphics::limits (minx, maxx, miny, maxy);
+	}
+	graphics::origin (x, y);
+	return false;
+}
+
+bool RunnerLine::do_deg_rad ()
+{
+	ASSERT (token.code == keyDEG || token.code == keyRAD);
+	TrigonometricMode newmode= token.code == keyRAD ?
+		TrigonometricRad : TrigonometricDeg;
+	gettoken ();
+	require_endsentence ();
+	runner.trigonometric_mode (newmode);
+	return false; 
+}
+
+bool RunnerLine::do_inverse ()
+{
+	BlChannel ch= 0;
+	gettoken ();
+	if (token.code == '#')
+	{
+		ch= expectchannel ();
+		requiretoken (',');
+		gettoken ();
+	}
+	BlInteger inv= evalinteger ();
+	runner.getfile (ch).inverse (inv % 2);
 	return false;
 }
 

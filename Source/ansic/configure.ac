@@ -1,6 +1,5 @@
 # configure.ac for blassic
 
-
 # Require autoconf >= 2.50
 AC_PREREQ(2.50)
 AC_INIT(version.cpp)
@@ -45,9 +44,21 @@ AC_LANG_CPLUSPLUS
 #CXXFLAGS="-g"  # default compilation options; avoids having -O2 by default
 CXXFLAGS="-O3"	# We want maximun optimization even in debugging.
 
-# Julian: Some systems install ncurses in /opt
-CPPFLAGS="-I/opt/ncurses/include"
-LDFLAGS="-L/opt/ncurses/lib"
+# Julian: Some systems install ncurses in /opt, path to X libraries needed.
+# Julian: and some does not have the X includes default accesible.
+CPPFLAGS="-I/opt/ncurses/include -I/usr/X11R6/include"
+LDFLAGS="-L/opt/ncurses/lib -L/usr/X11R6/lib"
+
+# Julian: under cygwin and mingw, link with gdi32.dll and wsock32.dll
+case "$host" in
+*-*-cygwin*|*mingw*)
+	#LDFLAGS=-lgdi32
+	AC_SUBST(CYGWIN_FLAGS,"-lgdi32 -lwsock32")
+	;;
+*)
+	AC_SUBST(CYGWIN_FLAGS)
+	;;
+esac
 
 ###############################################################################
 # Julian
@@ -55,6 +66,13 @@ LDFLAGS="-L/opt/ncurses/lib"
 
 AC_CHECK_LIB(dl, dlopen)
 
+# Check X11 lib, mainly to not try to link it when using cygwin.
+
+AC_CHECK_LIB([X11], [XCreateWindow])
+
+# Check for ncurses, if not found for curses.
+
+AC_CHECK_LIB(ncurses,tputs,,AC_CHECK_LIB(curses,tputs) )
 
 ###############################################################################
 

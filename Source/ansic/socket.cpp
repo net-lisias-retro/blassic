@@ -1,10 +1,11 @@
 // socket.cpp
+// Revision 13-ago-2003
 
 #include "socket.h"
 
 #include <errno.h>
 
-#ifdef _Windows
+#if defined _Windows || defined __CYGWIN__ || defined __MINGW32__
 
 #include <winsock.h>
 
@@ -14,6 +15,8 @@ inline bool isInvalidSocket (TypeSocket s)
 	{ return s == INVALID_SOCKET; }
 
 namespace {
+
+void avoid_ugly_warning ();
 
 class InitWinSock {
         InitWinSock ()
@@ -27,6 +30,7 @@ class InitWinSock {
         }
         int r;
         static InitWinSock init;
+        friend void avoid_ugly_warning ();
 };
 
 InitWinSock InitWinSock::init;
@@ -36,7 +40,9 @@ InitWinSock InitWinSock::init;
 #else
 
 #include <unistd.h>
+#include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 

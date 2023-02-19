@@ -271,7 +271,7 @@ PACKAGE_STRING=
 PACKAGE_BUGREPORT=
 
 ac_unique_file="version.cpp"
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO AMTAR install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM AWK SET_MAKE CXX CXXFLAGS LDFLAGS CPPFLAGS ac_ct_CXX EXEEXT OBJEXT DEPDIR am__include am__quote AMDEP_TRUE AMDEP_FALSE AMDEPBACKSLASH CXXDEPMODE SVGALIB_CFLAGS SVGALIB_LIBS INSTALL_EXAMPLE_PROGS_TRUE INSTALL_EXAMPLE_PROGS_FALSE LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO AMTAR install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM AWK SET_MAKE CXX CXXFLAGS LDFLAGS CPPFLAGS ac_ct_CXX EXEEXT OBJEXT DEPDIR am__include am__quote AMDEP_TRUE AMDEP_FALSE AMDEPBACKSLASH CXXDEPMODE CYGWIN_FLAGS SVGALIB_CFLAGS SVGALIB_LIBS INSTALL_EXAMPLE_PROGS_TRUE INSTALL_EXAMPLE_PROGS_FALSE LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -2410,9 +2410,22 @@ ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
 #CXXFLAGS="-g"  # default compilation options; avoids having -O2 by default
 CXXFLAGS="-O3"	# We want maximun optimization even in debugging.
 
-# Julian: Some systems install ncurses in /opt
-CPPFLAGS="-I/opt/ncurses/include"
-LDFLAGS="-L/opt/ncurses/lib"
+# Julian: Some systems install ncurses in /opt, path to X libraries needed.
+# Julian: and some does not have the X includes default accesible.
+CPPFLAGS="-I/opt/ncurses/include -I/usr/X11R6/include"
+LDFLAGS="-L/opt/ncurses/lib -L/usr/X11R6/lib"
+
+# Julian: under cygwin and mingw, link with gdi32.dll and wsock32.dll
+case "$host" in
+*-*-cygwin*|*mingw*)
+	#LDFLAGS=-lgdi32
+	CYGWIN_FLAGS="-lgdi32 -lwsock32"
+
+	;;
+*)
+
+	;;
+esac
 
 ###############################################################################
 # Julian
@@ -2483,6 +2496,204 @@ _ACEOF
 
 fi
 
+
+# Check X11 lib, mainly to not try to link it when using cygwin.
+
+
+echo "$as_me:$LINENO: checking for XCreateWindow in -lX11" >&5
+echo $ECHO_N "checking for XCreateWindow in -lX11... $ECHO_C" >&6
+if test "${ac_cv_lib_X11_XCreateWindow+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lX11  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char XCreateWindow ();
+int
+main ()
+{
+XCreateWindow ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_X11_XCreateWindow=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_lib_X11_XCreateWindow=no
+fi
+rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_X11_XCreateWindow" >&5
+echo "${ECHO_T}$ac_cv_lib_X11_XCreateWindow" >&6
+if test $ac_cv_lib_X11_XCreateWindow = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_LIBX11 1
+_ACEOF
+
+  LIBS="-lX11 $LIBS"
+
+fi
+
+
+# Check for ncurses, if not found for curses.
+
+
+echo "$as_me:$LINENO: checking for tputs in -lncurses" >&5
+echo $ECHO_N "checking for tputs in -lncurses... $ECHO_C" >&6
+if test "${ac_cv_lib_ncurses_tputs+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lncurses  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char tputs ();
+int
+main ()
+{
+tputs ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_ncurses_tputs=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_lib_ncurses_tputs=no
+fi
+rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_ncurses_tputs" >&5
+echo "${ECHO_T}$ac_cv_lib_ncurses_tputs" >&6
+if test $ac_cv_lib_ncurses_tputs = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_LIBNCURSES 1
+_ACEOF
+
+  LIBS="-lncurses $LIBS"
+
+else
+
+echo "$as_me:$LINENO: checking for tputs in -lcurses" >&5
+echo $ECHO_N "checking for tputs in -lcurses... $ECHO_C" >&6
+if test "${ac_cv_lib_curses_tputs+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lcurses  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char tputs ();
+int
+main ()
+{
+tputs ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_curses_tputs=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_lib_curses_tputs=no
+fi
+rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_curses_tputs" >&5
+echo "${ECHO_T}$ac_cv_lib_curses_tputs" >&6
+if test $ac_cv_lib_curses_tputs = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_LIBCURSES 1
+_ACEOF
+
+  LIBS="-lcurses $LIBS"
+
+fi
+
+fi
 
 
 ###############################################################################
@@ -3511,6 +3722,7 @@ s,@AMDEP_TRUE@,$AMDEP_TRUE,;t t
 s,@AMDEP_FALSE@,$AMDEP_FALSE,;t t
 s,@AMDEPBACKSLASH@,$AMDEPBACKSLASH,;t t
 s,@CXXDEPMODE@,$CXXDEPMODE,;t t
+s,@CYGWIN_FLAGS@,$CYGWIN_FLAGS,;t t
 s,@SVGALIB_CFLAGS@,$SVGALIB_CFLAGS,;t t
 s,@SVGALIB_LIBS@,$SVGALIB_LIBS,;t t
 s,@INSTALL_EXAMPLE_PROGS_TRUE@,$INSTALL_EXAMPLE_PROGS_TRUE,;t t

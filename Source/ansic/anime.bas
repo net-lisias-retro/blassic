@@ -38,7 +38,7 @@ locate inilin + 12, inicol: print "Inicio  ---> Posicion inicial"
 
 linpulsa= inilin + 16
 
-pen , 1, 1
+pen , 1, 4
 
 gosub cualquiera
 

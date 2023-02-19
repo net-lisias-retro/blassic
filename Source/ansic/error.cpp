@@ -1,5 +1,5 @@
 // error.cpp
-// Revision 4-jun-2003
+// Revision 29-jul-2003
 
 #include "error.h"
 
@@ -65,6 +65,7 @@ errcode table []= {
         errcode (ErrDomain,             "Domain error"),
         errcode (ErrRange,              "Result out of range"),
 	errcode (ErrLineNotExist,       "Line does not exist"),
+	errcode (ErrFnRecursion,        "FN recursion too deep"),
 };
 
 errcode * table_end= table + sizeof (table);
@@ -97,7 +98,7 @@ std::ostream & operator << (std::ostream & os, const BlError & bl)
 	const BlLineNumber line= bl.getpos ().getnum ();
 	if (line != 0)
 		os << " in " << line;
-	os << '\n';
+	//os << '\n';
 	return os;
 }
 

@@ -2,12 +2,14 @@
 
 #include "key.h"
 #include "trace.h"
+#include "blassic.h"
 
 #include <map>
 
 #include <iostream> // For debug info only.
 
-#ifdef _Windows
+//#ifdef _Windows
+#ifdef BLASSIC_USE_WINDOWS
 
 #include <windows.h>
 
@@ -71,7 +73,8 @@ bool initmapkey ()
 {
 	TraceFunc tr ("initmapkey");
 
-	#ifdef _Windows
+	//#ifdef _Windows
+	#ifdef BLASSIC_USE_WINDOWS
 
 	assignmapkey (VK_PRIOR,  strPAGEUP);
 	assignmapkey (VK_NEXT,   strPAGEDOWN);
@@ -96,7 +99,7 @@ bool initmapkey ()
 	assignmapkey (VK_F11,    strF11);
 	assignmapkey (VK_F12,    strF12);
 
-	#else
+	#elif defined BLASSIC_USE_X
 
 	assignmapkey (XK_Prior,     strPAGEUP);
 	assignmapkey (XK_KP_Prior,  strPAGEUP);

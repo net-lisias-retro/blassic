@@ -1,5 +1,5 @@
 // runnerline.h
-// Revision 9-jun-2003
+// Revision 3-aug-2003
 
 #ifndef RUNNERLINE_H_
 
@@ -78,6 +78,10 @@ private:
 	void valnumericfunc (double (* f) (double), BlResult & result);
 	void valnumericfunc2 (double (* f) (double, double),
 		BlResult & result);
+	void valtrigonometricfunc
+		(double (* f) (double), BlResult & result);
+	void valtrigonometricinvfunc
+		(double (* f) (double), BlResult & result);
 	void valasc (BlResult & result);
 	void vallen (BlResult & result);
 	void valpeek (BlResult & result);
@@ -194,11 +198,10 @@ private:
 	bool do_troff ();
 	void letsubindex (const std::string &varname);
 	bool do_let ();
-	bool do_goto ();
+	bool do_goto_gosub ();
 	bool do_stop ();
 	bool do_cont ();
 	bool do_clear ();
-	bool do_gosub ();
 	bool do_return ();
 	bool do_poke ();
 	bool do_read ();
@@ -280,6 +283,10 @@ private:
 	bool do_defint ();
 	bool do_ink ();
 	bool do_set_title ();
+	bool do_tag_tagoff ();
+	bool do_origin ();
+	bool do_deg_rad ();
+	bool do_inverse ();
 };
 
 #endif

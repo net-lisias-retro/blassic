@@ -1,4 +1,6 @@
 
-	- POPEN blocks in windows in interactive mode, needs correction.
+	Need a popen implementation that works reliably in all
+	versions of windows and even in deteched mode.
 
-I don't know why. Someone knows a good implementation of popen on Win32?
+	Many people ask for sound support, but I have no idea
+	of how to do that in a simple and portable way.

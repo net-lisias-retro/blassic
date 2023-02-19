@@ -1,5 +1,5 @@
 // runner.h
-// Revision 4-jun-2003
+// Revision 13-ago-2003
 
 #ifndef RUNNER_H_
 #define RUNNER_H_
@@ -13,6 +13,8 @@
 #include <stack>
 #include <vector>
 #include <map>
+
+enum TrigonometricMode { TrigonometricRad, TrigonometricDeg };
 
 class GlobalRunner {
 public:
@@ -47,6 +49,7 @@ public:
 	{ return chanfile.find (channel) != chanfile.end (); }
 	BlFile & getfile (BlChannel channel);
 	void setfile (BlChannel channel, BlFile * npfile);
+	void resetfile0 ();
 	void close_all ();
 	void destroy_windows ();
 	void closechannel (BlChannel channel);
@@ -68,6 +71,17 @@ public:
 	void seterrorgoto (BlLineNumber line) { blnErrorGoto= line; }
 	BlLineNumber geterrorgoto () { return blnErrorGoto; }
 
+	// Control of depth of fn calls.
+	size_t fn_level () { return fn_current_level; }
+	void inc_fn_level ();
+	void dec_fn_level ();
+
+	// Trigonometric mode.
+	TrigonometricMode trigonometric_mode () { return trigmode; }
+	void trigonometric_default () { trigmode= TrigonometricRad; }
+	void trigonometric_mode (TrigonometricMode tm)
+	{ trigmode= tm; }
+
 private:
 	Program & program;
 
@@ -81,6 +95,10 @@ private:
 	unsigned short dataelem;
 
 	BlLineNumber blnErrorGoto;
+
+	size_t fn_current_level;
+
+	TrigonometricMode trigmode;
 };
 
 class Element {
@@ -88,7 +106,9 @@ public:
 	Element (ProgramPos ppos) :
 		ppos (ppos)
 	{ }
-	ProgramPos getpos () { return ppos; }
+	void nextchunk () { ppos.nextchunk (); }
+	void nextline () { ppos.nextline (); }
+	ProgramPos getpos () const { return ppos; }
 private:
 	ProgramPos ppos;
 };
@@ -99,10 +119,10 @@ public:
 		Element (pos),
 		varname (nvar)
 	{ }
+	virtual ~ForElement () { }
 	virtual bool next ()= 0;
 	bool isvar (const std::string & nvar)
 	{ return varname == nvar; }
-	virtual ~ForElement () { }
 private:
 	ForElement (const ForElement &); // Forbidden
 	ForElement & operator = (const ForElement &); // Forbidden
@@ -121,6 +141,7 @@ public:
 		varaddr= addrvarnumber (nvar);
 		* varaddr= initial;
 	}
+	#if 0
 	bool next ()
 	{
 		* varaddr+= step;
@@ -129,8 +150,35 @@ public:
 		else
 			return *varaddr >= max;
 	}
-private:
+	#endif
+protected:
         BlNumber * varaddr, max, step;
+};
+
+class ForElementNumberInc : public ForElementNumber {
+public:
+	ForElementNumberInc (const std::string & var, ProgramPos pos,
+			BlNumber initial, BlNumber max, BlNumber step) :
+		ForElementNumber (var, pos, initial, max, step)
+	{ }
+	bool next ()
+	{
+		* varaddr+= step;
+		return * varaddr <= max;
+	}
+};
+
+class ForElementNumberDec : public ForElementNumber {
+public:
+	ForElementNumberDec (const std::string & var, ProgramPos pos,
+			BlNumber initial, BlNumber max, BlNumber step) :
+		ForElementNumber (var, pos, initial, max, step)
+	{ }
+	bool next ()
+	{
+		* varaddr+= step;
+		return * varaddr >= max;
+	}
 };
 
 class ForElementInteger : public ForElement {
@@ -145,6 +193,7 @@ public:
 		varaddr= addrvarinteger (nvar);
 		* varaddr= initial;
 	}
+	#if 0
 	bool next ()
 	{
 		* varaddr+= step;
@@ -153,9 +202,54 @@ public:
 		else
 			return * varaddr >= max;
 	}
-private:
+	#endif
+protected:
 	BlInteger * varaddr, max, step;
 };
+
+class ForElementIntegerInc : public ForElementInteger {
+public:
+	ForElementIntegerInc (const std::string & var, ProgramPos pos,
+			BlInteger initial, BlInteger max, BlInteger step) :
+		ForElementInteger (var, pos, initial, max, step)
+	{ }
+	bool next ()
+	{
+		* varaddr+= step;
+		return * varaddr <= max;
+	}
+};
+
+class ForElementIntegerDec : public ForElementInteger {
+public:
+	ForElementIntegerDec (const std::string & var, ProgramPos pos,
+			BlInteger initial, BlInteger max, BlInteger step) :
+		ForElementInteger (var, pos, initial, max, step)
+	{ }
+	bool next ()
+	{
+		* varaddr+= step;
+		return * varaddr >= max;
+	}
+};
+
+inline ForElementNumber * newForElementNumber (const std::string & var,
+	ProgramPos pos, BlNumber initial, BlNumber max, BlNumber step)
+{
+	if (step >= 0.0)
+		return new ForElementNumberInc (var, pos, initial, max, step);
+	else
+		return new ForElementNumberDec (var, pos, initial, max, step);
+}
+
+inline ForElementInteger * newForElementInteger (const std::string & var,
+	ProgramPos pos, BlInteger initial, BlInteger max, BlInteger step)
+{
+	if (step >= 0)
+		return new ForElementIntegerInc (var, pos, initial, max, step);
+	else
+		return new ForElementIntegerDec (var, pos, initial, max, step);
+}
 
 class RepeatElement : public Element {
 public:
@@ -249,6 +343,7 @@ public:
 	BlLineNumber geterrline () const
 		{ return berrLast.getpos ().getnum (); }
 	void clearerror () { berrLast= BlError (); }
+	BlError geterror () const { return berrLast; }
 	void seterror (const BlError & er) { berrLast= er; }
 
 	//ProgramPos getposactual () const { return posactual; }
@@ -383,6 +478,8 @@ public:
 	{ return globalrunner.getfile (channel); }
         void setfile (BlChannel channel, BlFile * npfile)
         { globalrunner.setfile (channel, npfile); }
+        void resetfile0 ()
+        { globalrunner.resetfile0 (); }
         void close_all ()
         { globalrunner.close_all (); }
         void destroy_windows ()
@@ -411,6 +508,18 @@ public:
 	BlLineNumber getbreakgosub () { return breakgosubline; }
 	void setauto (BlLineNumber line, BlLineNumber inc)
 	{ blnAuto= line; blnAutoInc= inc; }
+	void inc_fn_level ()
+	{ globalrunner.inc_fn_level (); }
+	void dec_fn_level ()
+	{ globalrunner.dec_fn_level (); }
+
+	// Trigonometric mode.
+	TrigonometricMode trigonometric_mode ()
+	{ return globalrunner.trigonometric_mode (); }
+	void trigonometric_default ()
+	{ globalrunner.trigonometric_default (); }
+	void trigonometric_mode (TrigonometricMode tm)
+	{ globalrunner.trigonometric_mode (tm); }
 private:
 	GlobalRunner & globalrunner;
 	Program & program;

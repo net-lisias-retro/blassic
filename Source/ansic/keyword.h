@@ -1,8 +1,8 @@
 // keyword.h
-// Revision 9-jun-2003
+// Revision 3-aug-2003
 
-#ifndef KEYWORD_H_
-#define KEYWORD_H_
+#ifndef INCLUDE_KEYWORD_H_
+#define INCLUDE_KEYWORD_H_
 
 #include "blassic.h"
 
@@ -119,6 +119,12 @@ const BlCode
 	keyDEFDBL=            0x016E,
 	keyINK=               0x016F,
 	keySET_TITLE=         0x0170,
+	keyTAG=               0x0171,
+	keyTAGOFF=            0x0172,
+	keyORIGIN=            0x0173,
+	keyDEG=               0x0174,
+	keyRAD=               0x0175,
+	keyINVERSE=           0x0176,
 
 	keyMID_S=             0x0201,
 	keyLEFT_S=            0x0202,

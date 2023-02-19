@@ -1,5 +1,5 @@
 // error.h
-// Revision 4-jun-2003
+// Revision 13-jun-2003
 
 #ifndef ERROR_H_
 #define ERROR_H_
@@ -55,7 +55,8 @@ const BlErrNo
 	ErrImproperArgument=   42,
 	ErrDomain=             43,
 	ErrRange=              44,
-	ErrLineNotExist=       45;
+	ErrLineNotExist=       45,
+	ErrFnRecursion=        46;
 
 class BlError {
 public:

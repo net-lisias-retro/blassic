@@ -1,5 +1,5 @@
-//	blassic.cpp
-// Revision 9-jun-2003
+// blassic.cpp
+// Revision 13-aug-2003
 
 #include <assert.h>
 
@@ -28,7 +28,9 @@
 
 #include "error.h"
 
-#ifndef _Windows
+#ifdef BLASSIC_USE_WINDOWS
+#include <windows.h>
+#else
 #include <unistd.h>
 #endif
 
@@ -63,7 +65,7 @@ USEUNIT("using.cpp");
 //---------------------------------------------------------------------------
 bool fInterrupted= false;
 
-const std::string strPrompt ("Ok\n");
+const std::string strPrompt ("Ok");
 
 //************************************************
 //	Local functions and classes
@@ -71,10 +73,15 @@ const std::string strPrompt ("Ok\n");
 
 namespace {
 
+// Workaround to problem in cygwin:
+#ifndef SIGBREAK
+const int SIGBREAK= 21;
+#endif
+
 void handle_sigint (int)
 {
 	fInterrupted= true;
-        #ifdef __WIN32__
+        #ifdef BLASSIC_USE_WINDOWS
         signal (SIGINT, handle_sigint);
         signal (SIGBREAK, handle_sigint);
         #endif
@@ -83,7 +90,7 @@ void handle_sigint (int)
 void init_signal_handlers ()
 {
 	TraceFunc tr ("init_signal_handlers");
-        #ifdef __WIN32__
+        #ifdef BLASSIC_USE_WINDOWS
 
         signal (SIGINT, handle_sigint);
         signal (SIGBREAK, handle_sigint);
@@ -197,7 +204,7 @@ int blassic (int argc, char * * argv)
 				}
 				catch (BlError & be)
 				{
-					cerr << be;
+					cerr << be << endl;
 				}
 				return 0;
 			}
@@ -207,7 +214,7 @@ int blassic (int argc, char * * argv)
 			}
 			catch (BlError & be)
 			{
-				cerr << be;
+				cerr << be << endl;
 			}
 			return 0;
 		}
@@ -237,7 +244,7 @@ int blassic (int argc, char * * argv)
 		}
 		else if (strcmp (argv [n], "-d") == 0)
 		{
-			#ifdef __WIN32__
+			#ifdef BLASSIC_USE_WINDOWS
 
 			FreeConsole ();
 
@@ -280,6 +287,7 @@ int blassic (int argc, char * * argv)
 				if (mode != 0)
 					graphics::setmode (mode);
 			++n;
+			globalrunner.resetfile0 ();
 		}
 		else if (strcmp (argv [n], "-x") == 0)
 		{
@@ -301,7 +309,7 @@ int blassic (int argc, char * * argv)
 			}
 			catch (BlError & be)
 			{
-				cerr << be;
+				cerr << be << endl;
 			}
 			return 0;
 		}
@@ -330,13 +338,15 @@ int main (int argc, char * * argv)
 		oss << "Returning " << r << " without exception.";
 		tr.message (oss.str () );
 	}
-	catch (BlErrNo ben) {
+	catch (BlErrNo ben)
+	{
 		cerr << ErrStr (ben) << endl;
 		tr.message (ErrStr (ben) );
 		r= 127;
 	}
-	catch (BlError & be) {
-		cerr << be;
+	catch (BlError & be)
+	{
+		cerr << be << endl;
 		tr.message (util::to_string (be) );
 		r= 127;
 	}

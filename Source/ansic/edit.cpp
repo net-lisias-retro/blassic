@@ -1,5 +1,5 @@
 // edit.cpp
-// Revision 1-jun-2003
+// Revision 31-jul-2003
 
 //#include "cursor.h"
 #include "graphics.h"
@@ -50,13 +50,18 @@ public:
 		width (bf.getwidth () ),
 		textwindow (bf.istextwindow () ),
 		histsize (history.size () ),
-		histpos (histsize)
+		histpos (histsize),
+		intagmode (bf.istagactive () )
 	{
 		graphics::synchronize_suspend ();
+		if (intagmode)
+			bf.tagoff ();
 	}
 	~Edit ()
 	{
 		graphics::synchronize_restart ();
+		if (intagmode)
+			bf.tag ();
 	}
 	bool do_it ();
 private:
@@ -68,6 +73,8 @@ private:
 	bool textwindow;
 	size_t histsize;
 	size_t histpos;
+	bool intagmode;
+
 	std::string savestr;
 
 	//void getwidth ();
@@ -112,7 +119,8 @@ void Edit::forward ()
 		if (npos == str.size () )
 		{
 			//bf.movecharforward ();
-			bf << '\n';
+			//bf << '\n';
+			bf.endline ();
 			bf.flush ();
 		}
 		else
@@ -316,7 +324,8 @@ bool Edit::do_it ()
 				//bf << str.substr (npos) << '\n';
 				//bf.flush ();
 				showstring (bf, str.substr (npos) );
-				bf << '\n';
+				//bf << '\n';
+				bf.endline ();
 				bf.flush ();
 				showinitial ();
 				break;
@@ -375,7 +384,9 @@ bool Edit::do_it ()
 	//hidecursor ();
 
 	// After exit, cursor must be positioned after the line edited.
-	bf << str.substr (npos) << '\n';
+	//bf << str.substr (npos) << '\n';
+	bf << str.substr (npos);
+	bf.endline ();
 	bf.flush ();
 
 	if (retval)
@@ -400,7 +411,7 @@ bool Edit::do_it ()
 
 bool editline (BlFile & bf, std::string & str, size_t npos, size_t inicol)
 {
-	TraceFunc tr ("editline");
+	TraceFunc tr ("editline - string");
 	{
 		std::ostringstream oss;
 		oss << "Inicol: " << inicol;
@@ -414,6 +425,8 @@ bool editline (BlFile & bf, std::string & str, size_t npos, size_t inicol)
 bool editline (BlFile & bf, Program & program, BlLineNumber bln,
 	std::string & str)
 {
+	TraceFunc tr ("editline - line number->string");
+
 	std::string buffer;
 	{
 		BlFileOutString bfos;
@@ -421,11 +434,15 @@ bool editline (BlFile & bf, Program & program, BlLineNumber bln,
 		buffer= bfos.str ();
 		if (buffer.empty () )
 		{
-			bfos << bln << " \n";
+			//bfos << bln << " \n";
+			bfos << bln << ' ';
+			bfos.endline ();
 			buffer= bfos.str ();
 		}
 	}
 	buffer.erase (buffer.size () - 1);
+	tr.message (std::string (1, '\'') + buffer + '\'');
+
 	static const std::string number ("01234567890");
 	size_t inipos= buffer.find_first_of (number);
 	ASSERT (inipos != std::string::npos);
@@ -441,8 +458,9 @@ bool editline (BlFile & bf, Program & program, BlLineNumber bln,
 
 bool editline (BlFile & bf, Program & program, BlLineNumber bln)
 {
-	std::string buffer;
+	TraceFunc tr ("editline - line number");
 
+	std::string buffer;
 	bool r;
 	if ( (r= editline (bf, program, bln, buffer) ) == true)
 	{

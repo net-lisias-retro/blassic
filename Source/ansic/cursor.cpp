@@ -1,5 +1,5 @@
 // cursor.cpp
-// Revision 9-jun-2003
+// Revision 3-jul-2003
 
 #include "cursor.h"
 #include "graphics.h"
@@ -11,7 +11,8 @@
 #include <sstream>
 #include <cstdlib>
 
-#ifdef __WIN32__
+//#ifdef __WIN32__
+#ifdef BLASSIC_USE_WINDOWS
 
 #include <windows.h>
 
@@ -24,12 +25,27 @@
 #include <cassert>
 #define ASSERT assert
 
-#include <ncurses.h>
-#include <term.h>
+#include <termios.h>
 
 #endif
 
-#if defined __linux__ || defined __unix__
+//#if defined __linux__ || defined __unix__
+#ifdef BLASSIC_USE_TERMINFO
+
+#ifdef HAVE_LIBNCURSES
+
+#include <ncurses.h>
+#include <term.h>
+
+#elif defined HAVE_LIBCURSES
+
+#include <curses.h>
+
+#else
+
+#error Bad definition of BLASSIC_USE_TERMINFO
+
+#endif
 
 // Stuff needed by getwidth
  
@@ -59,6 +75,8 @@
 
 namespace {
 
+#ifndef BLASSIC_USE_WINDOWS
+
 #ifdef BLASSIC_USE_TERMINFO
 
 bool fInit= true;
@@ -66,6 +84,7 @@ bool fInit= true;
 int background= 8;
 
 const char
+	* strKeypadXmit= NULL,    * strKeypadLocal= NULL,
 	* strCls= NULL,           * strCup= NULL,
 	* strCursorNormal= NULL,  * strCursorInvisible= NULL,
 	* strForeground= NULL,    * strBackground= NULL,
@@ -89,7 +108,13 @@ const char * newstr (const char * str)
 
 inline const char * calltigetstr (const char * id)
 {
+	#ifdef HAVE_LIBNCURSES
 	const char * str= tigetstr ( (char *) id);
+	#else
+	char buffer [128];
+	char * area= buffer;
+	const char * str= tgetstr (id, & area);
+	#endif
 	if (str == (char *) -1)
 		return NULL;
 	return str;
@@ -116,7 +141,13 @@ inline void calltputs (const char * str)
 inline void calltparm (const char * str, int n)
 {
 	if (str != NULL)
-		calltputs (tparm ( (char *) str, n) );		
+	{
+		#ifdef HAVE_LIBNCURSES
+		calltputs (tparm ( (char *) str, n) );
+		#else
+		calltputs (tgoto ( (char *) str, n, 0) );
+		#endif
+	}
 }
 
 void initkeytable ();
@@ -129,7 +160,12 @@ struct str_terminfo {
         { }
 };
 
+#ifdef HAVE_LIBNCURSES
+
 const str_terminfo strinfo []= {
+	str_terminfo (strKeypadXmit, "smkx"),
+	str_terminfo (strKeypadLocal, "rmkx"),
+
 	str_terminfo (strCls, "clear" ),
 	str_terminfo (strCup, "cup" ),
 
@@ -157,30 +193,78 @@ const str_terminfo strinfo []= {
 	str_terminfo (strBell, "bel"),
 };
 
+#else
+
+const str_terminfo strinfo []= {
+	str_terminfo (strKeypadXmit, "ks"),
+	str_terminfo (strKeypadLocal, "ke"),
+
+	str_terminfo (strCls, "cl" ),
+	str_terminfo (strCup, "cm" ),
+
+	str_terminfo (strCursorNormal, "ve" ),
+	str_terminfo (strCursorInvisible, "vi" ),
+
+	str_terminfo (strForeground, "AF" ),
+	str_terminfo (strBackground, "AB" ),
+
+	str_terminfo (strEnterBold, "md" ),
+	str_terminfo (strExitBold, "me" ),
+
+	str_terminfo (strMoveForward, "nd" ),
+	str_terminfo (strMoveBack, "le" ),
+	str_terminfo (strMoveForwardN, "RI" ),
+	str_terminfo (strMoveBackN, "LE" ),
+	str_terminfo (strMoveUp, "up" ),
+	str_terminfo (strMoveDown, "do" ),
+	str_terminfo (strMoveUpN, "UP" ),
+	str_terminfo (strMoveDownN, "DO" ),
+
+	str_terminfo (strSaveCursorPos, "sc" ),
+	str_terminfo (strRestoreCursorPos, "rc" ),
+
+	str_terminfo (strBell, "bl"),
+};
+
+#endif
+
+#ifndef HAVE_LIBNCURSES
+char buffer [1024];
+#endif
+
 void init ()
 {
 	TraceFunc tr ("init");
 
 	fInit= false;
-	int errret;
-	setupterm (0, 1, & errret);
-
-	if (isatty (STDOUT_FILENO) )
+	#ifdef HAVE_LIBNCURSES
 	{
-		#if 0
-		//calltputs (tgetstr ( (char *) "smcup", 0) );
-		const char * str= calltigetstr ("smcup");
-		calltputs (str);
-		#endif
-
-		const char * str_keypad_xmit= calltigetstr ("smkx");
-		calltputs (str_keypad_xmit);
+		int errret;
+		setupterm (0, 1, & errret);
 	}
+	#else
+	{
+		char * strterm= getenv ("TERM");
+		if (strterm != NULL && strterm [0] != '\0')
+			tgetent (buffer, strterm);
+	}
+	#endif
 
 	for (size_t i= 0; i < util::dim_array (strinfo); ++i)
 		strinfo [i].str= mytigetstr (strinfo [i].tinfoname);
 
 	initkeytable ();
+
+	if (isatty (STDOUT_FILENO) )
+	{
+		#if 0
+		const char * str_keypad_xmit= calltigetstr ("smkx");
+		calltputs (str_keypad_xmit);
+		#else
+		calltputs (strKeypadXmit);
+		#endif
+	}
+
 }
 
 inline void checkinit ()
@@ -188,6 +272,12 @@ inline void checkinit ()
 	if (fInit)
 		init ();
 }
+
+#else
+
+inline void checkinit () { }
+
+#endif
 
 #endif
 
@@ -213,14 +303,11 @@ void quitconsole ()
 		if (isatty (STDOUT_FILENO) )
 		{
 			#if 0
-			//calltputs (tgetstr ( (char *) "rmcup", 0) );
-			const char * str= calltigetstr ("rmcup");
-			if (str != 0)
-				calltputs (str);
-			#endif
-
 			const char * str_keypad_local= calltigetstr ("rmkx");
 			calltputs (str_keypad_local);
+			#else
+			calltputs (strKeypadLocal);
+			#endif
 		}
 
 	}
@@ -230,19 +317,20 @@ void quitconsole ()
 
 size_t getwidth ()
 {
+	const size_t default_value= 80;
 	size_t width;
 	if (graphics::ingraphicsmode () )
 		width= graphics::getlinewidth ();
 	else
 	{
-		#ifdef __WIN32__
+		#ifdef BLASSIC_USE_WINDOWS
                 HANDLE h= GetStdHandle (STD_OUTPUT_HANDLE);
                 CONSOLE_SCREEN_BUFFER_INFO info;
                 if (GetConsoleScreenBufferInfo (h, & info) )
                         width= info.dwSize.X;
                 else
-                        width= 80;
-		#else
+                        width= default_value;
+		#elif defined BLASSIC_USE_TERMINFO
 		STRUCT_WINSIZE win;
 		if (ioctl (0, IOCTL_WINSIZE, & win) == 0)
 			width= WINSIZE_COLS (win);
@@ -252,8 +340,10 @@ size_t getwidth ()
 			if (aux)
 				width= atoi (aux);
 			else
-				width= 80;
+				width= default_value;
 		}
+		#else
+		width= default_value;
 		#endif
 	}
 	return width;
@@ -266,7 +356,8 @@ void cursorvisible ()
 	// checkinit not needed, is done by showcursor
 	showcursor ();
 
-	#ifndef __WIN32__
+	//#ifndef __WIN32__
+	#ifndef BLASSIC_USE_WINDOWS
 
 	struct termios ter;
 	tcgetattr (STDIN_FILENO, & ter);
@@ -284,7 +375,8 @@ void cursorinvisible ()
 	// checkinit not needed, is done by hidecursor
 	hidecursor ();
 
-	#ifndef __WIN32__
+	//#ifndef __WIN32__
+	#ifndef BLASSIC_USE_WINDOWS
 
 	struct termios ter;
 	tcgetattr (STDIN_FILENO, & ter);
@@ -347,7 +439,8 @@ void hidecursor ()
 	#endif
 }
 
-#ifdef __WIN32__
+//#ifdef __WIN32__
+#ifdef BLASSIC_USE_WINDOWS
 
 const WORD init_attributes=
 	FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
@@ -357,7 +450,8 @@ WORD attributes= init_attributes;
 
 void cls ()
 {
-	#ifdef __WIN32__
+	//#ifdef __WIN32__
+	#ifdef BLASSIC_USE_WINDOWS
 
         HANDLE h= GetStdHandle (STD_OUTPUT_HANDLE);
         if (h != INVALID_HANDLE_VALUE)
@@ -672,7 +766,8 @@ void restorecursorpos ()
 }
 
 
-#ifndef __WIN32__
+//#ifndef __WIN32__
+#ifndef BLASSIC_USE_WINDOWS
 
 namespace {
 
@@ -691,7 +786,8 @@ inline int mapcolor (int n)
 
 void textcolor (int color)
 {
-        #ifdef __WIN32__
+        //#ifdef __WIN32__
+	#ifdef BLASSIC_USE_WINDOWS
 
         HANDLE h= GetStdHandle (STD_OUTPUT_HANDLE);
         attributes= (attributes & WORD (0xF0) ) | WORD (color & 0x0F);
@@ -724,12 +820,13 @@ void textcolor (int color)
 
 void textbackground (int color)
 {
-        #ifdef __WIN32__
+        //#ifdef __WIN32__
+	#ifdef BLASSIC_USE_WINDOWS
         HANDLE h= GetStdHandle (STD_OUTPUT_HANDLE);
         attributes= (attributes & WORD (0xF) ) | WORD ( (color & 0xF) << 4);
         SetConsoleTextAttribute (h, attributes);
 
-	#else
+	#elif defined BLASSIC_USE_TERMINFO
 
 	background= color;
 	color= mapcolor (color & 0xF);
@@ -744,7 +841,8 @@ namespace {
 
 enum ReadType { ReadWait, ReadNoWait };
 
-#ifdef __WIN32__
+//#ifdef __WIN32__
+#ifdef BLASSIC_USE_WINDOWS
 
 std::string string_from_key_event (const KEY_EVENT_RECORD & kr)
 {
@@ -810,7 +908,9 @@ std::string readkey (ReadType type)
         return str;
 }
 
-#elif defined BLASSIC_USE_TERMINFO
+#else
+
+#if defined BLASSIC_USE_TERMINFO
 
 class MapSpecial {
 public:
@@ -875,6 +975,8 @@ const std::string
 	strPLUS ("+"),
 	strDIV ("/");
 
+#ifdef HAVE_LIBNCURSES
+
 const KeyDescription keyname [] = {
 	KeyDescription ("kpp",   strPAGEUP),    // previous-page key
 	KeyDescription ("knp",   strPAGEDOWN),  // next-page key
@@ -908,6 +1010,44 @@ const KeyDescription keyname [] = {
 	KeyDescription ("kf56",  strMINUS),     // F56 function key, - in xterm
 	KeyDescription ("kf57",  strPLUS),      // f57 function key, + in xterm
 };
+
+#else
+
+const KeyDescription keyname [] = {
+	KeyDescription ("kP",    strPAGEUP),    // previous-page key
+	KeyDescription ("kN",    strPAGEDOWN),  // next-page key
+	KeyDescription ("@7",    strEND),       // end key
+	KeyDescription ("*6",    strEND),       // select key
+	KeyDescription ("K4",    strEND),       // lower left of keypad
+	KeyDescription ("kh",    strHOME),      // home key
+	KeyDescription ("@0",    strHOME),      // find key
+	KeyDescription ("K1",    strHOME),      // upper left of keypad
+	KeyDescription ("kl",    strLEFT),      // left-arrow key
+	KeyDescription ("ku",    strUP),        // up-arrow key
+	KeyDescription ("kr",    strRIGHT),     // right-arrow key
+	KeyDescription ("kd",    strDOWN),      // down-arrow key
+	KeyDescription ("kI",    strINSERT),    // insert-character key
+	KeyDescription ("kD",    strDELETE),    // delete-character key
+	KeyDescription ("@8",    strENTER),     // enter/send key
+	KeyDescription ("k1",    strF1),        // F1 function key
+	KeyDescription ("k2",    strF2),        // F2 function key
+	KeyDescription ("k3",    strF3),        // F3 function key
+	KeyDescription ("k4",    strF4),        // F4 function key
+	KeyDescription ("k5",    strF5),        // F5 function key
+	KeyDescription ("k6",    strF6),        // F6 function key
+	KeyDescription ("k7",    strF7),        // F7 function key
+	KeyDescription ("k8",    strF8),        // F8 function key
+	KeyDescription ("k9",    strF9),        // F9 function key
+	KeyDescription ("k;",    strF10),       // F10 function key
+	KeyDescription ("F1",    strF11),       // F11 function key
+	KeyDescription ("F2",    strF12),       // F12 function key
+	KeyDescription ("Fi",    strDIV),       // F54 function key, / in xterm
+	KeyDescription ("Fj",    strMULT),      // F55 function key, * in xterm
+	KeyDescription ("Fk",    strMINUS),     // F56 function key, - in xterm
+	KeyDescription ("Fl",    strPLUS),      // f57 function key, + in xterm
+};
+
+#endif
 
 #ifndef NDEBUG
 
@@ -961,6 +1101,8 @@ void initkeytable ()
 	}
 
 }
+
+#endif // BLASSIC_USE_TERMINFO
 
 class PollInput {
 public:
@@ -1068,6 +1210,7 @@ std::string readkey (ReadType type)
 	std::string::size_type pos;
 	if (! charpending.empty () )
 	{
+		#ifdef BLASSIC_USE_TERMINFO
 		MapSpecial::Result r=
 			ms.findkey (charpending, 0, keyname, pos);
 		switch (r)
@@ -1101,6 +1244,10 @@ std::string readkey (ReadType type)
 			charpending.erase (0, 1);
 			break;
 		}
+		#else
+		str= charpending [0];
+		charpending.erase (0, 1);
+		#endif
 	}
 
         if (type == ReadWait)
@@ -1112,7 +1259,7 @@ std::string readkey (ReadType type)
         return str;
 }
 
-#endif
+#endif // ! BLASSIC_USE_WINDOWS
 
 } // namespace
 
@@ -1147,7 +1294,8 @@ void clean_input ()
 	}
 	else
 	{
-		#ifdef __WIN32__
+		//#ifdef __WIN32__
+		#ifdef BLASSIC_USE_WINDOWS
 
 		Sleep (100);
 		HANDLE h= GetStdHandle (STD_INPUT_HANDLE);
@@ -1186,6 +1334,12 @@ void ring ()
 		graphics::ring ();
 	else
 		calltputs (strBell);
+
+	#else
+
+	// Last resource
+	char c= '\a';
+	write (STDOUT_FILENO, & c, 1);
 
 	#endif
 }

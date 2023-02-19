@@ -1,3 +1,54 @@
+Version 0.6.0
+
+	Corrected an obscure bug in windows.
+
+	FILES now gives error when file not found and has an optional
+	channel parameter.
+
+	Problem with popen as direct command in windows solved in
+	windows 98, but now does not work on XP. Compiling with
+	MinGW the problem dissapears. Borland's fault?
+
+	FN recursion level limited, controled by a new system var.
+
+	Instructions TAG, TAGOFF, ORIGIN, DEG, RAD and INVERSE.
+
+	Crash when copychr out of screen corrected.
+
+	Delete key in graphics mode in linux/unix now acts as Delete.
+
+	Now compiles under Cygwin and under MinGW. Can be compiled on
+	unix with curses instead of ncurses or without any curses.
+
+	USING corrected, now does not require the ecvt function,
+	that is not provided in all platforms.
+
+	New system var Flags1, bit 0 control LOCATE style
+	Microsoft (row, col) or Amstrad CPC (col, row).
+
+	Graphic window on Windows can be minimized.
+
+	New graphics modes pcw, pcw2, cpc0 and cpc1, mode cpc2 corrected.
+
+	MODE has new optional arguments zoomx and zoomy.
+
+	Control characters in graphics mode now acts like both Amstrad
+	CPC in Basic and Amstrad CPC and PCW in CP/M.
+
+	Line feed now has no automatic CR in graphics mode.
+
+	CLEAR and similars now does a RESTORE.
+
+	Separators between PRINT items are no longer required.
+
+	INK Spectrum syntax is now accepeted.
+
+	INK, PAPER and INVERSE as PRINT specifiers Spectrum style.
+
+	Bug local integer variables incorrectly restored, solved
+
+	Workaround for a possible compiler error on arm.
+
 Version 0.5.7
 
 	cursor.cpp not compiled under gcc 2.95, corrected.

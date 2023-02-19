@@ -19,7 +19,7 @@
 190 e9$= "BM+5,+5 R6E2F4R4D7G1": f1$= "BM+1,-7 R8E1R2E3U4E2U7L10G2L1H2": f2$= "BM+3,-39 D11F3D9L6G5L1": f3$= "BM+12,-5 R3F5R3F3R4F1R4F1R8F2R2": f4$= "BM122,68 L3H2L2"
 200 f5$= "BM163,69 F2E2R8F6D8G3F5D11G5D6G2L7G3L2G3L6H3": f6$= "BM-4,+10 F8R7E3R4E5U5E4H3": f7$= "BM-7,+17 F8D2R2E2F2D10F2G2D4F3D3G4L8": f8$= "U8H3L5D4BM+4,+17 E1U4E3U1": f9$= "BM+11,-4 E3R9F1R1E5R12"
 210 g1$= "BU15L4H3L3G7L12H2": g2$= "BM224,132 L3G2L4U11H10G5L17G3": g3$= "BM204,168 U3E1U3": g4$= "BM124,18 E2U5E9U25": g5$= "BM55,50 H3G1H3E4R3E1"
-220 draw b0$: draw b1$: draw b2$: draw b3$: draw b4$: draw b5$: draw b6$: draw b7$: draw b8$: draw b9$: draw d0$: draw e1$: draw e2$: draw e3$: draw e4$: draw e5$: draw e6$: draw e7$:  draw e8$: draw e9$
+220 draw b0$: draw b1$: draw b2$: draw b3$: draw b4$: draw b5$: draw b6$: draw b7$: draw b8$: draw b9$: draw d0$: draw e1$: draw e2$: draw e3$: draw e4$: draw e5$: draw e6$: draw e7$: draw e8$: draw e9$
 230 draw f1$ + f2$ + f3$ + f4$: draw f5$ + f6$ + f7$ + f8$: draw f9$ + g1$ + g2$ + g3$: draw g4$ + g5$
 240 draw "BM10,90 C4XS$;"
 1000 get a$

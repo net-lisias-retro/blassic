@@ -1,4 +1,5 @@
 // program.cpp
+// Revision 29-jul-2003
 
 #include <cassert>
 #define ASSERT assert
@@ -457,8 +458,9 @@ void Program::Internal::list
 		}
                 //out << line;
 		//out << '\n';
-		line+= '\n';
+		//line+= '\n';
 		out << line;
+		out.endline ();
 		if (fInterrupted)
 			break;
 	}
@@ -526,7 +528,8 @@ inline void checkread (std::istream & is, size_t readed)
 		throw ErrFileRead;
 }
 
-const unsigned long endian_mark= 0x12345678;
+//const unsigned long endian_mark= 0x12345678;
+const BlUint32 endian_mark= 0x12345678;
 
 class TextLoader {
 public:
@@ -599,8 +602,15 @@ void TextLoader::load (std::istream & is)
 	bool fExhausted= false;
 	for ( ; is; std::getline (is, str) )
 	{
-		if (! str.empty () && str [str.size () - 1] == '\r')
-			str.erase (str.size () - 1);
+		if (! str.empty () )
+		{
+			// EOF char on windows
+			if (str [0] == '\x1A')
+				break;
+
+			if (str [str.size () - 1] == '\r')
+				str.erase (str.size () - 1);
+		}
 
 		// Quick & dirty implemantation of #include
 		if (! str.empty () && str [0] == '#' && directive (str) )
@@ -636,7 +646,7 @@ void Program::Internal::save (const std::string & name) const
 	if (! os)
 		return;
 	os.write (signature, lsig);
-	COMPILE_ASSERT (sizeof (unsigned long) == 4);
+	COMPILE_ASSERT (sizeof (endian_mark) == 4);
 	os.write ( (char *) & endian_mark, 4);
 	BlChar caux [4];
 	poke32 (caux, size);
@@ -660,8 +670,10 @@ void Program::Internal::loadbinary (std::istream & is)
 {
 	// This was intended to check endianess, but is
 	// currently unused.
-	COMPILE_ASSERT (sizeof (unsigned long) == 4);
-	unsigned long endian_check;
+	//COMPILE_ASSERT (sizeof (unsigned long) == 4);
+	//unsigned long endian_check;
+	BlUint32 endian_check;
+	COMPILE_ASSERT (sizeof endian_check == 4);
 	is.read ( (char *) & endian_check, 4);
 	checkread (is, 4);
 	BlChar caux [4];

@@ -1,5 +1,5 @@
 // file.cpp
-// Revision 1-jun-2003
+// Revision 14-aug-2003
 
 #include "blassic.h"
 #include "file.h"
@@ -49,6 +49,13 @@ public:
 		case '\r':
 		case '\n':
 			pos= 0;
+			break;
+		case '\b':
+			if (pos > 0)
+				--pos;
+			break;
+		case '\a':
+			// Bell does not use space in screen.
 			break;
 		case '\t':
 			pos= ( (pos / 8) + 1) * 8;
@@ -156,9 +163,20 @@ BlFile & operator << (BlFile & bf, BlLineNumber l)
         return bf;
 }
 
+BlFile & operator << (BlFile & bf, unsigned short n)
+{
+	bf.outstring (to_string (n) );
+	return bf;
+}
+
 void BlFile::putspaces (size_t n)
 {
 	outstring (std::string (n, ' ') );
+}
+
+void BlFile::tab ()
+{
+	outchar ('\t');
 }
 
 void BlFile::tab (size_t n)
@@ -167,6 +185,10 @@ void BlFile::tab (size_t n)
 	outstring (std::string (n, ' ') );
 }
 
+void BlFile::endline ()
+{
+	outchar ('\n');
+}
 
 void BlFile::put (size_t)
 { throw ErrFileMode; }
@@ -228,7 +250,13 @@ void BlFile::gotoxy (int, int)
 void BlFile::setcolor (int)
 { throw ErrFileMode; }
 
+int BlFile::getcolor ()
+{ throw ErrFileMode; }
+
 void BlFile::setbackground (int)
+{ throw ErrFileMode; }
+
+int BlFile::getbackground ()
 { throw ErrFileMode; }
 
 void BlFile::cls ()
@@ -241,6 +269,21 @@ int BlFile::pos ()
 { throw ErrFileMode; }
 
 int BlFile::vpos ()
+{ throw ErrFileMode; }
+
+void BlFile::tag ()
+{ throw ErrFileMode; }
+
+void BlFile::tagoff ()
+{ /* Ignored */ }
+
+bool BlFile::istagactive ()
+{ return false; }
+
+void BlFile::inverse (bool)
+{ throw ErrFileMode; }
+
+bool BlFile::getinverse ()
 { throw ErrFileMode; }
 
 //***********************************************
@@ -653,9 +696,19 @@ std::string BlFileWindow::read (size_t)
 	throw ErrNotImplemented;
 }
 
+void BlFileWindow::tab ()
+{
+	graphics::tab (ch);
+}
+
 void BlFileWindow::tab (size_t n)
 {
 	graphics::tab (ch, n);
+}
+
+void BlFileWindow::endline ()
+{
+	outstring ("\r\n");
 }
 
 void BlFileWindow::gotoxy (int x, int y)
@@ -668,9 +721,19 @@ void BlFileWindow::setcolor (int color)
 	graphics::setcolor (ch, color);
 }
 
+int BlFileWindow::getcolor ()
+{
+	return graphics::getcolor (ch);
+}
+
 void BlFileWindow::setbackground (int color)
 {
 	graphics::setbackground (ch, color);
+}
+
+int BlFileWindow::getbackground ()
+{
+	return graphics::getbackground (ch);
 }
 
 void BlFileWindow::outstring (const std::string & str)
@@ -701,6 +764,31 @@ int BlFileWindow::pos ()
 int BlFileWindow::vpos ()
 {
 	return graphics::ypos (ch);
+}
+
+void BlFileWindow::tag ()
+{
+	graphics::tag (ch);
+}
+
+void BlFileWindow::tagoff ()
+{
+	graphics::tagoff (ch);
+}
+
+bool BlFileWindow::istagactive ()
+{
+	return graphics::istagactive (ch);
+}
+
+void BlFileWindow::inverse (bool active)
+{
+	graphics::inverse (ch, active);
+}
+
+bool BlFileWindow::getinverse ()
+{
+	return graphics::getinverse (ch);
 }
 
 //***********************************************
@@ -1018,7 +1106,17 @@ BlFilePopen::BlFilePopen (const std::string & str, OpenMode nmode) :
 
         HANDLE hread, hwrite;
         HANDLE hchild;
+	#if 0
         const HANDLE haux= INVALID_HANDLE_VALUE;
+	#else
+	const HANDLE haux= CreateFile ("NUL",
+		GENERIC_READ | GENERIC_WRITE,
+		0,
+		NULL,
+		OPEN_EXISTING,
+		FILE_ATTRIBUTE_NORMAL,
+		NULL);
+	#endif
         SECURITY_ATTRIBUTES sec;
         sec.nLength= sizeof sec;
         sec.lpSecurityDescriptor= NULL;
@@ -1026,8 +1124,10 @@ BlFilePopen::BlFilePopen (const std::string & str, OpenMode nmode) :
         if (CreatePipe (& hread, & hwrite, & sec, 0) == 0)
                 throw "Al diablo";
         STARTUPINFO start;
+        start.cb= sizeof start;
         GetStartupInfo (& start);
         start.dwFlags= STARTF_USESTDHANDLES;
+        DWORD creationflags= 0;
         switch (nmode)
         {
         case BlFile::Input:
@@ -1038,6 +1138,7 @@ BlFilePopen::BlFilePopen (const std::string & str, OpenMode nmode) :
                 start.hStdError= hwrite;
                 break;
         case BlFile::Output:
+        	creationflags= DETACHED_PROCESS;
                 hpipe= hwrite;
                 hchild= hread;
                 start.hStdInput= hread;
@@ -1053,10 +1154,11 @@ BlFilePopen::BlFilePopen (const std::string & str, OpenMode nmode) :
         BOOL createresult= CreateProcess (
                 NULL, (char *) command.c_str (),
                 NULL, NULL,
-                TRUE, 0,
+                TRUE, creationflags,
                 NULL, NULL, & start, & procinfo);
 
         CloseHandle (hchild);
+	CloseHandle (haux);
 
         if (createresult == 0)
         {

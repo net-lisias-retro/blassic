@@ -1,5 +1,5 @@
 // keyword.cpp
-// Revision 9-jun-2003
+// Revision 3-aug-2003
 
 #include "keyword.h"
 #include "util.h"
@@ -151,6 +151,12 @@ const_keycode table []= {
 	keycode ("DEFDBL",            keyDEFDBL),
 	keycode ("INK",               keyINK),
 	keycode ("SET_TITLE",         keySET_TITLE),
+	keycode ("TAG",               keyTAG),
+	keycode ("TAGOFF",            keyTAGOFF),
+	keycode ("ORIGIN",            keyORIGIN),
+	keycode ("DEG",               keyDEG),
+	keycode ("RAD",               keyRAD),
+	keycode ("INVERSE",           keyINVERSE),
 
 	keycode ("MID$",              keyMID_S),
 	keycode ("LEFT$",             keyLEFT_S),

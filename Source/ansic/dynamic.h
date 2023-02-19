@@ -1,6 +1,9 @@
 // dynamic.h
+// Revision 3-jul-2003
 
-#if defined __unix__ || defined __linux__ // Kylix defines only __linux__
+#if (defined __unix__ || defined __linux__ || defined __NetBSD__) &&  \
+	! defined __CYGWIN__
+// Kylix defines only __linux__
 
 #ifdef __hpux__
 
@@ -39,7 +42,11 @@ inline void dynamicclose (DynamicHandle handle)
 
 #endif
 
-#elif defined __WIN32__
+#elif defined __WIN32__ || defined __CYGWIN__
+
+#include <windows.h>
+#undef min
+#undef max
 
 typedef HMODULE DynamicHandle;
 
@@ -47,7 +54,9 @@ inline DynamicHandle dynamicload (const std::string & str)
         { return LoadLibrary (str.c_str () ); }
 
 inline void * dynamicaddr (DynamicHandle handle, const std::string & str)
-        { return GetProcAddress (handle, str.c_str () ); }
+{
+	return (void *) GetProcAddress (handle, str.c_str () );
+}
 
 inline void dynamicclose (DynamicHandle handle)
         { FreeLibrary (handle); }
@@ -56,7 +65,7 @@ inline void dynamicclose (DynamicHandle handle)
 	#error Unknown operating system
 #endif
 
-#ifdef __WIN32__
+#if defined __WIN32__ || defined __CYGWIN__
 
 typedef __declspec (dllimport) int (* DynamicUsrFunc)
 	(int nparams, int * param);

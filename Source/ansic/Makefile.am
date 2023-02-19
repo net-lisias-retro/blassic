@@ -75,8 +75,9 @@ blassic_CXXFLAGS = \
 # Julian:
 #blassic_LDADD = -ldl -lncurses @SVGALIB_LIBS@ -L/usr/X11R6/lib -lX11
 # Let's configure check if libdl exist (hp-ux does noy use it, for example).
-blassic_LDADD = -lncurses @SVGALIB_LIBS@ -L/usr/X11R6/lib -lX11
-
+# Same for libX11, to avoid it under cygwin.
+# Same for curses, or some systems fail to find it.
+blassic_LDADD = @SVGALIB_LIBS@ $(CYGWIN_FLAGS)
 
 charset.cpp: $(srcdir)/charset.def gencharset
 	./gencharset $(srcdir)/charset.def charset.cpp
@@ -104,7 +105,7 @@ EXAMPLE_PROGS = \
 	path.bas pid.bas points.bas points2.bas popenin.bas \
 	popenout.bas popenout2.bas presskey.bas prueba.bas \
 	randomr.bas randomw.bas raqueta.bas repeat.bas repg.bas \
-	salvo1.bas shellsort.bas slowprint.bas snoopy.bas \
+	salvo1.bas shellsort.bas slowprint.bas snoopy.bas tag.bas \
 	telefono.bas testdl.bas testfn.bas testlocal.bas \
 	testrect.bas testtest.bas textcolor.bas textpaper.bas \
 	trim.bas viewpass.bas while.bas window.bas

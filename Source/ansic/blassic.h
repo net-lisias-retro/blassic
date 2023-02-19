@@ -1,9 +1,14 @@
 // blassic.h
+// Revision 13-ago-2003
 
 #ifndef BLASSIC_H_
 #define BLASSIC_H_
 
-#ifdef _Windows
+#if ! defined __BORLANDC__ && __GNUC__ < 3
+#define USE_HASH_MAP
+#endif
+
+#if defined _Windows || defined __CYGWIN__ || defined __MINGW32__
 
 #define BLASSIC_USE_WINDOWS
 
@@ -11,21 +16,22 @@
 #define __MT__
 #endif
 
-#endif
+#else
 
-#if ! defined __BORLANDC__ && __GNUC__ < 3
-#define USE_HASH_MAP
-#endif
-
-#if defined __unix__ || defined __linux__ // Kylix defines only __linux__
+//#if defined __unix__ || defined __linux__ // Kylix defines only __linux__
+#if ! defined BLASSIC_USE_WINDOWS && defined HAVE_LIBX11
 
 #define BLASSIC_USE_X
 
 #endif
 
-#if defined __unix__ || defined __linux__ || defined __APPLE__
+#ifndef BLASSIC_USE_WINDOWS
+// We check for terminfo only if not in windows,
+// use windows console functions even in Cygwin.
 
+#if defined HAVE_LIBNCURSES || defined HAVE_LIBCURSES
 #define BLASSIC_USE_TERMINFO
+#endif
 
 #endif
 
@@ -35,6 +41,8 @@
 // or tell it to configure.
 // Support for svgalib is currently outdated.
 //#define BLASSIC_USE_SVGALIB
+
+#endif
 
 #endif
 
@@ -53,17 +61,33 @@
 
 #include <string>
 #include <vector>
+#include <climits>
 
 typedef unsigned char BlChar;
 typedef unsigned short BlCode;
 typedef double BlNumber;
-typedef long BlInteger;
+
+#if ULONG_MAX == 4294967295UL
+typedef long BlInt32;
+typedef unsigned long BlUint32;
+#elif UINT_MAX == 4294967295UL
+typedef int BlInt32;
+typedef unsigned int BlUint32;
+#elif USHRT_MAX == 4294967295UL
+typedef short BlInt32;
+typedef unsigned short BlUint32;
+#else
+#error Unsupported platform
+#endif
+
+typedef BlInt32 BlInteger;
+typedef BlUint32 BlLineNumber;
+typedef BlUint32 BlLineLength;
+
 const BlInteger BlIntegerMax= 2147483647;
-typedef unsigned long BlLineNumber;
 // We limit the max line number as if it were signed.
-//const BlLineNumber BlMaxLineNumber= 0xFFFFFFFF;
 const BlLineNumber BlMaxLineNumber= BlIntegerMax;
-typedef unsigned long BlLineLength;
+
 typedef unsigned short BlChunk;
 typedef unsigned short BlErrNo;
 typedef unsigned short BlChannel;

@@ -1,5 +1,5 @@
 // sysvar.cpp
-// Revision 4-jun-2003
+// Revision 17-jul-2003
 
 #include "blassic.h"
 #include "sysvar.h"
@@ -24,11 +24,12 @@ void sysvar::init ()
 	set32 (AutoInc, 10);
 	set32 (CharGen, reinterpret_cast <size_t> (charset::data) );
 	set (ShellResult, 0);
-	set (TypeOfVal, 0); // Expression evaluation.
+	set (TypeOfVal, 0); // VAL simple, number only.
 	set (TypeOfNextCheck, 0); // Strict next check
 	set (TypeOfDimCheck, 0); // Need erase before dim already dimensioned
 	set16 (MaxHistory, 100);
-	set32 (MaxFnLevel, 100);
+	set (Flags1, 0); // LOCATE style Microsoft (row, col).
+	set32 (MaxFnLevel, 1000); // Seems a good limit.
 }
 
 size_t sysvar::address ()

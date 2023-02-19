@@ -1,5 +1,5 @@
 // graphics.h
-// Revision 9-jun-2003
+// Revision 5-aug-2003
 
 #ifndef GRAPHICS_H_
 #define GRAPHICS_H_
@@ -17,6 +17,9 @@ struct Point {
 void initialize (const char * progname);
 void uninitialize ();
 
+void origin (int x, int y);
+void limits (int minx, int maxx, int miny, int maxy);
+
 void ink (int inknum, int cpccolor);
 void ink (int inknum, int r, int g, int b);
 void clearink ();
@@ -24,16 +27,22 @@ void clearink ();
 void idle ();
 void cls ();
 void cls (BlChannel n);
-void setmode (int width, int height, bool inverty);
+void setmode (int width, int height, bool inverty,
+	int zoomx= 1, int zoomy= 1);
 void setmode (int mode);
 void setmode (const std::string & mode);
 bool ingraphicsmode ();
+
 void setcolor (int color);
 void setcolor (BlChannel ch, int color);
+int getcolor (BlChannel ch);
 void setbackground (int color);
 void setbackground (BlChannel ch, int color);
+int getbackground (BlChannel ch);
+
 void settransparent (int transpmode);
 void setdrawmode (int mode);
+
 void line (int x, int y);
 void liner (int x, int y);
 void rectangle (Point org, Point dest);
@@ -74,6 +83,7 @@ size_t getlinewidth (BlChannel ch);
 void gotoxy (int x, int y);
 void gotoxy (BlChannel ch, int x, int y);
 void tab (size_t n);
+void tab (BlChannel ch);
 void tab (BlChannel ch, size_t x);
 void movecharforward (size_t n);
 void movecharforward (BlChannel ch, size_t n);
@@ -99,11 +109,18 @@ int xpos (BlChannel ch);
 int ypos ();
 int ypos (BlChannel ch);
 
+void tag (BlChannel ch);
+void tagoff (BlChannel ch);
+bool istagactive (BlChannel ch);
+
 void showcursor ();
 void hidecursor ();
 
 void showcursor (BlChannel ch);
 void hidecursor (BlChannel ch);
+
+void inverse (BlChannel ch, bool active);
+bool getinverse (BlChannel ch);
 
 void clean_input ();
 

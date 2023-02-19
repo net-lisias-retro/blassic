@@ -1,4 +1,5 @@
 // result.h
+// Revision 3-jul-2003
 
 #ifndef RESULT_H_
 #define RESULT_H_
@@ -119,7 +120,10 @@ public:
 		//varstr.erase ();
 		//return * this;
 	}
-	/*BlResult & */ void operator = (BlInteger inum)
+	// Do not define operator = for BlInteger,
+	// it will be a redefinition for one of
+	// long, int or short.
+	/*BlResult & */ void operator = (long inum)
 	{
 		vartype= VarInteger;
 		varinteger= inum;
@@ -132,6 +136,11 @@ public:
 		varinteger= inum;
 		//varstr.erase ();
 		//return * this;
+	}
+	/*BlResult & */ void operator = (short inum)
+	{
+		vartype= VarInteger;
+		varinteger= inum;
 	}
 	/*BlResult & */ void operator = (size_t inum)
 	{

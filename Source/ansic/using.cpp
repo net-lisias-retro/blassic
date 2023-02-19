@@ -1,5 +1,5 @@
 // using.cpp
-// Revision 2-jun-2003
+// Revision 31-jul-2003
 
 #include "using.h"
 #include "util.h"
@@ -9,8 +9,12 @@
 #include <iomanip>
 #include <memory>
 using std::auto_ptr;
+#include <cstdio>
+using std::sprintf;
 #include <cstdlib>
 #include <cmath>
+#include <stdexcept>
+#include <algorithm>
 
 #include <cassert>
 #define ASSERT assert
@@ -77,16 +81,39 @@ void Using::putstring (BlFile &, const std::string &) const
 //		UsingLiteral
 //**************************************
 
-UsingLiteral::UsingLiteral (std::istream & is,
-	const std::string & strinit)
+UsingLiteral::UsingLiteral (std::istream & is)
 {
-	s= strinit;
+	TraceFunc tr ("UsingLiteral::UsingLiteral");
+
+	init (is);
+}
+
+UsingLiteral::UsingLiteral (std::istream & is,
+		const std::string & strinit) :
+	s (strinit)
+{
+	TraceFunc tr ("UsingLiteral::UsingLiteral");
+
+	init (is);
+}
+
+UsingLiteral::UsingLiteral (const std::string & strinit) :
+	s (strinit)
+{
+	TraceFunc tr ("UsingLiteral::UsingLiteral");
+}
+
+void UsingLiteral::init (std::istream & is)
+{
+	TraceFunc tr ("UsingLiteral::init");
+
 	char c;
 	while (is >> c && ! ischarformat (c) )
 	{
 		s+= c;
 	}
 	ASSERT (! s.empty () );
+	tr.message (std::string ("Literal is: \"") + s + '"');
 	if (is)
 		is.unget ();
 }
@@ -108,24 +135,8 @@ void UsingLiteral::putliteral (BlFile & out) const
 //		UsingNumeric
 //**************************************
 
-namespace {
-
-class NoNumeric {
-public:
-	NoNumeric (const std::string & s) :
-		s (s)
-	{ }
-	NoNumeric (char c) :
-		s (1, c)
-	{ }
-	const std::string & str () const { return s; }
-private:
-	std::string s;
-};
-
-}
-
 UsingNumeric::UsingNumeric (std::istream & is, std::string & tail) :
+	invalid (true),
 	digit (0),
 	decimal (0),
 	scientific (0),
@@ -146,6 +157,7 @@ UsingNumeric::UsingNumeric (std::istream & is, std::string & tail) :
 	if (c == '+')
 	{
 		putsign= true;
+		s+= c;
 		is >> c;
 	}
 
@@ -154,12 +166,15 @@ UsingNumeric::UsingNumeric (std::istream & is, std::string & tail) :
 		switch (c)
 		{
 		case '*':
+			s+= c;
 			if (! (is >> c) )
-				throw NoNumeric ("*");
+				return;
 			if (c != '*')
 			{
+                                tr.message (std::string (1, c) +
+                                        " following *");
 				is.unget ();
-				throw NoNumeric ("*");
+				return;
 			}
 			asterisk= true;
 			digit+= 2;
@@ -169,14 +184,17 @@ UsingNumeric::UsingNumeric (std::istream & is, std::string & tail) :
 				{
 				case '$':
 					dollar= true;
+					s+= c;
 					is >> c;
 					break;
 				case poundsign:
 					pound= true;
+					s+= c;
 					is >> c;
 					break;
 				case eurosign:
 					euro= true;
+					s+= c;
 					is >> c;
 					break;
 				}
@@ -185,14 +203,15 @@ UsingNumeric::UsingNumeric (std::istream & is, std::string & tail) :
 		case '$':
 		case poundsign:
 		case eurosign:
+			s+= c;
 			{
 				char sign= c;
 				if (! (is >> c) )
-					throw NoNumeric (sign);
+					return;
 				if (c != sign)
 				{
 					is.unget ();
-					throw NoNumeric (sign);
+					return;
 				}
 				++digit;
 				switch (sign)
@@ -201,6 +220,7 @@ UsingNumeric::UsingNumeric (std::istream & is, std::string & tail) :
 				case poundsign: pound= true; break;
 				case eurosign: euro= true; break;
 				}
+				s+= c;
 			}
 			is >> c;
 			break;
@@ -209,15 +229,22 @@ UsingNumeric::UsingNumeric (std::istream & is, std::string & tail) :
 	
 	while (is && c == '#')
 	{
+		invalid= false;
 		++digit;
+		s+= c;
 		is >> c;
 	}
 	if (is)
 	{
 		if (c == '.')
 		{
+			s+= c;
 			while (is >> c && c == '#')
+			{
+				invalid= false;
 				++decimal;
+				s+= c;
+			}
 		}
 	}
 	if (is)
@@ -225,6 +252,9 @@ UsingNumeric::UsingNumeric (std::istream & is, std::string & tail) :
 		if (c == '^')
 		{
 			++scientific;
+			s+= c;
+			if (invalid)
+				return;
 			while (scientific < 5 && is >> c && c == '^')
 				++scientific;
 			if (scientific == 5)
@@ -240,6 +270,9 @@ UsingNumeric::UsingNumeric (std::istream & is, std::string & tail) :
 	}
 	if (is && (c == '+' || c == '-') )
 	{
+		s+= c;
+		if (invalid)
+			return;
 		putsign= true;
 		signatend= true;
 		if (c == '-')
@@ -256,22 +289,28 @@ class UsingOverflow { };
 
 }
 
+namespace {
+// Workaround for a problem in gcc
+double zero= 0.0;
+}
+
 void UsingNumeric::putnumeric (BlFile & out, BlNumber n) const
 {
 	try
 	{
-		int negative= 0;
+		int negative;
 		if (scientific > 0)
 		{
 			size_t d= digit;
-			if (n < 0 && ! putsign)
+			if (n < zero && ! putsign)
 				--d;
+			#if 0
 			int prec= d + decimal;
 			int dec;
 			char * aux= ecvt (n, prec, & dec, & negative);
 			int e= dec - static_cast <int> (d);
-			if (scientific == 0 && e != 0)
-				throw UsingOverflow ();
+			//if (scientific == 0 && e != 0)
+			//	throw UsingOverflow ();
 			std::string stre= util::to_string (abs (e) );
 			int ezeroes= scientific - stre.size ();
 			if (ezeroes < 0)
@@ -288,6 +327,38 @@ void UsingNumeric::putnumeric (BlFile & out, BlNumber n) const
 				'E' << (e < 0 ? '-' : '+') <<
 				std::string (ezeroes, '0') <<
 				stre;
+			#else
+			int prec= d + decimal - 1;
+			//std::cout << '(' << d << ',' << prec << ')' <<
+			//	std::flush;
+			char buffer [64];
+			sprintf (buffer, "%+.*e", prec, n);
+			//std::cout << '[' << buffer << ']' << std::flush;
+			negative= buffer [0] == '-';
+			std::string aux= std::string (1, buffer [1]) +
+				(buffer + 3);
+			std::string::size_type pose= aux.find ('e');
+			if (pose != std::string::npos)
+				aux.erase (pose);
+			int e= static_cast <int>
+				(std::floor (std::log10 (fabs (n) ) ) ) +
+				- static_cast <int> (d) + 1;
+			std::string stre= util::to_string (abs (e) );
+			int ezeroes= scientific - stre.size ();
+			if (ezeroes < 0)
+				throw UsingOverflow ();
+			if (putsign && ! signatend)
+			{
+				out << (negative ? '-' : '+');
+			}
+			if (! putsign && negative)
+				out << '-';
+			out << (aux.substr (0, d) + '.' +
+				aux.substr (d) ) <<
+				'E' << (e < 0 ? '-' : '+') <<
+				std::string (ezeroes, '0') <<
+				stre;
+			#endif
 		}
 		else
 		{
@@ -339,8 +410,12 @@ void UsingNumeric::putnumeric (BlFile & out, BlNumber n) const
 			if ( (putsign && ! signatend) ||
 				(! putsign && negative) )
 			{
-				strn.insert (strn.find_first_not_of (" "),
-					1, negative ? '-' : '+');
+				std::string::size_type possign=
+					strn.find_first_not_of (" ");
+				if (possign == std::string::npos)
+					possign= 0;
+				strn.insert (possign, 1,
+					negative ? '-' : '+');
 			}
 			if (asterisk)
 			{
@@ -419,7 +494,24 @@ VectorUsing::VectorUsing ()
 
 VectorUsing::~VectorUsing ()
 {
+	std::for_each (v.begin (), v.end (), delete_it);
 }
+
+void VectorUsing::push_back (const Using & u)
+{
+	UsingLiteral * prev;
+	if (! v.empty () && u.isliteral () &&
+		(prev= dynamic_cast <UsingLiteral *> (v.back () ) ) != NULL)
+	{
+		prev->addstr (dynamic_cast <const UsingLiteral &> (u).str () );
+		return;
+	}
+	v.push_back (u.clone () );
+}
+
+//**************************************
+//		parseusing
+//**************************************
 
 void parseusing (const std::string & str, VectorUsing & vu)
 {
@@ -439,40 +531,20 @@ void parseusing (const std::string & str, VectorUsing & vu)
 		case '$':
 		case poundsign:
 		case eurosign:
-			try
 			{
 				std::string tail;
-				auto_ptr <UsingNumeric>
-					pun (new UsingNumeric (is, tail) );
-				vu.push_back (& * pun);
-				pun.release ();
-				if (! tail.empty () )
-				{
-					auto_ptr <UsingLiteral>
-						pul (new UsingLiteral
-							(is, tail) );
-					vu.push_back (& * pul);
-					pul.release ();
-				}
-			}
-			catch (NoNumeric & e)
-			{
-				tr.message (std::string ("Catched: ") +
-					e.str () );
-				UsingLiteral * prev;
-				if (! vu.empty () && (prev=
-					dynamic_cast <UsingLiteral *>
-						(vu.back () ) ) != NULL)
-				{
-					prev->addstr (e.str () );
-				}
+				UsingNumeric un (is, tail);
+				if (un.isvalid () )
+					vu.push_back (un);
 				else
 				{
-					auto_ptr <UsingLiteral>
-						pul (new UsingLiteral
-							(is, e.str () ) );
-					vu.push_back (& * pul);
-					pul.release ();
+					UsingLiteral ul (un.str () );
+					vu.push_back (ul);
+				}
+				if (! tail.empty () )
+				{
+					UsingLiteral ul (is, tail);
+					vu.push_back (ul);
 				}
 			}
 			break;
@@ -480,18 +552,14 @@ void parseusing (const std::string & str, VectorUsing & vu)
 		case '&':
 		case '!':
 			{
-				auto_ptr <UsingString>
-					pus (new UsingString (is) );
-				vu.push_back (& * pus);
-				pus.release ();
+				UsingString us (is);
+				vu.push_back (us);
 			}
 			break;
 		default:
 			{
-				auto_ptr <UsingLiteral>
-					pul (new UsingLiteral (is) );
-				vu.push_back (& * pul);
-				pul.release ();
+				UsingLiteral ul (is);
+				vu.push_back (ul);
 			}
 		}
 	}
