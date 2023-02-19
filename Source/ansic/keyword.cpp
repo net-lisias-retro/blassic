@@ -1,5 +1,5 @@
 // keyword.cpp
-// Revision 16-may-2003
+// Revision 23-may-2003
 
 #include "keyword.h"
 #include "util.h"
@@ -171,6 +171,8 @@ const_keycode table []= {
 	keycode ("LTRIM$",            keyLTRIM_S),
 	keycode ("RTRIM$",            keyRTRIM_S),
 	keycode ("OSNAME$",           keyOSNAME_S),
+	keycode ("FINDFIRST$",        keyFINDFIRST_S),
+	keycode ("FINDNEXT$",         keyFINDNEXT_S),
 
         keycode ("ASC",               keyASC),
 	keycode ("LEN",               keyLEN),
@@ -219,6 +221,13 @@ const_keycode table []= {
 	keycode ("FIND_LAST_OF",      keyFIND_LAST_OF),
 	keycode ("FIND_FIRST_NOT_OF", keyFIND_FIRST_NOT_OF),
 	keycode ("FIND_LAST_NOT_OF",  keyFIND_LAST_NOT_OF),
+	keycode ("SINH",              keySINH),
+	keycode ("COSH",              keyCOSH),
+	keycode ("TANH",              keyTANH),
+	keycode ("ASINH",             keyASINH),
+	keycode ("ACOSH",             keyACOSH),
+	keycode ("ATANH",             keyATANH),
+	keycode ("ATAN2",             keyATAN2),
 
 	keycode ("NOT",               keyNOT),
 	keycode ("OR",                keyOR),

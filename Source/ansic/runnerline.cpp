@@ -1,5 +1,5 @@
 // runnerline.cpp
-// Revision 16-may-2003
+// Revision 22-may-2003
 
 #include "runnerline.h"
 
@@ -32,7 +32,6 @@ using std::endl;
 
 #if defined __unix__ || defined __linux__ // Kylix defines only __linux__
 #include <unistd.h>
-#include <glob.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
@@ -96,6 +95,31 @@ typedef std::map <std::string, Function> mapfunction_t;
 mapfunction_t mapfunction;
 
 } // namespace
+
+// **********  Hyperbolic trigonometric arc functions  **********
+
+#if ! (defined __unix__ || defined __linux__)
+
+double asinh (double x)
+{
+	return log (x + sqrt (x * x + 1) );
+}
+
+double acosh (double x)
+{
+	errno= 0;
+	double r= sqrt (x * x - 1);
+	if (errno != 0)
+		return 0;
+	return log (x + r );
+}
+
+double atanh (double x)
+{
+	return log ( (1 + x) / (1 - x) ) / 2;
+}
+
+#endif
 
 const RunnerLine::mapfunc_t RunnerLine::mapfunc= initmapfunc ();
 
@@ -360,6 +384,7 @@ void RunnerLine::parenarg (BlResult & result)
 	requiretoken (')');
 	gettoken ();
 }
+
 void RunnerLine::getparenarg (BlResult & result)
 {
 	expecttoken ('(');
@@ -368,10 +393,84 @@ void RunnerLine::getparenarg (BlResult & result)
 	gettoken ();
 }
 
+void RunnerLine::getparenarg (BlResult & result, BlResult & result2)
+{
+	expecttoken ('(');
+	expect (result);
+	requiretoken (',');
+	expect (result2);
+	requiretoken (')');
+	gettoken ();
+}
+
+namespace {
+
+inline double callnumericfunc (double (* f) (double), double n)
+{
+	errno= 0;
+	n= f (n);
+	switch (errno)
+	{
+	case 0:
+		#if defined __unix__ || defined __linux__
+		// Some errors not establish errno.
+		if (! finite (n) )
+			throw ErrDomain;
+		#endif
+		break;
+	case EDOM:
+		throw ErrDomain;
+	case ERANGE:
+		throw ErrRange;
+	default:
+		std::cerr << "Math error, errno= " << errno << std::endl;
+		throw ErrBlassicInternal;
+	}
+	return n;
+}
+
+inline double callnumericfunc (double (* f) (double, double),
+	double n, double n2)
+{
+	errno= 0;
+	n= f (n, n2);
+	switch (errno)
+	{
+	case 0:
+		#if defined __unix__ || defined __linux__
+		// Some errors not establish errno.
+		if (! finite (n) )
+			throw ErrDomain;
+		#endif
+		break;
+	case EDOM:
+		throw ErrDomain;
+	case ERANGE:
+		throw ErrRange;
+	default:
+		std::cerr << "Math error, errno= " << errno << std::endl;
+		throw ErrBlassicInternal;
+	}
+	return n;
+}
+
+}
+
 void RunnerLine::valnumericfunc (double (* f) (double), BlResult & result)
 {
 	getparenarg (result);
-	result= f (result.number () );
+	BlNumber n= result.number ();
+	result= callnumericfunc (f, n);
+}
+
+void RunnerLine::valnumericfunc2 (double (* f) (double, double),
+	BlResult & result)
+{
+	BlResult result2;
+	getparenarg (result, result2);
+	BlNumber n= result.number ();
+	BlNumber n2= result2.number ();
+	result= callnumericfunc (f, n, n2);
 }
 
 namespace { // Auxiliary math functions
@@ -1515,6 +1614,14 @@ void RunnerLine::valbase (BlResult & result)
 	case keyRTRIM_S:
 		valtrim (result);
 		break;
+	case keyFINDFIRST_S:
+		getparenarg (result);
+		result= directory.findfirst (result.str () );
+		break;
+	case keyFINDNEXT_S:
+		result= directory.findnext ();
+		gettoken ();
+		break;
 	case keyASC:
 		valasc (result);
 		break;
@@ -1669,6 +1776,27 @@ void RunnerLine::valbase (BlResult & result)
 	case keyFIND_LAST_NOT_OF:
 		valfindfirstlast (result, find_last, find_not);
 		break;
+	case keySINH:
+		valnumericfunc (std::sinh, result);
+		break;
+	case keyCOSH:
+		valnumericfunc (std::cosh, result);
+		break;
+	case keyTANH:
+		valnumericfunc (std::tanh, result);
+		break;
+	case keyASINH:
+		valnumericfunc (asinh, result);
+		break;
+	case keyACOSH:
+		valnumericfunc (acosh, result);
+		break;
+	case keyATANH:
+		valnumericfunc (atanh, result);
+		break;
+	case keyATAN2:
+		valnumericfunc2 (atan2, result);
+		break;
         case keyFN:
                 valfn (result);
                 break;
@@ -1698,8 +1826,11 @@ void RunnerLine::valexponent (BlResult & result)
 	{
 		gettoken ();
 		BlResult guard;
-		valparen (guard);
-		result= std::pow (result.number (), guard.number () );
+		//valparen (guard);
+		valunary (guard);
+		//result= std::pow (result.number (), guard.number () );
+		result= callnumericfunc (std::pow,
+			result.number (), guard.number () );
 	}
 }
 
@@ -2008,6 +2139,15 @@ void RunnerLine::getdrawargs (BlInteger & x, BlInteger & y)
 	getdrawargs (y);
 }
 
+void RunnerLine::make_clear ()
+{
+	runner.clear ();
+	runner.seterrorgoto (0);
+	clearvars ();
+	Function::clear ();
+	definevar (VarNumber, 'A', 'Z');
+}
+
 bool RunnerLine::do_empty_sentence ()
 {
 	return false;
@@ -2196,8 +2336,9 @@ bool RunnerLine::do_new ()
 {
 	errorifparam ();
 	program.renew ();
-        clearvars ();
-        Function::clear ();
+        //clearvars ();
+        //Function::clear ();
+	make_clear ();
 	runner.setreadline (0);
 	return true;
 }
@@ -2232,7 +2373,8 @@ bool RunnerLine::do_run ()
 		program.renew ();
 		program.load (progname);
 	}
-	clearvars ();
+	//clearvars ();
+	make_clear ();
 	runner.setreadline (0);
 	runner.run_to (dest);
 	return true;
@@ -2858,7 +3000,8 @@ bool RunnerLine::do_cont ()
 bool RunnerLine::do_clear ()
 {
 	errorifparam ();
-	clearvars ();
+	//clearvars ();
+	make_clear ();
 	return false;
 }
 
@@ -4022,6 +4165,7 @@ bool RunnerLine::do_mode ()
 			graphics::setmode (mode, height, inverty);
 		}
 	}
+	runner.destroy_windows ();
 	if (mode != 0)
 		runner.setfile (0, new BlFileWindow (0) );
 	else
@@ -4896,40 +5040,14 @@ bool RunnerLine::do_files ()
 	require_endsentence ();
         if (param.empty () )
                 param= "*";
+
         std::vector <std::string> file;
 
-	#ifdef __WIN32__
-	{
-		WIN32_FIND_DATA fd;
-		HANDLE h= FindFirstFile (param.c_str (), & fd);
-		if (h != INVALID_HANDLE_VALUE)
-		{
-			try
-			{
-				do {
-					file.push_back (fd.cFileName);
-				} while (FindNextFile (h, & fd) );
-				FindClose (h);
-			}
-			catch (...)
-			{
-				FindClose (h);
-				throw;
-			}
-		}
-	}
-	#else
-	{
-		glob_t g;
-		glob (param.c_str (), 0, NULL, & g);
-		for (size_t i=0; i < g.gl_pathc; ++i)
-		{
-			//cerr << g.gl_pathv [i] << endl;
-			file.push_back (g.gl_pathv [i] );
-		}
-		globfree ( & g);
-	}
-	#endif
+	// Populate the vector with the files searched.
+	Directory d;
+	for (std::string r= d.findfirst (param.c_str () ); ! r.empty ();
+			r= d.findnext () )
+		file.push_back (r);
 
         const size_t l= file.size ();
         size_t maxlength= 0;

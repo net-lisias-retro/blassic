@@ -9,11 +9,25 @@ rem def fn y (x)= (x - 1) * (x + 2) * x / 10
 
 rem def fn y (x)= sin (x * 10)
 
-rem def fn y (x)
-rem	if x <> 0 then y= x * sin (1/x) else y= 0
-rem fn end
+rem def fn y (x)= x * sin (1/x)
 
-def fn y (x)= sin (x*10) + .05 * sin (x*523) + 0.005 * sin (x * 5000) + 0.001 * sin (x * 27457) + 0.0005 * sin (x * 100000)
+rem def fn y (x)= sin (x*10) + .05 * sin (x*523) + 0.005 * sin (x * 5000) + 0.001 * sin (x * 27457) + 0.0005 * sin (x * 100000)
+
+rem def fn y (x)= sinh (x)
+
+rem def fn y (x)= cosh (x)
+
+def fn y (x)= tanh (x)
+
+rem def fn y (x)= acosh (x)
+
+rem def fn y (x)= atanh (x)
+
+rem def fn y (x)= sqr (x)
+
+rem def fn y (x)= log (x)
+
+rem def fn y (x)= (1 + x) / (1 - x)
 
 rem ***************
 rem * Conversions *
@@ -28,6 +42,21 @@ def fn calculxx (x)= (x - x1) / x21 * xx2
 def fn calculyy (y)= yy2 - ( (y - y1) / y21 * yy2)
 
 goto init
+
+rem *********************
+rem * Error on function *
+rem *********************
+
+label matherr
+
+rem Trap errors: division by zero, domain and range.
+
+if err <> 7 and err <> 43 and err <> 44 then mode 0: print "Error "; err; " on line "; erl: exit
+
+y= 0
+defined= 0
+
+resume next
 
 rem ******************
 rem * Initialisation *
@@ -80,19 +109,27 @@ rem *****************
 
 color 1
 
+on error goto matherr
+
 xx= 0
-x= fn calculx (xx)
+rem x= fn calculx (xx)
 
-y= fn y (x)
+rem y= fn y (x)
 
-yy= fn calculyy (y)
-move xx, yy
+rem yy= fn calculyy (y)
+rem move xx, yy
 
-for xx= 1 to xx2
+prevdef= 0
+
+for xx= 0 to xx2
 	x= fn calculx (xx)
+	defined= not 0
 	y= fn y (x)
+	if not defined then prevdef= 0: goto continue
 	yy= fn calculyy (y)
-	draw xx, yy
+	if prevdef then draw xx, yy else move xx, yy
+	prevdef= 1
+	label continue
 next
 
 label tecla
@@ -140,7 +177,7 @@ xs2= fn calculx (inix + width)
 ys1= fn calculy (yy2 - (iniy + height) )
 ys2= fn calculy (yy2 - iniy)
 
-if xs1 = xs2 or ys1 = ys2 then locate 1, 1: print "**TOO CLOSE**" : goto tecla
+if xs1 >= xs2 or ys1 >= ys2 then locate 1, 1: print "**TOO CLOSE**" : goto tecla
 
 x1= xs1: x2= xs2: y1= ys1: y2= ys2
 x21= x2 - x1

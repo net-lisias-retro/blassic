@@ -1,4 +1,5 @@
 // sysvar.cpp
+// Revision 21-may-2003
 
 #include "blassic.h"
 #include "sysvar.h"
@@ -26,6 +27,8 @@ void sysvar::init ()
 	set (TypeOfVal, 0); // Expression evaluation.
 	set (TypeOfNextCheck, 0); // Strict next check
 	set (TypeOfDimCheck, 0); // Need erase before dim already dimensioned
+	//set16 (MaxHistory, 100);
+	set16 (MaxHistory, 10); // For testing.
 }
 
 size_t sysvar::address ()
@@ -51,6 +54,11 @@ void sysvar::set32 (size_t var, long value)
 BlChar sysvar::get (size_t var)
 {
 	return system_vars [var];
+}
+
+unsigned short sysvar::get16 (size_t var)
+{
+	return static_cast <unsigned short> (peek16 (system_vars + var) );
 }
 
 unsigned long sysvar::get32 (size_t var)

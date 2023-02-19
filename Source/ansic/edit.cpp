@@ -1,48 +1,31 @@
 // edit.cpp
+// Revision 21-may-2003
 
 //#include "cursor.h"
 #include "graphics.h"
 #include "error.h"
 #include "trace.h"
 #include "util.h"
+#include "sysvar.h"
 
 #include "edit.h"
 
 using util::to_string;
 
 #include <sstream>
-
-#if 0
-
-#if defined __linux__ || defined __unix__
-
-#include <stdlib.h>
-#include <sys/ioctl.h>
-#include <termios.h>
-
-// This is from ncurses.
-#ifdef TIOCGSIZE
-# define IOCTL_WINSIZE TIOCGSIZE
-# define STRUCT_WINSIZE struct ttysize
-# define WINSIZE_ROWS(n) (int)n.ts_lines
-# define WINSIZE_COLS(n) (int)n.ts_cols
-#else
-# ifdef TIOCGWINSZ
-#  define IOCTL_WINSIZE TIOCGWINSZ
-#  define STRUCT_WINSIZE struct winsize
-#  define WINSIZE_ROWS(n) (int)n.ws_row
-#  define WINSIZE_COLS(n) (int)n.ws_col
-# endif
-#endif
-
-#endif
-
-#endif
+#include <deque>
 
 #include <cassert>
 #define ASSERT assert
 
 namespace {
+
+std::deque <std::string> history;
+
+size_t getmaxhistory ()
+{
+	return sysvar::get16 (sysvar::MaxHistory);
+}
 
 void showstring (BlFile & bf, const std::string & str)
 {
@@ -65,7 +48,9 @@ public:
 		npos (npos),
 		inicol (inicol),
 		width (bf.getwidth () ),
-		textwindow (bf.istextwindow () )
+		textwindow (bf.istextwindow () ),
+		histsize (history.size () ),
+		histpos (histsize)
 	{
 		graphics::synchronize_suspend ();
 	}
@@ -81,6 +66,9 @@ private:
 	size_t inicol;
 	size_t width;
 	bool textwindow;
+	size_t histsize;
+	size_t histpos;
+	std::string savestr;
 
 	//void getwidth ();
 	void back ();
@@ -88,31 +76,9 @@ private:
 	void deletechar ();
 	void showrest ();
 	void showinitial ();
+	void up ();
+	void down ();
 };
-
-#if 0
-void Edit::getwidth ()
-{
-	if (graphics::ingraphicsmode () )
-		width= graphics::getlinewidth ();
-	else
-	{
-		#ifdef __WIN32__
-                HANDLE h= GetStdHandle (STD_INPUT_HANDLE);
-                CONSOLE_SCREEN_BUFFER_INFO info;
-                if (GetConsoleScreenBufferInfo (h, & info) )
-                        width= info.dwSize.X;
-                else
-                        width= 80;
-		#else
-		STRUCT_WINSIZE win;
-		ioctl (0, IOCTL_WINSIZE, & win);
-		width= WINSIZE_COLS (win);
-		#endif
-	}
-
-}
-#endif
 
 void Edit::back ()
 {
@@ -250,6 +216,55 @@ void Edit::showinitial ()
 	//movecharforward (npos);
 }
 
+void Edit::up ()
+{
+	if (histpos > 0)
+	{
+		if (histpos == histsize)
+			savestr= str;
+		std::string::size_type oldsize= str.size ();
+		--histpos;
+		str= history [histpos];
+		while (npos > 0)
+			back ();
+		std::string::size_type
+			actualsize= str.size ();
+		if (oldsize > actualsize)
+		{
+			showstring (bf, std::string (oldsize, ' ') );
+			npos= oldsize;
+			for (size_t i= 0; i < oldsize; ++i)
+				back ();
+		}
+		showinitial ();
+	}
+}
+
+void Edit::down ()
+{
+	if (histpos < histsize)
+	{
+		std::string::size_type oldsize= str.size ();
+		++histpos;
+		if (histpos < histsize)
+			str= history [histpos];
+		else
+			str= savestr;
+		while (npos > 0)
+			back ();
+		std::string::size_type
+			actualsize= str.size ();
+		if (oldsize > actualsize)
+		{
+			showstring (bf, std::string (oldsize, ' ') );
+			npos= oldsize;
+			for (size_t i= 0; i < oldsize; ++i)
+				back ();
+		}
+		showinitial ();
+	}
+}
+
 bool Edit::do_it ()
 {
 	showinitial ();
@@ -344,12 +359,29 @@ bool Edit::do_it ()
 			while (npos < l)
 				forward ();
 		}
+		else if (key == "UP")
+			up ();
+		else if (key == "DOWN")
+			down ();
 	}
 	//hidecursor ();
 
 	// After exit, cursor must be positioned after the line edited.
 	bf << str.substr (npos) << '\n';
 	bf.flush ();
+
+	if (retval)
+	{
+		size_t maxhist= getmaxhistory ();
+		if (maxhist == 0)
+			maxhist= 1;
+		if (histsize >= maxhist)
+		{
+			history.erase (history.begin (),
+				history.begin () + histsize - maxhist + 1);
+		}
+		history.push_back (str);
+	}
 	
 	return retval;
 }

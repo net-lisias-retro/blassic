@@ -1,5 +1,5 @@
 // keyword.h
-// Revision 16-may-2003
+// Revision 23-may-2003
 
 #ifndef KEYWORD_H_
 #define KEYWORD_H_
@@ -139,6 +139,8 @@ const BlCode
 	keyLTRIM_S=           0x0219,
 	keyRTRIM_S=           0x021A,
 	keyOSNAME_S=          0x021B,
+	keyFINDFIRST_S=       0x021C,
+	keyFINDNEXT_S=        0x021D,
 
 	keyASC=               0x0301,
 	keyLEN=               0x0302,
@@ -187,6 +189,13 @@ const BlCode
 	keyFIND_LAST_OF=      0x032D,
 	keyFIND_FIRST_NOT_OF= 0x032E,
 	keyFIND_LAST_NOT_OF=  0x032F,
+	keySINH=              0x0330,
+	keyCOSH=              0x0331,
+	keyTANH=              0x0332,
+	keyASINH=             0x0333,
+	keyACOSH=             0x0334,
+	keyATANH=             0x0335,
+	keyATAN2=             0x0336,
 
 	keyNOT=               0x0401,
 	keyOR=                0x0402,

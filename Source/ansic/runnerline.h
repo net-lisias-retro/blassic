@@ -1,5 +1,5 @@
 // runnerline.h
-// Revision 14-may-2003
+// Revision 23-may-2003
 
 #ifndef RUNNERLINE_H_
 
@@ -10,6 +10,7 @@
 #include "result.h"
 #include "codeline.h"
 #include "file.h"
+#include "directory.h"
 
 #include <map>
 
@@ -44,6 +45,7 @@ private:
 	bool fInElse;
 	CodeLine::Token token;
 	BlCode codprev;
+	Directory directory;
 
 	typedef bool (RunnerLine::* do_func) (void);
 	typedef std::map <BlCode, do_func> mapfunc_t;
@@ -69,8 +71,11 @@ private:
 
 	void parenarg (BlResult & result);
 	void getparenarg (BlResult & result);
+	void getparenarg (BlResult & result, BlResult & result2);
 
 	void valnumericfunc (double (* f) (double), BlResult & result);
+	void valnumericfunc2 (double (* f) (double, double),
+		BlResult & result);
 	void valasc (BlResult & result);
 	void vallen (BlResult & result);
 	void valpeek (BlResult & result);
@@ -155,6 +160,8 @@ private:
 	void getinkparams ();
 	void getdrawargs (BlInteger & y);
 	void getdrawargs (BlInteger & x, BlInteger & y);
+
+	void make_clear ();
 
 	void print_using (BlFile & out);
 

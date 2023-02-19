@@ -1,5 +1,5 @@
 // graphics.cpp
-// Revision 16-may-2003
+// Revision 21-may-2003
 
 #ifdef __BORLANDC__
 #pragma warn -8027
@@ -1272,16 +1272,21 @@ void graphics::cls ()
 
 	#ifdef BLASSIC_USE_X
 	activecolor (pbackground);
-	XSetFunction (display, gc, drawmode_copy);
 	XSetFunction (display, gcp, drawmode_copy);
-	if (! fSynchro)
-		XFillRectangle (display, window, gc,
-			0, 0, screenwidth, screenheight);
 	XFillRectangle (display, pixmap, gcp,
 		0, 0, screenwidth, screenheight);
-	activecolor (pforeground);
-	XSetFunction (display, gc, drawmode);
 	XSetFunction (display, gcp, drawmode);
+	if (! fSynchro)
+	{
+		XSetFunction (display, gc, drawmode_copy);
+		XFillRectangle (display, window, gc,
+			0, 0, screenwidth, screenheight);
+		XSetFunction (display, gc, drawmode);
+		// Inserted an idle call because without it
+		// the window sometimes is not updated.
+		graphics::idle ();
+	}
+	activecolor (pforeground);
 	#endif
 
 }
@@ -2679,6 +2684,9 @@ public:
 			XFillRectangle (display, window, gc,
 				x1, y1, x2, y2);
 			XSetFunction (display, gc, drawmode);
+			// Inserted an idle call because without it
+			// the window sometimes is not updated.
+			graphics::idle ();
 		}
 		activecolor (pforeground);
 		#endif

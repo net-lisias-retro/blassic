@@ -1,4 +1,5 @@
 // file.cpp
+// Revision 21-may-2003
 
 #include "blassic.h"
 #include "file.h"
@@ -26,6 +27,8 @@ using std::endl;
 
 #ifndef _Windows
 #include <unistd.h> // read, write
+#else
+#include <io.h> // isatty
 #endif
 
 BlFile::BlFile (OpenMode nmode) :
@@ -277,7 +280,26 @@ std::string BlFileConsole::getkey ()
 
 void BlFileConsole::getline (std::string & str)
 {
+	#ifdef __WIN32__
+
+	bool tty= isatty (0);
+	if (tty)
+	{
+		std::string auxstr;
+		int inicol= getcursorx ();
+		while (! editline (* this, auxstr, 0, inicol) )
+			continue;
+		swap (str, auxstr);
+	}
+	else
+		std::getline (in, str);
+
+	#else
+
 	std::getline (in, str);
+
+	#endif
+
 	if (fInterrupted)
 	{
 		in.clear ();
@@ -287,10 +309,13 @@ void BlFileConsole::getline (std::string & str)
 
         #ifdef __WIN32__
 
-        size_t l= str.size ();
-	util::auto_buffer <char> aux (l);
-        OemToCharBuff (str.data (), aux, l);
-        str= std::string (aux, l);
+	if (tty)
+	{
+	        size_t l= str.size ();
+		util::auto_buffer <char> aux (l);
+	        OemToCharBuff (str.data (), aux, l);
+        	str= std::string (aux, l);
+        }
 
         #endif
 }

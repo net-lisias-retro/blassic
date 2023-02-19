@@ -1,4 +1,5 @@
 // runner.cpp
+// Revision 22-may-2003
 
 #include "runner.h"
 #include "keyword.h"
@@ -20,6 +21,7 @@
 #include <ctime>
 #include <vector>
 #include <algorithm>
+#include <typeinfo>
 
 using std::for_each;
 
@@ -213,6 +215,18 @@ Runner::~Runner ()
         std::for_each (chanfile.begin (), chanfile.end (), deletefile);
 }
 
+void Runner::clear ()
+{
+	close_all ();
+	while (! forstack.empty () )
+		for_pop ();
+	gosubstack.erase ();
+	while (! repeatstack.empty () )
+		repeatstack.pop ();
+	while (! whilestack.empty () )
+		whilestack.pop ();
+}
+
 BlFile & Runner::getfile (BlChannel channel)
 {
         ChanFile::iterator it= chanfile.find (channel);
@@ -242,6 +256,35 @@ void Runner::close_all ()
 	chanfile.clear ();
 	chanfile [0]= bfsave;
 	#endif
+}
+
+void Runner::destroy_windows ()
+{
+	TraceFunc tr ("Runner::destroy_windows");
+
+	std::vector <BlChannel> w;
+	for (ChanFile::iterator it= chanfile.begin ();
+		it != chanfile.end (); ++it)
+	{
+		BlFile * f= it->second;
+		if (typeid (* f) == typeid (BlFileWindow) )
+		{
+			delete f;
+			w.push_back (it->first);
+		}
+	}
+	for (size_t i= 0, l= w.size (); i < l; ++i)
+	{
+		#ifndef NDEBUG
+		{
+			std::ostringstream oss;
+			oss << "Destroyed window " << w [i];
+			tr.message (oss.str () );
+		}
+		#endif
+		size_t d= chanfile.erase (w [i] );
+		ASSERT (d == 1);
+	}
 }
 
 void Runner::closechannel (BlChannel channel)

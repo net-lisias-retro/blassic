@@ -8,6 +8,6 @@
 const unsigned short
 	version::Major= 0,
 	version::Minor= 5,
-	version::Release= 4;
+	version::Release= 5;
 
 // End of version.cpp

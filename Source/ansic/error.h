@@ -1,5 +1,5 @@
 // error.h
-// Revision 16-may-2003
+// Revision 17-may-2003
 
 #ifndef ERROR_H_
 #define ERROR_H_
@@ -52,7 +52,9 @@ const BlErrNo
 	ErrOperatingSystem=    39,
 	ErrPastEof=            40,
 	ErrNoGraphics=         41,
-	ErrImproperArgument=   42;
+	ErrImproperArgument=   42,
+	ErrDomain=             43,
+	ErrRange=              44;
 
 class BlError {
 public:

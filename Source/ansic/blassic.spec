@@ -6,7 +6,7 @@
 # Source archive's extension can be specified with rpm --define 'srcext .foo'
 # where .foo is the source archive's actual extension.
 # To compile an RPM from a .bz2 source archive, give the command
-#   rpm -tb --define 'srcext .bz2' blassic-0.5.4.tar.bz2
+#   rpm -tb --define 'srcext .bz2' blassic-0.5.5.tar.bz2
 #
 %if %{?rel:0}%{!?rel:1}
 %define rel 1
@@ -17,7 +17,7 @@
 
 Summary: Classic Basic interpreter
 Name: blassic
-Version: 0.5.4
+Version: 0.5.5
 Release: %{rel}
 Copyright: GPL
 Group: Development/Languages

@@ -1,4 +1,5 @@
 // cursor.cpp
+// Revision 21-may-2003
 
 #include "cursor.h"
 #include "graphics.h"
@@ -411,6 +412,23 @@ void gotoxy (int x, int y)
 
 	if (strCup)
 		calltputs (tgoto (strCup, x, y) );
+
+	#endif
+}
+
+int getcursorx ()
+{
+	#ifdef BLASSIC_USE_WINDOWS
+
+	HANDLE h= GetStdHandle (STD_OUTPUT_HANDLE);
+	CONSOLE_SCREEN_BUFFER_INFO info;
+	if (GetConsoleScreenBufferInfo (h, & info) == 0)
+		return 0;
+	return info.dwCursorPosition.X;
+
+	#else
+
+	return 0;
 
 	#endif
 }

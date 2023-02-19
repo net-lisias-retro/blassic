@@ -1,5 +1,13 @@
 # Blassic :: Change Log
 
+* 2003-0523: 0.5.5 (Julián Albo)
+	+ SINH, COSH, TANH, ASINH, ACOSH and ATANH functions.
+	+ Better handling of math errors.
+	+ ATAN2 function.
+	+ Command history.
+	+ Behaviour of RUN, CLEAR and NEW corrected.
+	+ Bug MODE not destroyed the window channels, corrected.
+	+ FINDFIRST$ and FINDNEXT$ functions.
 * 2003-0516: 0.5.4 (Julián Albo)
 	+ Command line option -x to exclude keywords.
 	+ #include directive in text programs.

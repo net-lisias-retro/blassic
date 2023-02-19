@@ -112,6 +112,8 @@ blassic_SOURCES = \
 	cursor.h \
 	dim.cpp \
 	dim.h \
+	directory.cpp \
+	directory.h \
 	dynamic.h \
 	edit.cpp \
 	edit.h \
@@ -231,15 +233,15 @@ PROGRAMS = $(bin_PROGRAMS) $(noinst_PROGRAMS)
 
 am_blassic_OBJECTS = blassic-charset.$(OBJEXT) blassic-blassic.$(OBJEXT) \
 	blassic-codeline.$(OBJEXT) blassic-cursor.$(OBJEXT) \
-	blassic-dim.$(OBJEXT) blassic-edit.$(OBJEXT) \
-	blassic-error.$(OBJEXT) blassic-file.$(OBJEXT) \
-	blassic-function.$(OBJEXT) blassic-graphics.$(OBJEXT) \
-	blassic-key.$(OBJEXT) blassic-keyword.$(OBJEXT) \
-	blassic-program.$(OBJEXT) blassic-runner.$(OBJEXT) \
-	blassic-runnerline.$(OBJEXT) blassic-socket.$(OBJEXT) \
-	blassic-sysvar.$(OBJEXT) blassic-token.$(OBJEXT) \
-	blassic-trace.$(OBJEXT) blassic-var.$(OBJEXT) \
-	blassic-version.$(OBJEXT)
+	blassic-dim.$(OBJEXT) blassic-directory.$(OBJEXT) \
+	blassic-edit.$(OBJEXT) blassic-error.$(OBJEXT) \
+	blassic-file.$(OBJEXT) blassic-function.$(OBJEXT) \
+	blassic-graphics.$(OBJEXT) blassic-key.$(OBJEXT) \
+	blassic-keyword.$(OBJEXT) blassic-program.$(OBJEXT) \
+	blassic-runner.$(OBJEXT) blassic-runnerline.$(OBJEXT) \
+	blassic-socket.$(OBJEXT) blassic-sysvar.$(OBJEXT) \
+	blassic-token.$(OBJEXT) blassic-trace.$(OBJEXT) \
+	blassic-var.$(OBJEXT) blassic-version.$(OBJEXT)
 blassic_OBJECTS = $(am_blassic_OBJECTS)
 blassic_DEPENDENCIES =
 blassic_LDFLAGS =
@@ -260,6 +262,7 @@ am__depfiles_maybe = depfiles
 @AMDEP_TRUE@	./$(DEPDIR)/blassic-codeline.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/blassic-cursor.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/blassic-dim.Po \
+@AMDEP_TRUE@	./$(DEPDIR)/blassic-directory.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/blassic-edit.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/blassic-error.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/blassic-file.Po \
@@ -351,6 +354,7 @@ blassic-blassic.$(OBJEXT): blassic.cpp
 blassic-codeline.$(OBJEXT): codeline.cpp
 blassic-cursor.$(OBJEXT): cursor.cpp
 blassic-dim.$(OBJEXT): dim.cpp
+blassic-directory.$(OBJEXT): directory.cpp
 blassic-edit.$(OBJEXT): edit.cpp
 blassic-error.$(OBJEXT): error.cpp
 blassic-file.$(OBJEXT): file.cpp
@@ -386,6 +390,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/blassic-codeline.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/blassic-cursor.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/blassic-dim.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/blassic-directory.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/blassic-edit.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/blassic-error.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/blassic-file.Po@am__quote@
@@ -478,6 +483,18 @@ blassic-dim.obj: dim.cpp
 @AMDEP_TRUE@	depfile='$(DEPDIR)/blassic-dim.Po' tmpdepfile='$(DEPDIR)/blassic-dim.TPo' @AMDEPBACKSLASH@
 @AMDEP_TRUE@	$(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(blassic_CXXFLAGS) $(CXXFLAGS) -c -o blassic-dim.obj `cygpath -w dim.cpp`
+
+blassic-directory.o: directory.cpp
+@AMDEP_TRUE@	source='directory.cpp' object='blassic-directory.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@	depfile='$(DEPDIR)/blassic-directory.Po' tmpdepfile='$(DEPDIR)/blassic-directory.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@	$(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(blassic_CXXFLAGS) $(CXXFLAGS) -c -o blassic-directory.o `test -f directory.cpp || echo '$(srcdir)/'`directory.cpp
+
+blassic-directory.obj: directory.cpp
+@AMDEP_TRUE@	source='directory.cpp' object='blassic-directory.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@	depfile='$(DEPDIR)/blassic-directory.Po' tmpdepfile='$(DEPDIR)/blassic-directory.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@	$(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(blassic_CXXFLAGS) $(CXXFLAGS) -c -o blassic-directory.obj `cygpath -w directory.cpp`
 
 blassic-edit.o: edit.cpp
 @AMDEP_TRUE@	source='edit.cpp' object='blassic-edit.o' libtool=no @AMDEPBACKSLASH@

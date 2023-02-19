@@ -1,4 +1,5 @@
 // cursor.h
+// Revision 21-may-2003
 
 #ifndef CURSOR_H_
 #define CURSOR_H_
@@ -19,6 +20,7 @@ void cls ();
 
 //void locate (int row, int col);
 void gotoxy (int x, int y);
+int getcursorx ();
 void movecharforward ();
 void movecharback ();
 void movecharforward (size_t n);

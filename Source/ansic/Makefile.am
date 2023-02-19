@@ -29,6 +29,8 @@ blassic_SOURCES = \
 	cursor.h \
 	dim.cpp \
 	dim.h \
+	directory.cpp \
+	directory.h \
 	dynamic.h \
 	edit.cpp \
 	edit.h \

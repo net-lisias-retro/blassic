@@ -1,5 +1,5 @@
 // error.cpp
-// Revision 16-may-2003
+// Revision 17-may-2003
 
 #include "error.h"
 
@@ -62,6 +62,8 @@ errcode table []= {
         errcode (ErrPastEof,            "Input past EOF"),
         errcode (ErrNoGraphics,         "Graphics mode required"),
         errcode (ErrImproperArgument,   "Improper argument"),
+        errcode (ErrDomain,             "Domain error"),
+        errcode (ErrRange,              "Result out of range"),
 };
 
 errcode * table_end= table + sizeof (table);

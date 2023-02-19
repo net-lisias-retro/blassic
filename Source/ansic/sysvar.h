@@ -1,4 +1,5 @@
 // sysvar.h
+// Revision 21-may-2003
 
 #ifndef SYSVAR_H_
 #define SYSVAR_H_
@@ -13,6 +14,7 @@ void set16 (size_t var, short value);
 void set32 (size_t var, long value);
 
 BlChar get (size_t var);
+unsigned short get16 (size_t var);
 unsigned long get32 (size_t var);
 
 const size_t
@@ -31,7 +33,8 @@ const size_t
 	TypeOfNextCheck= 26,	// 0: normal, else ZX-type
 	TypeOfDimCheck= 27,	// 0: cannot dim already dimensioned
 				// 1: Silently redim
-	EndSysVar= 28;
+	MaxHistory= 28,	// Max size of history buffer.
+	EndSysVar= 30;
 
 } // namespace sysvar
 

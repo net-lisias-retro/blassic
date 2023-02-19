@@ -1,4 +1,5 @@
 // runner.h
+// Revision 22-may-2003
 
 #ifndef RUNNER_H_
 #define RUNNER_H_
@@ -151,6 +152,13 @@ public:
 		GosubElement go= st.top ();
 		go.addlocal (name);
 	}
+	void erase ()
+	{
+		// Unnecessary restore local vars here, when is called
+		// vars will be cleared after.
+		while (! st.empty () )
+			st.pop ();
+	}
 private:
 	std::stack <GosubElement> st;
 };
@@ -159,6 +167,7 @@ class Runner {
 public:
 	Runner (Program & prog);
         ~Runner ();
+        void clear ();
         void getline (std::string & line);
 	void runline (CodeLine & codeline);
 	void run ();
@@ -252,6 +261,8 @@ public:
 
 	void seterrorgoto (BlLineNumber line) { blnErrorGoto= line; }
 	BlLineNumber geterrorgoto () { return blnErrorGoto; }
+
+	typedef std::map <BlChannel,BlFile *> ChanFile;
 	void assign_channel_var
 		(const std::string & var, const std::string & value,
 			BlFile::Align align)
@@ -263,14 +274,14 @@ public:
 			it->second->assign (var, value, align);
 		}
 	}
-
-        typedef std::map <BlChannel,BlFile *> ChanFile;
         bool isfileopen (BlChannel channel) const
         	{ return chanfile.find (channel) != chanfile.end (); }
         BlFile & getfile (BlChannel channel);
         void setfile (BlChannel channel, BlFile * npfile);
         void close_all ();
+        void destroy_windows ();
         void closechannel (BlChannel channel);
+
 	void setreadline (BlLineNumber bln);
         void goto_line (BlLineNumber dest);
         void gosub_line (BlLineNumber dest, ProgramPos posgosub);

@@ -57,12 +57,8 @@ USEUNIT("function.cpp");
 USEUNIT("key.cpp");
 USEUNIT("charset.cpp");
 USEUNIT("edit.cpp");
+USEUNIT("directory.cpp");
 //---------------------------------------------------------------------------
-
-//************************************************
-//	Global variables
-//************************************************
-
 bool fInterrupted= false;
 
 const std::string strPrompt ("Ok\n");
