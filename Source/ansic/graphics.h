@@ -1,5 +1,5 @@
 // graphics.h
-// Revision 16-may-2003
+// Revision 26-may-2003
 
 #ifndef GRAPHICS_H_
 #define GRAPHICS_H_
@@ -16,6 +16,10 @@ struct Point {
 
 void initialize (const char * progname);
 void uninitialize ();
+
+void ink (int inknum, int cpccolor);
+void ink (int inknum, int r, int g, int b);
+
 void idle ();
 void cls ();
 void cls (BlChannel n);
@@ -38,6 +42,7 @@ void mover (int x, int y);
 void plot (int x, int y);
 void plotr (int x, int y);
 void plot (std::vector <Point> & points);
+int test (int x, int y, bool relative);
 
 void circle (int x, int y, int radius);
 void arccircle (int x, int y, int radius,
@@ -56,6 +61,7 @@ void charout (char c);
 void stringout (const std::string & str);
 void charout (BlChannel ch, char c);
 void stringout (BlChannel ch, const std::string & str);
+std::string copychr (BlChannel ch);
 
 void definewindow (BlChannel n, int x1, int x2, int y1, int y2);
 void undefinewindow (BlChannel ch);

@@ -1,10 +1,12 @@
 // file.h
+// Revision 24-may-2003
 
 #ifndef FILE_H_
 #define FILE_H_
 
 #include <iostream>
 #include <fstream>
+#include <string>
 #include <vector>
 
 #ifndef _Windows
@@ -70,6 +72,7 @@ public:
 	virtual void setcolor (int color);
 	virtual void setbackground (int color);
 	virtual void cls ();
+	virtual std::string copychr ();
 private:
         virtual void outstring (const std::string & str);
         virtual void outchar (char c);
@@ -143,6 +146,7 @@ public:
 	virtual void setcolor (int color);
 	virtual void setbackground (int color);
 	virtual void cls ();
+	std::string copychr ();
 private:
         void outstring (const std::string & str);
         void outchar (char c);

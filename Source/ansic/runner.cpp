@@ -1,5 +1,5 @@
 // runner.cpp
-// Revision 22-may-2003
+// Revision 25-may-2003
 
 #include "runner.h"
 #include "keyword.h"
@@ -295,6 +295,19 @@ void Runner::closechannel (BlChannel channel)
                 delete it->second;
                 chanfile.erase (it);
         }
+}
+
+void Runner::windowswap (BlChannel ch1, BlChannel ch2)
+{
+	ChanFile::iterator it1= chanfile.find (ch1);
+	ChanFile::iterator it2= chanfile.find (ch2);
+	if (it2 == chanfile.end () || it1 == chanfile.end () )
+		throw ErrFileNumber;
+	if (typeid (* it1->second) != typeid (BlFileWindow) )
+		throw ErrFileMode;
+	if (typeid (* it2->second) != typeid (BlFileWindow) )
+		throw ErrFileMode;
+	std::swap (it1->second, it2->second);
 }
 
 void Runner::setreadline (BlLineNumber bln)

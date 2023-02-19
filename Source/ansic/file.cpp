@@ -1,5 +1,5 @@
 // file.cpp
-// Revision 21-may-2003
+// Revision 24-may-2003
 
 #include "blassic.h"
 #include "file.h"
@@ -191,6 +191,9 @@ void BlFile::setbackground (int)
 { throw ErrFileMode; }
 
 void BlFile::cls ()
+{ throw ErrFileMode; }
+
+std::string BlFile::copychr ()
 { throw ErrFileMode; }
 
 //***********************************************
@@ -581,6 +584,11 @@ void BlFileWindow::outchar (char c)
 void BlFileWindow::cls ()
 {
 	graphics::cls (ch);
+}
+
+std::string BlFileWindow::copychr ()
+{
+	return graphics::copychr (ch);
 }
 
 //***********************************************

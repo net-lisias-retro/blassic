@@ -1,5 +1,5 @@
 // graphics.cpp
-// Revision 21-may-2003
+// Revision 27-may-2003
 
 #ifdef __BORLANDC__
 #pragma warn -8027
@@ -14,6 +14,9 @@
 #include "charset.h"
 #include "util.h"
 #include "trace.h"
+
+#include <sstream>
+#include <iomanip>
 
 // Para depuracion
 #include <iostream>
@@ -60,6 +63,7 @@ XColor xcBlack, xcBlue, xcGreen, xcCyan,
         xcRed, xcMagenta, xcBrown, xcLightGrey,
 	xcDarkGrey, xcLightBlue, xcLightGreen, xcLightCyan,
         xcLightRed, xcLightMagenta, xcYellow, xcWhite;
+typedef XColor color_t;
 typedef XColor * pcolor;
 
 #endif
@@ -79,6 +83,7 @@ HPEN xcBlack, xcBlue, xcGreen, xcCyan,
         xcRed, xcMagenta, xcBrown, xcLightGrey,
 	xcDarkGrey, xcLightBlue, xcLightGreen, xcLightCyan,
         xcLightRed, xcLightMagenta, xcYellow, xcWhite;
+typedef HPEN color_t;
 typedef HPEN * pcolor;
 
 #endif
@@ -555,6 +560,196 @@ void destroy_window ()
         #endif
 }
 
+const int BASIC_COLORS= 16;
+
+struct ColorRGB {
+	int r;
+	int g;
+	int b;
+};
+
+const ColorRGB assignRGB []= {
+	{    0,    0,    0 },
+	{    0,    0, 0xA8 },
+	{    0, 0xA8,    0 },
+	{    0, 0xA8, 0xA8 },
+	{ 0xA8,    0,    0 },
+	{ 0xA8,    0, 0xA8 },
+	{ 0xA8, 0x54,    0 },
+	{ 0xA8, 0xA8, 0xA8 },
+
+	{ 0x54, 0x54, 0x54 },
+	{ 0x54, 0x54, 0xFF },
+	{ 0x54, 0xFF, 0x54 },
+	{ 0x54, 0xFF, 0xFF },
+	{ 0xFF, 0x54, 0x54 },
+	{ 0xFF, 0x54, 0xFF },
+	{ 0xFF, 0xFF, 0x54 },
+	{ 0xFF, 0xFF, 0xFF }
+};
+
+struct ColorInUse {
+	pcolor pc;
+	ColorRGB rgb;
+};
+
+typedef std::map <int, ColorInUse> definedcolor_t;
+
+definedcolor_t definedcolor;
+
+ColorInUse tablecolors []=
+{
+	{ &xcBlack,        { 0, 0, 0} },
+	{ &xcBlue,         { 0, 0, 0} },
+	{ &xcGreen,        { 0, 0, 0} },
+	{ &xcCyan,         { 0, 0, 0} },
+	{ &xcRed,          { 0, 0, 0} },
+	{ &xcMagenta,      { 0, 0, 0} },
+	{ &xcBrown,        { 0, 0, 0} },
+	{ &xcLightGrey,    { 0, 0, 0} },
+
+	{ &xcDarkGrey,     { 0, 0, 0} },
+	{ &xcLightBlue,    { 0, 0, 0} },
+	{ &xcLightGreen,   { 0, 0, 0} },
+	{ &xcLightCyan,    { 0, 0, 0} },
+	{ &xcLightRed,     { 0, 0, 0} },
+	{ &xcLightMagenta, { 0, 0, 0} },
+	{ &xcYellow,       { 0, 0, 0} },
+	{ &xcWhite,        { 0, 0, 0} }
+};
+
+#if 0
+inline pcolor mapcolor (int color)
+{
+	switch (color)
+	{
+	case  0: return & xcBlack;
+	case  1: return & xcBlue;
+	case  2: return & xcGreen;
+	case  3: return & xcCyan;
+	case  4: return & xcRed;
+	case  5: return & xcMagenta;
+	case  6: return & xcBrown;
+	case  7: return & xcLightGrey;
+	case  8: return & xcDarkGrey;
+	case  9: return & xcLightBlue;
+	case 10: return & xcLightGreen;
+	case 11: return & xcLightCyan;
+	case 12: return & xcLightRed;
+	case 13: return & xcLightMagenta;
+	case 14: return & xcYellow;
+	case 15: return & xcWhite;
+	default: return & xcBlack;
+	}
+}
+#else
+inline ColorInUse & mapcolor (int color)
+{
+	if (color >= 0 && color < BASIC_COLORS)
+		return tablecolors [color];
+	definedcolor_t::iterator it= definedcolor.find (color);
+	if (it != definedcolor.end () )
+		return it->second;
+	return tablecolors [0];
+}
+#endif
+
+inline ColorInUse & mapnewcolor (int color)
+{
+	if (color >= 0 && color < BASIC_COLORS)
+		return tablecolors [color];
+	definedcolor_t::iterator it= definedcolor.find (color);
+	if (it != definedcolor.end () )
+		return it->second;
+	ColorInUse n= { new color_t, { 0, 0, 0} };
+	return definedcolor.insert (std::make_pair (color, n) ).first->second;
+}
+
+void init_colors ()
+{
+	TraceFunc tr ("init_colors");
+
+	COMPILE_ASSERT (sizeof (assignRGB) / sizeof (ColorRGB) ==
+		BASIC_COLORS);
+	COMPILE_ASSERT (sizeof (tablecolors) / sizeof (ColorInUse) ==
+		BASIC_COLORS);
+	#ifdef BLASSIC_USE_X
+	Colormap cm= DefaultColormap (display, screen);
+	#endif
+	for (int i= 0; i < BASIC_COLORS; ++i)
+	{
+		ColorInUse & ciu= tablecolors [i];
+		const ColorRGB & rgb= assignRGB [i];
+		ciu.rgb= rgb;
+		#ifdef BLASSIC_USE_WINDOWS
+                // Don't have a HDC yet, obtain one.
+                HWND hwndAux= GetDesktopWindow ();
+                HDC hdcAux= GetDC (hwndAux);
+                COLORREF newcolor= GetNearestColor (hdcAux, RGB (rgb.r, rgb.g, rgb.b) );
+                ReleaseDC (hwndAux, hdcAux);
+                ciu.rgb.r= GetRValue (newcolor);
+                ciu.rgb.g= GetGValue (newcolor);
+                ciu.rgb.b= GetBValue (newcolor);
+		* ciu.pc= CreatePen (PS_SOLID, 1, newcolor);
+		#elif defined BLASSIC_USE_X
+		XColor xc;
+		std::ostringstream namecolor;
+		namecolor << "rgb:" << std::hex << std::setfill ('0') <<
+			std::setw (2) << rgb.r << '/' <<
+			std::setw (2) << rgb.g << '/' <<
+			std::setw (2) << rgb.b;
+		tr.message (namecolor.str () );
+		XAllocNamedColor (display, cm,
+			namecolor.str ().c_str (), ciu.pc, & xc);
+		#endif
+	}
+}
+
+void setink (int inknum, const ColorRGB & rgb)
+{
+	//if (inknum < 0 || inknum > 15)
+	//	throw ErrFunctionCall;
+	//ColorInUse & ciu= tablecolors [inknum];
+	//ColorInUse & ciu= mapcolor (inknum);
+	ColorInUse & ciu= mapnewcolor (inknum);
+
+	ciu.rgb= rgb;
+	#ifdef BLASSIC_USE_WINDOWS
+        COLORREF newcolor= GetNearestColor (hdcPixmap, RGB (rgb.r, rgb.g, rgb.b) );
+        ciu.rgb.r= GetRValue (newcolor);
+        ciu.rgb.g= GetGValue (newcolor);
+        ciu.rgb.b= GetBValue (newcolor);
+	HPEN newpen= CreatePen (PS_SOLID, 1, newcolor);
+	if (ciu.pc == pforeground)
+	{
+		SelectObject (hdc, * ciu.pc);
+		SelectObject (hdcPixmap, * ciu.pc);
+	}
+	DeleteObject (* ciu.pc);
+	* ciu.pc= newpen;
+	#elif defined BLASSIC_USE_X
+	Colormap cm= DefaultColormap (display, screen);
+	XColor xc;
+	std::ostringstream namecolor;
+	namecolor << "rgb:" << std::hex << std::setfill ('0') <<
+		std::setw (2) << rgb.r << '/' <<
+		std::setw (2) << rgb.g << '/' <<
+		std::setw (2) << rgb.b;
+	XColor newpen;
+	XAllocNamedColor (display, cm,
+		namecolor.str ().c_str (), & newpen, & xc);
+	if (ciu.pc == pforeground)
+	{
+		XSetForeground (display, gcp, ciu.pc->pixel);
+		XSetForeground (display, gc, ciu.pc->pixel);
+	}
+	// Not sure if previous color needs to be freed and why.
+	* ciu.pc= newpen;
+	#endif
+}
+
+#if 0
+
 #ifdef BLASSIC_USE_WINDOWS
 
 struct assign_color {
@@ -710,6 +905,8 @@ void init_xcolors ()
 
 #endif
 
+#endif
+
 } // namespace
 
 void graphics::initialize (const char * progname)
@@ -747,7 +944,8 @@ void graphics::initialize (const char * progname)
 			tr.message ("Display opened");
 			inited= true;
 			screen= DefaultScreen (display);
-			init_xcolors ();
+			//init_xcolors ();
+			init_colors ();
 		}
 		else
 		{
@@ -780,7 +978,8 @@ void graphics::initialize (const char * progname)
         else
         {
                 inited= true;
-                init_wincolors ();
+                //init_wincolors ();
+		init_colors ();
         }
         hEvent= CreateEvent (NULL, FALSE, FALSE, NULL);
         // Event automatic, initial nonsignaled
@@ -825,6 +1024,55 @@ void graphics::uninitialize ()
                 UnregisterClass (LPCTSTR (atomClass),
                         GetModuleHandle (0) );
         #endif
+}
+
+void graphics::ink (int inknum, int cpccolor)
+{
+	// These rgb values are taken form screen captures
+	// of the WinAPE2 Amstrad CPC emulator.
+	static const ColorRGB cpctable []= {
+		{   0,   0,   0 }, // Black
+		{   0,   0,  96 }, // Blue
+		{   0,   0, 255 }, // Bright blue
+		{  96,   0,   0 }, // Red
+		{  96,   0,  96 }, // Magenta
+		{  96,   0, 255 }, // Mauve
+		{ 255,   0,   0 }, // Bright red
+		{ 255,   0,  96 }, // Purple
+		{ 255,   0, 255 }, // Bright magenta
+		{   0, 103,   0 }, // Green
+		{   0, 103,  96 }, // Cyan
+		{   0, 103, 255 }, // Sky blue
+		{  96, 103,   0 }, // Yellow
+		{  96, 103,  96 }, // White
+		{  96, 103, 255 }, // Pastel blue
+		{ 255, 103,   0 }, // Orange
+		{ 255, 103,  96 }, // Pink
+		{ 255, 103, 255 }, // Pastel magenta
+		{   0, 255,   0 }, // Bright green
+		{   0, 255,  96 }, // Sea green
+		{   0, 255, 255 }, // Bright cyan
+		{  96, 255,   0 }, // Lime green
+		{  96, 255,  96 }, // Pastel green
+		{  96, 255, 255 }, // Pastel cyan
+		{ 255, 255,   0 }, // Bright yellow
+		{ 255, 255,  96 }, // Pastel yellow
+		{ 255, 255, 255 }, // Brigth white
+	};
+	requiregraphics ();
+	if (cpccolor < 0 ||
+		cpccolor > int (sizeof (cpctable) / sizeof (ColorRGB) ) )
+		throw ErrFunctionCall;
+	const ColorRGB & rgb= cpctable [cpccolor];
+
+	setink (inknum, rgb);
+}
+
+void graphics::ink (int inknum, int r, int g, int b)
+{
+	requiregraphics ();
+	ColorRGB rgb= { r, g, b };
+	setink (inknum, rgb);
 }
 
 void graphics::idle ()
@@ -1149,7 +1397,7 @@ void transform_y (int & y)
 	case TransformIdentity:
 		break; // Nothing to do
 	case TransformInvertY:
-		y= screenheight - y;
+		y= screenheight - 1 - y;
 		break;
 	}
 }
@@ -1159,6 +1407,10 @@ void recreate_windows ();
 void setmode (int width, int height, int mode)
 {
 	TraceFunc tr ("setmode");
+
+	std::ostringstream oss;
+	oss << "Width " << short (width) << ", height " << short (height);
+	tr.message (oss.str () );
 
 	sysvar::set16 (sysvar::GraphicsWidth, short (width) );
 	sysvar::set16 (sysvar::GraphicsHeight, short (height) );
@@ -1368,34 +1620,6 @@ bool graphics::ingraphicsmode ()
         return actualmode != text_mode;
 }
 
-namespace {
-
-inline pcolor mapcolor (int color)
-{
-	switch (color)
-	{
-	case  0: return & xcBlack;
-	case  1: return & xcBlue;
-	case  2: return & xcGreen;
-	case  3: return & xcCyan;
-	case  4: return & xcRed;
-	case  5: return & xcMagenta;
-	case  6: return & xcBrown;
-	case  7: return & xcLightGrey;
-	case  8: return & xcDarkGrey;
-	case  9: return & xcLightBlue;
-	case 10: return & xcLightGreen;
-	case 11: return & xcLightCyan;
-	case 12: return & xcLightRed;
-	case 13: return & xcLightMagenta;
-	case 14: return & xcYellow;
-	case 15: return & xcWhite;
-	default: return & xcBlack;
-	}
-}
-
-} // namespace
-
 void graphics::setcolor (int color)
 {
 	//if (! inited) return;
@@ -1409,7 +1633,7 @@ void graphics::setcolor (int color)
 
 	#endif
 
-	pcolor pxc= mapcolor (color);
+	pcolor pxc= mapcolor (color).pc;
 
 	#if 0
 
@@ -1439,7 +1663,7 @@ void graphics::setcolor (int color)
 void graphics::setbackground (int color)
 {
 	//if (! inited) return;
-	pcolor pxc= mapcolor (color);
+	pcolor pxc= mapcolor (color).pc;
 	pbackground= pxc;
 }
 
@@ -1601,6 +1825,154 @@ inline void do_line (int x, int y)
 		do_line_mask (x, y);
 }
 
+std::string copychrat (int x, int y)
+{
+	TraceFunc tr ("copychrat");
+	{
+		std::ostringstream oss;
+		oss << "at " << x << ", " << y;
+		tr.message (oss.str () );
+	}
+
+	unsigned char ch [8]= {0};
+
+	#ifdef BLASSIC_USE_X
+	XImage * img= XGetImage (display, pixmap, x, y, 8, 8,
+		AllPlanes, XYPixmap);
+	if (img == NULL)
+		throw ErrNoGraphics; // Not a good idea, provisional.
+	unsigned long back= XGetPixel (img, 0, 0);
+	bool fFore= false;
+	unsigned long fore= 0;
+	for (int i= 0; i < 8; ++i)
+		for (int j= 0; j < 8; ++j)
+		{
+			unsigned long c= XGetPixel (img, j, i);
+			bool bit;
+			if (c == back)
+			{
+				bit= false;
+			}
+			else
+			{
+				if (! fFore)
+				{
+					fFore= true;
+					fore= c;
+				}
+				if (c != fore)
+				{
+					XDestroyImage (img);
+					return std::string ();
+				}
+				bit= true;
+			}
+			ch [i]<<= 1;
+			ch [i]|= bit;
+		}
+	XDestroyImage (img);
+	#elif defined BLASSIC_USE_WINDOWS
+        COLORREF back= GetPixel (hdcPixmap, x, y);
+        bool fFore= false;
+        COLORREF fore= 0;
+        for (int i= 0; i < 8; ++i)
+                for (int j= 0; j < 8; ++j)
+                {
+                        COLORREF c= GetPixel (hdcPixmap, x + j, y + i);
+                        bool bit;
+                        if (c == back)
+                                bit= false;
+                        else
+                        {
+                                if (! fFore)
+                                {
+                                        fFore= true;
+                                        fore= c;
+                                }
+                                if (c != fore)
+                                        return  std::string ();
+                                bit= true;
+                        }
+                        ch [i]<<= 1;
+                        ch [i]|= bit;
+                }
+        #endif
+
+	#ifndef NDEBUG
+	{
+		std::ostringstream oss;
+		oss << "Char: ";
+		for (int i= 0; i < 8; ++i)
+		{
+			oss << static_cast <unsigned int> (ch [i]) << ", ";
+		}
+		tr.message (oss.str () );
+	}
+	#endif
+
+	char chinv [8];
+	for (int i= 0; i < 8; ++i)
+		chinv [i]= static_cast <unsigned char> (~ ch [i]);
+	for (int i= 0; i < 256; ++i)
+	{
+		if (memcmp (charset::data [i], ch, 8) == 0)
+			return std::string (1, static_cast <char> (i) );
+		if (memcmp (charset::data [i], chinv, 8) == 0)
+			return std::string (1, static_cast <char> (i) );
+	}
+
+	return std::string ();
+}
+
+int test ()
+{
+	int x= lastx;
+	int y= lasty;
+	transform_y (y);
+
+	if (x < 0 || x >= screenwidth || y < 0 || y >= screenheight)
+		return 0;
+
+	#ifdef BLASSIC_USE_X
+	XImage * img= XGetImage (display, pixmap, x, y, 1, 1,
+		AllPlanes, XYPixmap);
+	if (img == NULL)
+		throw ErrNoGraphics; // Not a good idea, provisional.
+	unsigned long color= XGetPixel (img, 0, 0);
+	XDestroyImage (img);
+	for (int i= 0; i < 16; ++i)
+		if (mapcolor (i).pc->pixel == color)
+			return i;
+	for (definedcolor_t::iterator it= definedcolor.begin ();
+		it != definedcolor.end (); ++it)
+	{
+		if (it->second.pc->pixel == color)
+			return it->first;
+	}
+	return -1;
+	#elif defined BLASSIC_USE_WINDOWS
+	COLORREF color= GetPixel (hdcPixmap, x, y);
+	for (int i= 0; i < 16; ++i)
+	{
+		//const ColorRGB & c= assignRGB [i];
+		const ColorRGB & c= mapcolor (i).rgb;
+		if (RGB (c.r, c.g, c.b) == color)
+		//if (GetNearestColor (hdcPixmap, RGB (c.r, c.g, c.b) ) == color)
+			return i;
+	}
+	for (definedcolor_t::iterator it= definedcolor.begin ();
+		it != definedcolor.end (); ++it)
+	{
+		const ColorRGB & c= it->second.rgb;
+		if (RGB (c.r, c.g, c.b) == color)
+			return it->first;
+	}
+	return -1;
+	#else
+	return -1;
+	#endif
+}
+
 } // namespace
 
 void graphics::line (int x, int y)
@@ -1743,6 +2115,18 @@ void graphics::plot (int x, int y)
 void graphics::plotr (int x, int y)
 {
 	plot (lastx + x, lasty + y);
+}
+
+int graphics::test (int x, int y, bool relative)
+{
+	// Check for graphics mode is done when calling move.
+	if (relative)
+	{
+		x+= lastx;
+		y+= lasty;
+	}
+	move (x, y);
+	return ::test ();
 }
 
 namespace {
@@ -2609,11 +2993,11 @@ public:
 	}
 	void setcolor (int color)
 	{
-		foreground= mapcolor (color);
+		foreground= mapcolor (color).pc;
 	}
 	void setbackground (int color)
 	{
-		background= mapcolor (color);
+		background= mapcolor (color).pc;
 	}
 	void movecharforward (size_t n)
 	{
@@ -2829,6 +3213,12 @@ public:
 		}
 		#endif
 	}
+	std::string copychr ()
+	{
+		int x1= (orgx + x) * 8;
+		int y1= (orgy + y) * 8;
+		return copychrat (x1, y1);
+	}
 private:
 	int orgx, orgy, width, height;
 	pcolor foreground;
@@ -2994,6 +3384,12 @@ void graphics::stringout (BlChannel ch, const std::string & str)
 	BlWindow * pwin= mapwindow [ch];
 	for (std::string::size_type i= 0, l= str.size (); i < l; ++i)
 		pwin->charout (str [i]);
+}
+
+std::string graphics::copychr (BlChannel ch)
+{
+	BlWindow * pwin= mapwindow [ch];
+	return pwin->copychr ();
 }
 
 #if 0

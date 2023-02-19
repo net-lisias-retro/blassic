@@ -1,5 +1,5 @@
 // runnerline.cpp
-// Revision 22-may-2003
+// Revision 26-may-2003
 
 #include "runnerline.h"
 
@@ -230,6 +230,14 @@ RunnerLine::mapfunc_t RunnerLine::initmapfunc ()
         m [keyMASK]=         & RunnerLine::do_mask;
         m [keyWINDOW]=       & RunnerLine::do_window;
         m [keyGRAPHICS]=     & RunnerLine::do_graphics;
+	m [keyBEEP]=         & RunnerLine::do_beep;
+	// DEFINT, DEFSTR, DEFREAL, DEFSNG and DEFDBL use same function.
+	m [keyDEFINT]=       & RunnerLine::do_defint;
+	m [keyDEFSTR]=       & RunnerLine::do_defint;
+	m [keyDEFREAL]=      & RunnerLine::do_defint;
+	m [keyDEFSNG]=       & RunnerLine::do_defint;
+	m [keyDEFDBL]=       & RunnerLine::do_defint;
+	m [keyINK]=          & RunnerLine::do_ink;
 	return m;
 }
 
@@ -988,6 +996,17 @@ void RunnerLine::valmax (BlResult & result)
         result= bnMax;
 }
 
+void RunnerLine::valtest (BlResult & result, bool relative)
+{
+	expecttoken ('(');
+	int x= expectinteger ();
+	requiretoken (',');
+	int y= expectinteger ();
+	requiretoken (')');
+	gettoken ();
+	result= graphics::test (x, y, relative);
+}
+
 void RunnerLine::valmid_s (BlResult & result)
 {
 	expecttoken ('(');
@@ -1362,6 +1381,17 @@ void RunnerLine::valtrim (BlResult & result)
 	result= str;
 }
 
+void RunnerLine::valcopychr_s (BlResult & result)
+{
+	expecttoken ('(');
+	expecttoken ('#');
+	BlChannel c= expectchannel ();
+	requiretoken (')');
+	BlFile & window= getfile (c);
+	result= window.copychr ();
+	gettoken ();
+}
+
 void RunnerLine::valfn (BlResult & result)
 {
         expecttoken (keyIDENTIFIER);
@@ -1622,6 +1652,9 @@ void RunnerLine::valbase (BlResult & result)
 		result= directory.findnext ();
 		gettoken ();
 		break;
+	case keyCOPYCHR_S:
+		valcopychr_s (result);
+		break;
 	case keyASC:
 		valasc (result);
 		break;
@@ -1796,6 +1829,12 @@ void RunnerLine::valbase (BlResult & result)
 		break;
 	case keyATAN2:
 		valnumericfunc2 (atan2, result);
+		break;
+	case keyTEST:
+		valtest (result, false);
+		break;
+	case keyTESTR:
+		valtest (result, true);
 		break;
         case keyFN:
                 valfn (result);
@@ -4446,6 +4485,8 @@ bool RunnerLine::do_plot ()
 bool RunnerLine::do_resume ()
 {
 	ProgramPos posresume= runner.geterrpos ();
+	if (posresume.getnum () == 0)
+		throw ErrCannotResume;
         gettoken ();
         if (token.code == keyNEXT)
 	{
@@ -4458,8 +4499,8 @@ bool RunnerLine::do_resume ()
 		posresume= l;
 	}
         require_endsentence ();
-	if (posresume.getnum () == 0)
-                throw ErrCannotResume;
+	//if (posresume.getnum () == 0)
+        //        throw ErrCannotResume;
         runner.jump_to (posresume);
 	runner.clearerror ();
         return true;
@@ -4792,6 +4833,25 @@ inline char get_letter (const std::string & str)
 
 }
 
+void RunnerLine::definevars (VarType type)
+{
+	do {
+		expecttoken (keyIDENTIFIER);
+		char c= get_letter (token.str);
+		gettoken ();
+		if (token.code == '-')
+		{
+			expecttoken (keyIDENTIFIER);
+			char c2= get_letter (token.str);
+			definevar (type, c, c2);
+			gettoken ();
+		}
+		else
+			definevar (type, c);
+	} while (token.code == ',');
+	require_endsentence ();
+}
+
 bool RunnerLine::do_def ()
 {
         gettoken ();
@@ -4805,6 +4865,7 @@ bool RunnerLine::do_def ()
 	case keyREAL:
 		type= token.code == keySTR ? VarString :
 			token.code == keyINT ? VarInteger : VarNumber;
+		#if 0
 		do {
 			expecttoken (keyIDENTIFIER);
 			char c= get_letter (token.str);
@@ -4820,6 +4881,9 @@ bool RunnerLine::do_def ()
 				definevar (type, c);
 		} while (token.code == ',');
 		require_endsentence ();
+		#else
+		definevars (type);
+		#endif
 		return false;
 	default:
 		throw ErrSyntax;
@@ -5553,6 +5617,15 @@ bool RunnerLine::do_mask ()
 bool RunnerLine::do_window ()
 {
 	gettoken ();
+	if (token.code == keySWAP)
+	{
+		BlChannel ch1= expectchannel ();
+		requiretoken (',');
+		BlChannel ch2= expectchannel ();
+		require_endsentence ();
+		runner.windowswap (ch1, ch2);
+		return false;
+	}
 	BlChannel ch= 0;
 	if (token.code == '#')
 	{
@@ -5636,6 +5709,56 @@ bool  RunnerLine::do_graphics ()
 	default:
 		throw ErrSyntax;
 	}
+	return false;
+}
+
+bool RunnerLine::do_beep ()
+{
+	gettoken ();
+	require_endsentence ();
+	ring ();
+	return false;
+}
+
+bool RunnerLine::do_defint ()
+{
+	VarType type;
+	switch (token.code)
+	{
+	case keyDEFINT:
+		type= VarInteger; break;
+	case keyDEFSTR:
+		type= VarString; break;
+	case keyDEFREAL: case keyDEFSNG: case keyDEFDBL:
+		type= VarNumber; break;
+	default:
+		throw ErrBlassicInternal;
+	}
+	definevars (type);
+	return false;
+}
+
+bool RunnerLine::do_ink ()
+{
+	int inknum= expectinteger ();
+	requiretoken (',');
+	int r= expectinteger ();
+	if (endsentence () )
+	{
+		graphics::ink (inknum, r);
+		return false;
+	}
+	int g= expectinteger ();
+	if (endsentence () )
+	{
+		// Flashing ink in Amstrad CPC,
+		// just ignore second parameter.
+		graphics::ink (inknum, r);
+		return false;
+	}
+	int b= expectinteger ();
+	require_endsentence ();
+	graphics::ink (inknum, r, g, b);
 	return false;
 }
 

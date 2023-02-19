@@ -1,5 +1,5 @@
 // keyword.h
-// Revision 23-may-2003
+// Revision 26-may-2003
 
 #ifndef KEYWORD_H_
 #define KEYWORD_H_
@@ -111,6 +111,13 @@ const BlCode
 	keyWINDOW=            0x0166,
 	keyGRAPHICS=          0x0167,
 	keyAFTER=             0x0168,
+	keyBEEP=              0x0169,
+	keyDEFINT=            0x016A,
+	keyDEFSTR=            0x016B,
+	keyDEFREAL=           0x016C,
+	keyDEFSNG=            0x016D,
+	keyDEFDBL=            0x016E,
+	keyINK=               0x016F,
 
 	keyMID_S=             0x0201,
 	keyLEFT_S=            0x0202,
@@ -141,6 +148,7 @@ const BlCode
 	keyOSNAME_S=          0x021B,
 	keyFINDFIRST_S=       0x021C,
 	keyFINDNEXT_S=        0x021D,
+	keyCOPYCHR_S=         0x021E,
 
 	keyASC=               0x0301,
 	keyLEN=               0x0302,
@@ -196,6 +204,8 @@ const BlCode
 	keyACOSH=             0x0334,
 	keyATANH=             0x0335,
 	keyATAN2=             0x0336,
+	keyTEST=              0x0337,
+	keyTESTR=             0x0338,
 
 	keyNOT=               0x0401,
 	keyOR=                0x0402,

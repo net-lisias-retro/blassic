@@ -1,3 +1,19 @@
+Version 0.5.6
+
+	Instructions BEEP, DEFINT, DEFSTR, DEFREAL, DEFSNG and DEFDBL.
+
+	RESUME without error is an error even with line number.
+
+	Function COPYCHR$.
+
+	Instruction WINDOW SWAP.
+
+	Functions TEST and TESTR.
+
+	Instruction INK.
+
+	Solved problem when running from telnet in hp-ux.
+
 Version 0.5.5
 
 	SINH, COSH, TANH, ASINH, ACOSH and ATANH functions.

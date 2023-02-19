@@ -1,5 +1,5 @@
 // cursor.h
-// Revision 21-may-2003
+// Revision 24-may-2003
 
 #ifndef CURSOR_H_
 #define CURSOR_H_
@@ -46,6 +46,8 @@ void clean_input ();
 inline void clean_input () { }
 
 #endif
+
+void ring ();
 
 #endif
 

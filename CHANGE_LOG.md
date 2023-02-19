@@ -1,5 +1,13 @@
 # Blassic :: Change Log
 
+* 2003-0528: 0.5.6 (Julián Albo)
+	+ Instructions BEEP, DEFINT, DEFSTR, DEFREAL, DEFSNG and DEFDBL.
+	+ RESUME without error is an error even with line number.
+	+ Function COPYCHR$.
+	+ Instruction WINDOW SWAP.
+	+ Functions TEST and TESTR.
+	+ Instruction INK.
+	+ Solved problem when running from telnet in hp-ux.
 * 2003-0523: 0.5.5 (Julián Albo)
 	+ SINH, COSH, TANH, ASINH, ACOSH and ATANH functions.
 	+ Better handling of math errors.

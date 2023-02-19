@@ -1,5 +1,5 @@
 // keyword.cpp
-// Revision 23-may-2003
+// Revision 26-may-2003
 
 #include "keyword.h"
 #include "util.h"
@@ -143,6 +143,13 @@ const_keycode table []= {
 	keycode ("WINDOW",            keyWINDOW),
 	keycode ("GRAPHICS",          keyGRAPHICS),
 	keycode ("AFTER",             keyAFTER),
+	keycode ("BEEP",              keyBEEP),
+	keycode ("DEFINT",            keyDEFINT),
+	keycode ("DEFSTR",            keyDEFSTR),
+	keycode ("DEFREAL",           keyDEFREAL),
+	keycode ("DEFSNG",            keyDEFSNG),
+	keycode ("DEFDBL",            keyDEFDBL),
+	keycode ("INK",               keyINK),
 
 	keycode ("MID$",              keyMID_S),
 	keycode ("LEFT$",             keyLEFT_S),
@@ -173,6 +180,7 @@ const_keycode table []= {
 	keycode ("OSNAME$",           keyOSNAME_S),
 	keycode ("FINDFIRST$",        keyFINDFIRST_S),
 	keycode ("FINDNEXT$",         keyFINDNEXT_S),
+	keycode ("COPYCHR$",          keyCOPYCHR_S),
 
         keycode ("ASC",               keyASC),
 	keycode ("LEN",               keyLEN),
@@ -228,6 +236,8 @@ const_keycode table []= {
 	keycode ("ACOSH",             keyACOSH),
 	keycode ("ATANH",             keyATANH),
 	keycode ("ATAN2",             keyATAN2),
+	keycode ("TEST",              keyTEST),
+	keycode ("TESTR",             keyTESTR),
 
 	keycode ("NOT",               keyNOT),
 	keycode ("OR",                keyOR),

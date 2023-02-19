@@ -1,5 +1,5 @@
 // cursor.cpp
-// Revision 21-may-2003
+// Revision 28-may-2003
 
 #include "cursor.h"
 #include "graphics.h"
@@ -70,7 +70,8 @@ const char
 	* strMoveForwardN= NULL,  * strMoveBackN= NULL,
 	* strMoveUp= NULL,        * strMoveDown= NULL,
 	* strMoveUpN= NULL,       * strMoveDownN= NULL,
-	* strSaveCursorPos= NULL, * strRestoreCursorPos= NULL;
+	* strSaveCursorPos= NULL, * strRestoreCursorPos= NULL,
+	* strBell= NULL;
 
 const char * newstr (const char * str)
 {
@@ -148,6 +149,8 @@ const str_terminfo strinfo []= {
 
 	str_terminfo (strSaveCursorPos, "sc" ),
 	str_terminfo (strRestoreCursorPos, "rc" ),
+
+	str_terminfo (strBell, "bel"),
 };
 
 void init ()
@@ -278,6 +281,7 @@ void cursorinvisible ()
 	struct termios ter;
 	tcgetattr (STDIN_FILENO, & ter);
 	ter.c_lflag&= ~ (ECHO | ICANON);
+	ter.c_cc [VMIN]= 1;
 	tcsetattr (STDIN_FILENO, TCSANOW, & ter);
 
         #endif
@@ -955,10 +959,12 @@ public:
 	PollInput ()
 	{
 		pfd.fd= STDIN_FILENO;
-		pfd.events= POLLIN | POLLERR | POLLNVAL;
+		//pfd.events= POLLIN | POLLERR | POLLNVAL;
+		pfd.events= POLLIN | POLLERR | POLLNVAL | POLLRDNORM;
 	}
 	int poll ()
 	{
+		pfd.events= POLLIN | POLLERR | POLLNVAL | POLLRDNORM;
 		return ::poll (& pfd, 1, 100);
 	}
 private:
@@ -991,7 +997,9 @@ std::string readkey (ReadType type)
         std::string str;
 	bool reset_blocking_mode= false;
 	int l;
-	char c;
+	//char c;
+	const int lbuf= 32;
+	char buffer [lbuf + 1];
 
 	if (! charpending.empty () )
 		goto check_it;
@@ -1019,21 +1027,32 @@ std::string readkey (ReadType type)
 
 	fcntl (STDIN_FILENO, F_SETFL, O_NONBLOCK);
 	reset_blocking_mode= true;
-	l= read (STDIN_FILENO, & c, 1);
-	if (l != 1 && type == ReadWait)
+	//l= read (STDIN_FILENO, & c, 1);
+	l= read (STDIN_FILENO, buffer, lbuf);
+	//if (l != 1 && type == ReadWait)
+	if (l < 1 && type == ReadWait)
 	{
 		do {
-			wait_event ();
-			l= read (STDIN_FILENO, & c, 1);
-		} while (l != 1);
+			//wait_event ();
+			//l= read (STDIN_FILENO, & c, 1);
+			do_poll ();
+			l= read (STDIN_FILENO, buffer, lbuf);
+		//} while (l != 1);
+		} while (l < 1);
 	}
-	if (l == 1)
-		str+= c;
+	//if (l == 1)
+	//	str+= c;
+	if (l >= 1)
+	{
+		buffer [l]= '\0';
+		str+= buffer;
+	}
 
 	#endif
 
 	read_another:
-	
+
+	//std::cerr << "Adding: >" << str << '<' << std::endl;	
 	charpending+= str;
 	str.erase ();
 
@@ -1059,10 +1078,17 @@ std::string readkey (ReadType type)
 			fcntl (STDIN_FILENO, F_SETFL, O_NONBLOCK);
 			reset_blocking_mode= true;
 			do_poll ();
-			l= read (STDIN_FILENO, & c, 1);
-			if (l == 1)
+			//l= read (STDIN_FILENO, & c, 1);
+			//if (l == 1)
+			//{
+			//	str= c;
+			//	goto read_another;
+			//}
+			l= read (STDIN_FILENO, buffer, lbuf);
+			if (l >= 1)
 			{
-				str= c;
+				buffer [l]= '\0';
+				str= buffer;
 				goto read_another;
 			}
 			str= charpending [0];
@@ -1119,5 +1145,18 @@ void clean_input ()
 }
 
 #endif
+
+void ring ()
+{
+	#ifdef BLASSIC_USE_WINDOWS
+
+	MessageBeep (MB_ICONEXCLAMATION);
+
+	#elif defined BLASSIC_USE_TERMINFO
+
+	calltputs (strBell);
+
+	#endif
+}
 
 // Fin de cursor.cpp

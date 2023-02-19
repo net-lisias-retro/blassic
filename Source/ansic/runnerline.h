@@ -1,5 +1,5 @@
 // runnerline.h
-// Revision 23-may-2003
+// Revision 26-may-2003
 
 #ifndef RUNNERLINE_H_
 
@@ -97,6 +97,7 @@ private:
         void valcvl (BlResult & result);
         void valmin (BlResult & result);
         void valmax (BlResult & result);
+	void valtest (BlResult & result, bool relative);
 
 	void valmid_s (BlResult & result);
 	void valleft_s (BlResult & result);
@@ -123,6 +124,7 @@ private:
         void valmkd_s (BlResult & result);
         void valmkl_s (BlResult & result);
         void valtrim (BlResult & result);
+	void valcopychr_s (BlResult & result);
 
         void valfn (BlResult & result);
 
@@ -229,6 +231,7 @@ private:
 	bool do_mid_s ();
 	bool do_draw ();
 	bool do_def_fn ();
+	void definevars (VarType type);
         bool do_def ();
         bool do_fn ();
         bool do_programarg_s ();
@@ -265,6 +268,9 @@ private:
 	void do_graphics_paper ();
 	void do_graphics_cls ();
 	bool do_graphics ();
+	bool do_beep ();
+	bool do_defint ();
+	bool do_ink ();
 };
 
 #endif

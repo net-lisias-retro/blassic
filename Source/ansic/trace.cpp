@@ -35,7 +35,7 @@ TraceFunc * * lastpos= & initial;
 ostream * opentracefile (const char * str)
 {
 	std::ofstream * pof=
-		new ofstream (str, std::ios::ate | std::ios::out);
+		new ofstream (str, std::ios::app | std::ios::out);
 	if (! pof->is_open () )
 	{
 		cerr << "Error al abrir " << str << endl;

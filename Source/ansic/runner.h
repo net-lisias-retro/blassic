@@ -1,5 +1,5 @@
 // runner.h
-// Revision 22-may-2003
+// Revision 25-may-2003
 
 #ifndef RUNNER_H_
 #define RUNNER_H_
@@ -281,6 +281,7 @@ public:
         void close_all ();
         void destroy_windows ();
         void closechannel (BlChannel channel);
+        void windowswap (BlChannel ch1, BlChannel ch2);
 
 	void setreadline (BlLineNumber bln);
         void goto_line (BlLineNumber dest);
