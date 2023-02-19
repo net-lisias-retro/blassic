@@ -56,7 +56,7 @@ TraceFunc::TraceFunc (const char * strFuncName) :
 		char * aux= getenv ("TRACEFUNC");
 		if (aux)
 		{
-			pof= new ofstream (aux, std::ios::ate);
+			pof= new ofstream (aux, std::ios::ate | std::ios::out);
 			if (! pof->is_open () )
 			{
 				cerr << "Error al abrir " << aux << endl;
@@ -102,7 +102,7 @@ void TraceFunc::message (const std::string & strMes)
 {
 	if (pof)
 	{
-		* pof << string (indent + 2, ' ') << strfunc <<
+		* pof << string (indent, ' ') << strfunc <<
 			": " << strMes << endl;
 	}
 }

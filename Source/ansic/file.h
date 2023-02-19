@@ -53,12 +53,16 @@ public:
         virtual void assign (const std::string & name,
                 const std::string & value, Align align);
 	virtual std::string read (size_t n);
+	virtual void gotoxy (int x, int y);
+	virtual void setcolor (int color);
+	virtual void setbackground (int color);
+	virtual void cls ();
 private:
         virtual void outstring (const std::string & str);
         virtual void outchar (char c);
-        virtual void outnumber (BlNumber n);
-	virtual void outinteger (BlInteger n);
-        virtual void outlinenumber (BlLineNumber l);
+        //virtual void outnumber (BlNumber n);
+	//virtual void outinteger (BlInteger n);
+        //virtual void outlinenumber (BlLineNumber l);
 
         OpenMode mode;
 	char cDelimiter, cQuote, cEscape;
@@ -72,14 +76,40 @@ public:
 	void getline (std::string & str);
 	std::string read (size_t n);
 	void tab (size_t n);
+	void gotoxy (int x, int y);
+	virtual void setcolor (int color);
+	virtual void setbackground (int color);
+	virtual void cls ();
 private:
         void outstring (const std::string & str);
         void outchar (char c);
-	void outnumber (BlNumber n);
-	void outinteger (BlInteger n);
+	//void outnumber (BlNumber n);
+	//void outinteger (BlInteger n);
 
         std::istream & in;
         std::ostream & out;
+};
+
+class BlFileWindow : public BlFile {
+public:
+	BlFileWindow (BlChannel ch);
+	BlFileWindow (BlChannel ch, int x1, int x2, int y1, int y2);
+	~BlFileWindow ();
+	void reset (int x1, int x2, int y1, int y2);
+	virtual bool eof ();
+	virtual void flush ();
+	void getline (std::string & str);
+	std::string read (size_t n);
+	void tab (size_t n);
+	void gotoxy (int x, int y);
+	virtual void setcolor (int color);
+	virtual void setbackground (int color);
+	virtual void cls ();
+private:
+        void outstring (const std::string & str);
+        void outchar (char c);
+
+	BlChannel ch;
 };
 
 class BlFileOut : public BlFile {
@@ -92,9 +122,9 @@ protected:
 private:
 	void outstring (const std::string & str);
 	void outchar (char c);
-	void outnumber (BlNumber n);
-	void outinteger (BlInteger n);
-	void outlinenumber (BlLineNumber l);
+	//void outnumber (BlNumber n);
+	//void outinteger (BlInteger n);
+	//void outlinenumber (BlLineNumber l);
 };
 
 class BlFileOutString : public BlFileOut {

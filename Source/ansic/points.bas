@@ -9,8 +9,11 @@ if h = 0 then mode m : else mode m, h
 label init
 
 d= SYSVARPTR
-w= PEEK (d) + 256 * PEEK (d + 1)
-h= PEEK (d + 2) + 256 * PEEK (d + 3)
+rem w= PEEK (d) + 256 * PEEK (d + 1)
+w= peek16 (d)
+rem h= PEEK (d + 2) + 256 * PEEK (d + 3)
+h= peek16 (d + 2)
+
 randomize time
 for i= 1 to w * h / 10
 	color rnd * 16

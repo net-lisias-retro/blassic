@@ -1,5 +1,23 @@
 # Blassic :: Change Log
 
+* 2003-0114: 0.5.0 (Julián Albo)
+	+ Speed improvement.
+	+ "PRINT , , 1" now is valid syntax. Same in WRITE.
+	+ Better implementation of FILES.
+	+ XPOS, YPOS, PEEK16 and PEEK32 functions.
+	+ DRAWR, PLOTR, MOVER, POKE16, POKE32, RENUM, CIRCLE, MASK, WINDOW and GRAPHICS instructions.
+	+ Completed the syntax of PLOT, PLOTR, DRAW, DRAWR, MOVE and MOVER with ink and ink mode parameters.
+	+ Adapated some instructions to work with text windows.
+	+ MODE string, when string can be "spectrum" or "cpc2"
+	+ Bug PRINT AT invert arguments, corrected.
+	+ Bug PRINT AT does not always work, corrected.
+	+ Added variant: VAL evaluates expressions (can run more Sinclair ZX family programs). Activable with "POKE SYSVARPTR + 25, 1".
+	+ New command line options -m mode and -d.
+	+ Added variant "Next check relaxed", needed for many ZX-81 and Spectrum programas. Activable with "POKE SYSVARPTR + 26, 1".
+	+ Added variant can DIM an array already dimensioned, needed for ZX programs. Activable with "POKE SYVARPTR + 27, 1".
+	+ New sample programs.
+	+ Memory leak in ERASE corrected.
+	+ Bug on negative integer DATA corrected.
 * 2002-1215: 0.4.5 (Julián Albo)
 	+ EDIT command. Line editing in AUTO and in prompt.
 	+ Prompt "Ok" instead of "]" (sorry, Apple ]['s nostalgics).

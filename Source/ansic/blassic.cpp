@@ -18,13 +18,18 @@
 #include "graphics.h"
 #include "sysvar.h"
 #include "trace.h"
+#include "util.h"
 
 #include <fstream>
-#include <iomanip>
+//#include <iomanip>
 #include <sstream>
 #include <signal.h>
 
 #include "error.h"
+
+#ifndef _Windows
+#include <unistd.h>
+#endif
 
 #if defined __BORLANDC__ && defined _Windows
         #include <condefs.h>
@@ -99,7 +104,9 @@ void init_signal_handlers ()
 
 class Initializer {
 public:
-        Initializer (const char * progname)
+        Initializer (const char * progname) :
+        	detached_graphics (false),
+        	detached_text (false)
 	{
 		TraceFunc tr ("Initializer::Initializer");
 
@@ -110,10 +117,16 @@ public:
 	{
 		TraceFunc tr ("Initializer::~Initializer");
 
-		graphics::uninitialize ();
-		//cursorvisible ();
-		quitconsole ();
+		if (! detached_graphics)
+			graphics::uninitialize ();
+		if (! detached_text)
+			quitconsole ();
 	}
+	void detachgraphics () { detached_graphics= true; }
+	void detachtext () { detached_text= true; }
+private:
+	bool detached_graphics;
+	bool detached_text;
 };
 
 std::vector <std::string> args;
@@ -156,7 +169,7 @@ int blassic (int argc, char * * argv)
 
 	TraceFunc tr ("blassic");
 
-        cout << std::setprecision (16);
+        //cout << std::setprecision (16);
        	init_signal_handlers ();
 	sysvar::init ();
 	Initializer initializer (argv [0] );
@@ -222,12 +235,57 @@ int blassic (int argc, char * * argv)
 			sysvar::set32 (sysvar::AutoInit, ini);
 			++n;
 		}
+		else if (strcmp (argv [n], "-d") == 0)
+		{
+			#ifdef __WIN32__
+
+			FreeConsole ();
+
+			#else
+
+			switch (fork () )
+			{
+			case pid_t (-1):
+				throw "Error en fork";
+			case pid_t (0):
+				//cerr << "child" << flush;
+				for (int i= 0; i < 3; ++i)
+					if (isatty (i) )
+						close (i);
+				initializer.detachtext ();
+				break;
+			default:
+				//cerr << "parent" << flush;
+				initializer.detachgraphics ();
+				return 0;
+			}
+
+			#endif
+
+			++n;
+		}
+		else if (strcmp (argv [n], "-m") == 0)
+		{
+			if (++n == argc)
+				throw "Option m needs argument";
+			int mode= atoi (argv [n] );
+			std::string str (argv [n] );
+			std::string::size_type x= str.find ('x');
+			if (x != std::string::npos)
+			{
+				int mode2= atoi (str.c_str () + x + 1);
+				graphics::setmode (mode, mode2, false);
+			}
+			else
+				if (mode != 0)
+					graphics::setmode (mode);
+			++n;
+		}
 		else
 		{
 			try
 			{
 				short narg= short (argc - n - 1);
-				sysvar::set16 (sysvar::NumArgs, narg);
 				setprogramargs (argv + n + 1, narg);
 				program.load (argv [n] );
 				runner.run ();
@@ -259,28 +317,38 @@ int main (int argc, char * * argv)
 
 	try {
 		r= blassic (argc, argv);
+		std::ostringstream oss;
+		oss << "Returning " << r << " without exception.";
+		tr.message (oss.str () );
 	}
 	catch (BlErrNo ben) {
 		cerr << ErrStr (ben) << endl;
+		tr.message (ErrStr (ben) );
 		r= 127;
 	}
 	catch (BlError & be) {
 		cerr << be;
+		tr.message (util::to_string (be) );
 		r= 127;
 	}
-	catch (std::exception & e) {
+	catch (std::exception & e)
+	{
 		cerr << e.what () << endl;
+		tr.message (e.what () );
 		r= 127;
 	}
 	catch (Exit & e) {
 		r= e.code ();
+		tr.message (util::to_string (r) );
 	}
 	catch (const char * str) {
 		cerr << str << endl;
+		tr.message (str);
 		r= 127;
 	}
 	catch (...) {
 		cerr << "Unexpected error." << endl;
+		tr.message ("Unexpected error.");
 		r= 127;
         }
 	return r;

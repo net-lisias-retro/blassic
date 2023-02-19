@@ -1,7 +1,5 @@
 // graphics.cpp
 
-//#define TEST_TEXT
-
 #ifdef __BORLANDC__
 #pragma warn -8027
 #endif
@@ -9,6 +7,7 @@
 #include "graphics.h"
 #include "sysvar.h"
 #include "error.h"
+#include "var.h"
 //#include "cursor.h"
 #include "key.h"
 #include "util.h"
@@ -20,7 +19,9 @@ using std::endl;
 #include <cassert>
 #define ASSERT assert
 
+#include <map>
 #include <queue>
+#include <cmath>
 
 #ifdef BLASSIC_USE_SVGALIB
 
@@ -81,14 +82,13 @@ typedef HPEN * pcolor;
 
 #if defined (BLASSIC_USE_WINDOWS) || defined (BLASSIC_USE_X)
 
-pcolor pforeground, pbackground;
+pcolor pforeground, pbackground,
+	default_foreground, default_background;
 
 #endif
 
 #include <string>
 #include <algorithm>
-
-void draw_string (const std::string & str);
 
 namespace {
 
@@ -175,6 +175,16 @@ bool opaquemode= true;
 
 int xmousepos, ymousepos;
 
+const int text_mode= 0, user_mode= -1;
+
+int actualmode= text_mode;
+
+inline void requiregraphics ()
+{
+	if (actualmode == text_mode)
+		throw ErrNoGraphics;
+}
+
 #ifdef BLASSIC_USE_SVGALIB
 
 bool svgalib= false;
@@ -190,13 +200,26 @@ int lastx, lasty;
 
 #if defined BLASSIC_USE_X
 
-int drawmode= GXcopy;
+static const int
+	drawmode_copy= GXcopy,
+	drawmode_xor= GXxor,
+	drawmode_and= GXand,
+	drawmode_or= GXor,
+	drawmode_invert= GXinvert;
 
 #elif defined BLASSIC_USE_WINDOWS
 
-int drawmode= R2_COPYPEN;
+static const int
+	drawmode_copy= R2_COPYPEN,
+	drawmode_xor= R2_XORPEN,
+	// Revisar los valores para and y or.
+	drawmode_and= R2_MASKPEN,
+	drawmode_or= R2_MERGEPEN,
+	drawmode_invert= R2_NOT;
 
 #endif
+
+int drawmode= drawmode_copy;
 
 void reinit_pixmap ()
 {
@@ -221,7 +244,7 @@ void reinit_window ()
         #endif
 
         #ifdef BLASSIC_USE_X
-	XSetFunction (display, gc, GXcopy);
+	XSetFunction (display, gc, drawmode_copy);
 	XCopyArea (display, pixmap, window, gc,
 		0, 0, screenwidth, screenheight, 0, 0);
 	XSetForeground (display, gc, BlackPixel (display, screen) );
@@ -455,15 +478,30 @@ void create_window (int width, int height)
         }
         #endif
 
-        #ifdef BLASSIC_USE_X
+	#ifdef BLASSIC_USE_X
+	#if 1
 	window= XCreateSimpleWindow (display,
 		RootWindow (display, screen),
-		0, 0, width, height, 5,
-		BlackPixel (display, screen),
+		0, 0, width, height,
+		5, BlackPixel (display, screen),
 		WhitePixel (display, screen) );
+	#else
+	int depth= 8;
+	window= XCreateWindow (display,
+		RootWindow (display, screen),
+		0, 0, width, height,
+		5,
+		depth,
+		InputOutput,
+		CopyFromParent,
+		0,
+		NULL);
+	#endif
 	window_created= true;
 
+	#if 1
 	int depth= DefaultDepth (display, DefaultScreen (display) );
+	#endif
 	pixmap= XCreatePixmap (display, window,
 		width, height, depth);
 	pixmap_created= true;
@@ -582,24 +620,30 @@ private:
 
 void init_xcolors ()
 {
-        static const assign_color table_colors []= {
-	        { &xcBlack,        "black" },
-        	{ &xcBlue,         "blue" },
-	        { &xcGreen,        "green" },
-        	{ &xcCyan,         "cyan" },
-	        { &xcRed,          "red" },
-        	{ &xcMagenta,      "magenta" },
-	        { &xcBrown,        "#7F7F00" },
-        	{ &xcLightGrey,    "#3F3F3F" },
+	static const assign_color table_colors []= {
+		//{ &xcBlack,        "black" },
+		{ &xcBlack,        "#000000" },
+		{ &xcBlue,         "darkblue" },
+		{ &xcGreen,        "darkgreen" },
+		{ &xcCyan,         "darkcyan" },
+		{ &xcRed,          "darkred" },
+		{ &xcMagenta,      "darkmagenta" },
+		//{ &xcBrown,        "#7F7F00" },
+		{ &xcBrown,        "brown" },
+		//{ &xcLightGrey,    "#3F3F3F" },
+		//{ &xcLightGrey,    "rgb:C0/C0/C0" },
+		{ &xcLightGrey,    "grey" },
 
 	        { &xcDarkGrey,     "darkgrey" },
-        	{ &xcLightBlue,    "#0000FF" },
-	        { &xcLightGreen,   "#00FF00" },
-        	{ &xcLightCyan,    "#00FFFF" },
-	        { &xcLightRed,     "#FF0000" },
-        	{ &xcLightMagenta, "#FF00FF" },
-	        { &xcYellow,       "yellow" },
-        	{ &xcWhite,        "white" }
+		//{ &xcLightBlue,    "#0000FF" },
+		{ &xcLightBlue,    "rgb:80/FF/FF" },
+		{ &xcLightGreen,   "#00FF00" },
+		{ &xcLightCyan,    "#00FFFF" },
+		{ &xcLightRed,     "#FF0000" },
+		{ &xcLightMagenta, "#FF00FF" },
+		{ &xcYellow,       "yellow" },
+		//{ &xcWhite,        "white" }
+		{ &xcWhite,        "#FFFFFF" }
 	};
 	Colormap cm= DefaultColormap (display, screen);
 	std::for_each (table_colors,
@@ -676,24 +720,30 @@ void graphics::uninitialize ()
 {
 	if (! inited) return;
 
+	if (actualmode != 0)
+		setmode (0);
+
 	#ifdef BLASSIC_USE_SVGA
+	#if 0
 	if (svgalib)
 		//vga_setmode (TEXT);
 		setmode (0);
 	#endif
+	#endif
 
 	#ifdef BLASSIC_USE_X
-	if (display) {
-		if (window_created)
-			destroy_window ();
+	if (display)
+	{
+		//if (window_created)
+		//	destroy_window ();
 		XCloseDisplay (display);
 	}
 	#endif
 
         #ifdef BLASSIC_USE_WINDOWS
         //destroy_thread ();
-        if (window_created)
-                destroy_window ();
+        //if (window_created)
+        //        destroy_window ();
 
         if (atomClass)
                 UnregisterClass (LPCTSTR (atomClass),
@@ -814,7 +864,7 @@ void graphics::idle ()
 			0, 0, screenwidth, screenheight, 0, 0);
 		XFlush (display);
 		#else
-		//XSetFunction (display, gc, GXcopy);
+		//XSetFunction (display, gc, drawmode_copy);
 		reinit_window ();
 		//XSetFunction (display, gc, drawmode);
 		#endif
@@ -864,7 +914,7 @@ void textscroll ()
 	//	black= BlackPixel (display, screen);
 
 	//XSetForeground (display, gcp, white);
-	XSetFunction (display, gcp, GXcopy);
+	XSetFunction (display, gcp, drawmode_copy);
 	XCopyArea (display, pixmap, pixmap, gcp,
 		0, 8, screenwidth, h, 0, 0);
 	activecolor (pbackground);
@@ -1004,15 +1054,29 @@ void print (int col, int row, unsigned char c)
 int tcol, trow;
 int maxtcol, maxtrow;
 
-const int text_mode= 0, user_mode= -1;
-
-int actualmode= text_mode;
-
 void setmaxtext ()
 {
         maxtcol= screenwidth / 8;
         maxtrow= screenheight / 8;
 }
+
+enum TransformType { TransformIdentity, TransformInvertY };
+
+TransformType activetransform= TransformIdentity;
+
+void transform_y (int & y)
+{
+	switch (activetransform)
+	{
+	case TransformIdentity:
+		break; // Nothing to do
+	case TransformInvertY:
+		y= screenheight - y;
+		break;
+	}
+}
+
+void recreate_windows ();
 
 void setmode (int width, int height, int mode)
 {
@@ -1020,6 +1084,7 @@ void setmode (int width, int height, int mode)
 	sysvar::set16 (sysvar::GraphicsHeight, short (height) );
 	screenwidth= width;
 	screenheight= height;
+	activetransform= TransformIdentity;
 
 	#ifdef BLASSIC_USE_SVGALIB
 
@@ -1038,13 +1103,6 @@ void setmode (int width, int height, int mode)
 			font= (char *) malloc (2 * 256 * 8 * 8 * BYTESPERPIXEL);
 			gl_expandfont (8, 8, 15, gl_font8x8, font);
 			gl_setfont (8, 8, font);
-
-			#ifdef TEST_TEXT
-			//cout << "Preparado" << endl;
-			static char prueba []= "Prueba";
-			gl_write (10, 10, prueba);
-			#endif
-
 			//cout << "Listo" << endl;
 		}
 		actualmode= mode;
@@ -1053,7 +1111,7 @@ void setmode (int width, int height, int mode)
 
 	#endif
 
-	if (mode != actualmode)
+	if (mode != actualmode || mode == user_mode)
 	{
 		if (window_created)
 			destroy_window ();
@@ -1084,26 +1142,22 @@ void setmode (int width, int height, int mode)
 	{
                 setmaxtext ();
 		tcol= trow= 0;
+		lastx= lasty= 0;
 		#if defined (BLASSIC_USE_WINDOWS) || defined (BLASSIC_USE_X)
-		pforeground= & xcBlack;
-		pbackground= & xcWhite;
+		//pforeground= & xcBlack;
+		//pbackground= & xcWhite;
+		pforeground= default_foreground;
+		pbackground= default_background;
 		#endif
+		recreate_windows ();
 	}
-
-	#ifdef TEST_TEXT
-	if (mode != 0)
-	{
-		XSetBackground (display, gcp, xcWhite.pixel);
-		XSetBackground (display, gc, xcWhite.pixel);
-		draw_string ("Prueba");
-	}
-	#endif
 }
 
 } // namespace
 
 void graphics::cls ()
 {
+	requiregraphics ();
 
 	#ifdef BLASSIC_USE_SVGALIB
 
@@ -1119,9 +1173,7 @@ void graphics::cls ()
 	//reinit_pixmap ();
 
 	#ifdef BLASSIC_USE_WINDOWS
-
 	RECT r= { 0, 0, screenwidth, screenheight };
-	//HDC hdc= GetDC (window);
         LOGPEN logpen;
         GetObject (* pbackground, sizeof (LOGPEN), & logpen);
         HBRUSH hbrush= CreateSolidBrush (logpen.lopnColor);
@@ -1129,33 +1181,31 @@ void graphics::cls ()
 		FillRect (hdc, & r, hbrush);
         FillRect (hdcPixmap, & r, hbrush);
         DeleteObject (hbrush);
-	//ReleaseDC (window, hdc);
-
 	#endif
 
 	#ifdef BLASSIC_USE_X
-
-	//XSetForeground (display, gc, WhitePixel (display, screen) );
 	activecolor (pbackground);
-	XSetFunction (display, gc, GXcopy);
-	XSetFunction (display, gcp, GXcopy);
+	XSetFunction (display, gc, drawmode_copy);
+	XSetFunction (display, gcp, drawmode_copy);
 	if (! fSynchro)
 		XFillRectangle (display, window, gc,
 			0, 0, screenwidth, screenheight);
 	XFillRectangle (display, pixmap, gcp,
 		0, 0, screenwidth, screenheight);
-	//XSetForeground (display, gc, BlackPixel (display, screen) );
 	activecolor (pforeground);
 	XSetFunction (display, gc, drawmode);
 	XSetFunction (display, gcp, drawmode);
-
 	#endif
 
 }
 
-void graphics::setmode (int width, int height)
+void graphics::setmode (int width, int height, bool inverty)
 {
+	default_foreground= & xcBlack;
+	default_background= & xcWhite;
 	::setmode (width, height, user_mode);
+	if (inverty)
+		activetransform= TransformInvertY;
 }
 
 void graphics::setmode (int mode)
@@ -1182,7 +1232,43 @@ void graphics::setmode (int mode)
 	if (mode != 0 && width == 0)
 		throw ErrFunctionCall;
 
+	default_foreground= & xcBlack;
+	default_background= & xcWhite;
 	::setmode (width, height, mode);
+}
+
+void graphics::setmode (const std::string & mode)
+{
+	if (mode == "spectrum")
+	{
+		// Revisar colores.
+		default_foreground= & xcBlack;
+		default_background= & xcWhite;
+		::setmode (256, 176, user_mode);
+		activetransform= TransformInvertY;
+	}
+	#if 0
+	// Pendiente de pensarlo mejor.
+	else if (mode == "cpc0")
+	{
+		::setmode (160, 400, user_mode);
+		activetransform= TransformInvertY;
+	}
+	else if (mode == "cpc1")
+	{
+		::setmode (320, 400, user_mode);
+		activetransform= TransformInvertY;
+	}
+	#endif
+	else if (mode == "cpc2")
+	{
+		default_foreground= & xcYellow;
+		default_background= & xcBlue;
+		::setmode (640, 400, user_mode);
+		activetransform= TransformInvertY;
+	}
+	else
+		throw ErrFunctionCall;
 }
 
 bool graphics::ingraphicsmode ()
@@ -1220,7 +1306,7 @@ inline pcolor mapcolor (int color)
 
 void graphics::setcolor (int color)
 {
-	if (! inited) return;
+	//if (! inited) return;
 
         #ifdef BLASSIC_USE_SVGALIB
 
@@ -1260,7 +1346,7 @@ void graphics::setcolor (int color)
 
 void graphics::setbackground (int color)
 {
-	if (! inited) return;
+	//if (! inited) return;
 	pcolor pxc= mapcolor (color);
 	pbackground= pxc;
 }
@@ -1273,11 +1359,17 @@ void graphics::settransparent (int transpmode)
 
 void graphics::setdrawmode (int mode)
 {
-        #if defined BLASSIC_USE_X
-        int modes []= { GXcopy, GXinvert };
-        #elif defined BLASSIC_USE_WINDOWS
-        int modes []= { R2_COPYPEN, R2_NOT };
-        #endif
+	if (! inited) return;
+
+	// Draw modes:
+	// 0: normal copy mode.
+	// 1: XOR
+	// 2: AND
+	// 3: OR
+	// 0 to 3 are Amstrad CPC modes.
+	// 4: INVERT, NOT.
+	static int modes []= { drawmode_copy, drawmode_xor,
+		drawmode_and, drawmode_or, drawmode_invert };
 
         if (mode < 0 || size_t (mode) >= util::dim_array (modes) )
                 return;
@@ -1296,11 +1388,16 @@ void graphics::setdrawmode (int mode)
         #endif
 }
 
-void graphics::line (int x, int y)
+namespace {
+
+void do_line_unmasked (int x, int y)
 {
-	if (! inited) return;
-	const int prevx= lastx, prevy= lasty;
+	int prevx= lastx, prevy= lasty;
 	lastx= x; lasty= y;
+
+	transform_y (y); transform_y (prevy);
+
+	activecolor (pforeground);
 
 	#ifdef BLASSIC_USE_SVGALIB
 	if (svgalib)
@@ -1334,18 +1431,161 @@ void graphics::line (int x, int y)
         LineTo (hdcPixmap, x, y);
         #endif
 
-	idle ();
+	//idle ();
+}
+
+const unsigned char maskvaluedefault= '\xFF';
+unsigned char maskvalue= maskvaluedefault;
+bool maskdrawfirst= true;
+unsigned maskpos= 0;
+unsigned char auxmask []= { 1, 2, 4, 8, 16, 32, 64, 128 };
+
+void do_line_mask (int x, int y)
+{
+	int prevx= lastx, prevy= lasty;
+	lastx= x; lasty= y;
+
+	transform_y (prevy); transform_y (y);
+
+	activecolor (pforeground);
+
+	int px= x - prevx;
+	int py= y - prevy;
+	int d1x= px < 0 ? -1 : px > 0 ? 1 : 0;
+	int d1y= py < 0 ? -1 : py > 0 ? 1 : 0;
+	int d2x= d1x;
+	int d2y= 0;
+	int m= abs (px);
+	int n= abs (py);
+	if (m <= n)
+	{
+		d2x= 0;
+		d2y= d1y;
+		m= abs (py);
+		n= abs (px);
+	}
+	int s= m / 2;
+	for (int i= 0; i <= m; ++i)
+	{
+		if (i != 0 || maskdrawfirst)
+		{
+			if (maskvalue & auxmask [maskpos] )
+				do_plot (prevx, prevy);
+			if (++maskpos == 8) maskpos= 0;
+		}
+		s+= n;
+		if (s >= m)
+		{
+			s-= m;
+			prevx+= d1x;
+			prevy+= d1y;
+		}
+		else
+		{
+			prevx+= d2x;
+			prevy+= d2y;
+		}
+	}
+}
+
+inline void do_line (int x, int y)
+{
+	if (maskvalue == maskvaluedefault && maskdrawfirst)
+		do_line_unmasked (x, y);
+	else
+		do_line_mask (x, y);
+}
+
+} // namespace
+
+void graphics::line (int x, int y)
+{
+	requiregraphics ();
+	do_line (x, y);
+}
+
+void graphics::liner (int x, int y)
+{
+	line (lastx + x, lasty + y);
+}
+
+void graphics::rectangle (Point org, Point dest)
+{
+	int x1= org.x;
+	int y1= org.y;
+	int x2= dest.x;
+	int y2= dest.y;
+	lastx= x2; lasty= y2;
+	transform_y (y1); transform_y (y2);
+	if (x1 > x2) std::swap (x1, x2);
+	if (y1 > y2) std::swap (y1, y2);
+
+        #ifdef BLASSIC_USE_WINDOWS
+        Rectangle (hdcPixmap, x1, y1, x2 + 1, y2 + 1);
+        if (! fSynchro)
+                Rectangle (hdc, x1, y1, x2 + 1, y2 + 1);
+        #endif
+
+        #ifdef BLASSIC_USE_X
+	XDrawRectangle (display, pixmap, gcp,
+		x1, y1, x2 - x1, y2 - y1);
+	if (! fSynchro)
+		XDrawRectangle (display, window, gc,
+			x1, y1, x2 - x1, y2 - y1);
+	#endif
+}
+
+void graphics::rectanglefilled (Point org, Point dest)
+{
+	int x1= org.x;
+	int y1= org.y;
+	int x2= dest.x;
+	int y2= dest.y;
+	lastx= x2; lasty= y2;
+	transform_y (y1); transform_y (y2);
+	if (x1 > x2) std::swap (x1, x2);
+	if (y1 > y2) std::swap (y1, y2);
+
+        #ifdef BLASSIC_USE_WINDOWS
+        RECT r = { x1, y1, x2 + 1, y2 + 1 };
+	LOGPEN logpen;
+	GetObject (* pforeground, sizeof (LOGPEN), & logpen);
+	HBRUSH hbrush= CreateSolidBrush (logpen.lopnColor);
+        FillRect (hdcPixmap, & r, hbrush);
+        if (! fSynchro)
+                FillRect (hdc, & r, hbrush);
+        DeleteObject (hbrush);
+        #endif
+
+        #ifdef BLASSIC_USE_X
+	XFillRectangle (display, pixmap, gcp,
+		x1, y1, x2 - x1 + 1, y2 - y1 + 1);
+	if (! fSynchro)
+		XFillRectangle (display, window, gc,
+			x1, y1, x2 - x1 + 1, y2 - y1 + 1);
+	#endif
 }
 
 void graphics::move (int x, int y)
 {
+	requiregraphics ();
 	lastx= x; lasty= y;
-	idle ();
+	//idle ();
+}
+
+void graphics::mover (int x, int y)
+{
+	requiregraphics ();
+	lastx+= x; lasty+= y;
+	//idle ();
 }
 
 void graphics::plot (int x, int y)
 {
+	requiregraphics ();
 	lastx= x; lasty= y;
+
+	transform_y (y);
 
 	#if 0
 
@@ -1387,11 +1627,17 @@ void graphics::plot (int x, int y)
 
 	#else
 
+	activecolor (pforeground);
 	do_plot (x, y);
 
 	#endif
 
-	idle ();
+	//idle ();
+}
+
+void graphics::plotr (int x, int y)
+{
+	plot (lastx + x, lasty + y);
 }
 
 namespace {
@@ -1405,10 +1651,245 @@ void line_to_point (const graphics::Point & p)
 
 void graphics::plot (std::vector <Point> & points)
 {
+	requiregraphics ();
 	ASSERT (points.size () != 0);
 	lastx= points [0].x;
 	lasty= points [0].y;
 	std::for_each (points.begin () + 1, points.end (), line_to_point);
+}
+
+void graphics::circle (int x, int y, int radius)
+{
+	requiregraphics ();
+	//transform_y (y);
+
+	// Simple test
+	const double angle= M_PI * 2 / (radius * 12.0);
+	lastx= x + radius;
+	lasty= y;
+	for (double r= 0.0; r < 2 * M_PI; r += angle)
+	{
+		do_line (x + int (radius * cos (r) + 0.5),
+			y + int (radius * sin (r) + 0.5) );
+	}
+	do_line (x + radius, y);
+}
+
+void graphics::mask (int m)
+{
+	requiregraphics ();
+	maskvalue= static_cast <unsigned char> (m);
+	maskpos= 0;
+}
+
+void graphics::maskdrawfirstpoint (bool f)
+{
+	requiregraphics ();
+	maskdrawfirst= f;
+}
+
+namespace {
+
+char skipblank (const char * & s)
+{
+	char c;
+	while ( (c= * s) == ' ' || c == '\t')
+		++s;
+	return c;
+}
+
+int getnum (const char * & s)
+{
+	int r= 0;
+	char c;
+	if (! isdigit (* s) )
+		throw ErrSyntax;
+	while ( isdigit (c= * s) )
+	{
+		//cerr << c;
+		r*= 10;
+		r+= c - '0';
+		++s;
+	}
+	cerr << r;
+	return r;
+}
+
+enum TypeMove { MoveAbs, MovePos, MoveNeg };
+
+TypeMove gettypemove (const char * & s)
+{
+	TypeMove tm= MoveAbs;
+	char c= skipblank (s);
+	switch (c)
+	{
+	case '+':
+		cerr << '+';
+		tm= MovePos;
+		++s;
+		skipblank (s);
+		break;
+	case '-':
+		cerr << '-';
+		tm= MoveNeg;
+		++s;
+		skipblank (s);
+		break;
+	}
+	return tm;
+}
+
+inline void adjust (int & value, TypeMove t, int last)
+{
+	switch (t)
+	{
+	case MoveAbs:
+		break;
+	case MovePos:
+		value= last + value;
+		break;
+	case MoveNeg:
+		value= last - value;
+		break;
+	}
+}
+
+} // namespace
+
+void graphics::draw (const std::string & str)
+{
+	requiregraphics ();
+	const char * s= str.c_str ();
+	char c;
+	int i;
+	while ( (c= skipblank (s) ) != '\0')
+	{
+		cerr << c;
+		++s;
+		bool nopaint= false;
+		if (c == 'B')
+		{
+			c= skipblank (s);
+			cerr << c;
+			++s;
+			nopaint= true;
+		}
+		switch (c)
+		{
+		case 'M':
+			{
+				TypeMove mx= gettypemove (s);
+				int x= getnum (s);
+				adjust (x, mx, lastx);
+				c= skipblank (s);
+				if (c != ',')
+					throw ErrSyntax;
+				cerr << ',';
+				++s;
+				TypeMove my= gettypemove (s);
+				int y= getnum (s);
+				adjust (y, my, lasty);
+				if (nopaint)
+					graphics::move (x, y);
+				else
+					graphics::line (x, y);
+			}
+			break;
+		case 'U':
+			skipblank (s);
+			i= getnum (s);
+			if (nopaint)
+				graphics::move (lastx, lasty - i);
+			else
+				graphics::line (lastx, lasty - i);
+			break;
+		case 'D':
+			skipblank (s);
+			i= getnum (s);
+			if (nopaint)
+				graphics::move (lastx, lasty + i);
+			else
+				graphics::line (lastx, lasty + i);
+			break;
+		case 'R':
+			skipblank (s);
+			i= getnum (s);
+			if (nopaint)
+				graphics::move (lastx + i, lasty);
+			else
+				graphics::line (lastx + i, lasty);
+			break;
+		case 'L':
+			skipblank (s);
+			i= getnum (s);
+			if (nopaint)
+				graphics::move (lastx - i, lasty);
+			else
+				graphics::line (lastx - i, lasty);
+			break;
+		case 'E':
+			skipblank (s);
+			i= getnum (s);
+			if (nopaint)
+				graphics::move (lastx + i, lasty - i);
+			else
+				graphics::line (lastx + i, lasty - i);
+			break;
+		case 'F':
+			skipblank (s);
+			i= getnum (s);
+			if (nopaint)
+				graphics::move (lastx + i, lasty + i);
+			else
+				graphics::line (lastx + i, lasty + i);
+			break;
+		case 'G':
+			skipblank (s);
+			i= getnum (s);
+			if (nopaint)
+				graphics::move (lastx - i, lasty + i);
+			else
+				graphics::line (lastx - i, lasty + i);
+			break;
+		case 'H':
+			skipblank (s);
+			i= getnum (s);
+			if (nopaint)
+				graphics::move (lastx - i, lasty - i);
+			else
+				graphics::line (lastx - i, lasty - i);
+			break;
+		case 'C':
+			c= skipblank (s);
+			if (! isdigit (c) )
+				throw ErrSyntax;
+			graphics::setcolor (c - '0');
+			++s;
+			break;
+		case 'X':
+			{
+				std::string x;
+				while ( (c= *s) != ';' && c != '\0')
+				{
+					x+= c;
+					++s;
+				}
+				if (c != ';')
+					throw ErrSyntax;
+				++s;
+				if (typeofvar (x) != VarString)
+					throw ErrMismatch;
+				std::string xx= evaluatevarstring (x);
+				draw (xx);
+			}
+			break;
+		case ';':
+			break;
+		default:
+			throw ErrSyntax;
+		}
+	}
+	cerr << endl;
 }
 
 graphics::Point graphics::getlast ()
@@ -1430,21 +1911,306 @@ std::string graphics::getkey ()
         #endif
 }
 
-#ifdef TEST_TEXT
-
-void draw_string (const std::string & str)
-{
-	XDrawImageString (display, window, gc, 10, 10,
-		str.c_str (), str.size () );
-	XDrawImageString (display, pixmap, gcp, 10, 10,
-		str.c_str (), str.size () );
-}
-
-#endif
-
 namespace {
 
 int zone= 8;
+
+class BlWindow {
+public:
+	BlWindow ()
+	{
+		setdefault ();
+		defaultcolors ();
+	}
+	BlWindow (int x1, int x2, int y1, int y2)
+	{
+		set (x1, x2, y1, y2);
+		defaultcolors ();
+	}
+	void setdefault ()
+	{
+		set (0, maxtcol - 1, 0, maxtrow - 1);
+	}
+	void set (int x1, int x2, int y1, int y2)
+	{
+		if (x1 > x2) std::swap (x1, x2);
+		if (y1 > y2) std::swap (y1, y2);
+		orgx= x1; orgy= y1;
+		width= x2 - x1 + 1;
+		height= y2 - y1 + 1;
+		x= y= 0;
+	}
+	void defaultcolors ()
+	{
+		foreground= default_foreground;
+		background= default_background;
+	}
+	int getwidth () { return width; }
+	void gotoxy (int x, int y)
+	{
+		this->x= x; this->y= y;
+	}
+	void tab (size_t n)
+	{
+		int col (n - 1);
+		if (x >= col)
+		{
+			do {
+				charout (' ');
+			} while (x > 0);
+		}
+		if (col >= width)
+			throw ErrFunctionCall;
+		do {
+			charout (' ');
+		} while (x < col);
+	}
+	void setcolor (int color)
+	{
+		foreground= mapcolor (color);
+	}
+	void setbackground (int color)
+	{
+		background= mapcolor (color);
+	}
+	void movecharforward (size_t n)
+	{
+		for (size_t i= 0; i < n; ++i)
+		{
+			if (++x >= width)
+			{
+				x= 0;
+				if (++y >= height)
+				{
+					textscroll ();
+					y= height - 1;
+				}
+			}
+		}
+	}
+	void movecharback (size_t n)
+	{
+		for (size_t i= 0; i < n; ++i)
+		{
+			if (x > 0)
+				--x;
+			else
+			{
+				if (y > 0)
+				{
+					x= width - 1;
+					--y;
+				}
+			}
+		}
+	}
+	void movecharup (size_t n)
+	{
+		y-= n;
+	}
+	void movechardown (size_t n)
+	{
+		y+= n;
+	}
+	void cls ()
+	{
+		x= y= 0;
+
+		int x1= orgx * 8, x2= width * 8;
+		int y1= orgy * 8, y2= height * 8;
+
+		#ifdef BLASSIC_USE_WINDOWS
+		RECT r= { x1, y1, x1 + x2, y1 + y2 };
+	        LOGPEN logpen;
+        	GetObject (* background, sizeof (LOGPEN), & logpen);
+		HBRUSH hbrush= CreateSolidBrush (logpen.lopnColor);
+		if (! fSynchro)
+			FillRect (hdc, & r, hbrush);
+		FillRect (hdcPixmap, & r, hbrush);
+		DeleteObject (hbrush);
+		#endif
+
+		#ifdef BLASSIC_USE_X
+		activecolor (background);
+		XSetFunction (display, gcp, drawmode_copy);
+		XFillRectangle (display, pixmap, gcp,
+			x1, y1, x2 - 1, y2 - 1);
+		XSetFunction (display, gcp, drawmode);
+		if (! fSynchro)
+		{
+			XSetFunction (display, gc, drawmode_copy);
+			XFillRectangle (display, window, gc,
+				x1, y1, x2, y2);
+			XSetFunction (display, gc, drawmode);
+		}
+		activecolor (pforeground);
+		#endif
+	}
+	void textscroll ()
+	{
+		int x1= orgx * 8, y1= orgy * 8;
+		int w= width * 8; int h= height * 8;
+		#ifdef BLASSIC_USE_X
+		//int h= screenheight - 8;
+		XSetFunction (display, gcp, drawmode_copy);
+		XCopyArea (display, pixmap, pixmap, gcp,
+			x1, y1 + 8, w, h - 8, x1, y1);
+		activecolor (background);
+		XFillRectangle (display, pixmap, gcp,
+			x1, y1 + h - 8, w, 8);
+		XSetFunction (display, gcp, drawmode);
+		//XSetForeground (display, gcp, black);
+
+		if (! fSynchro)
+		{
+			//XSetForeground (display, gc, white);
+			XSetFunction (display, gc, drawmode_copy);
+			XCopyArea (display, window, window, gc,
+				x1, y1 + 8, w, h, x1, y1);
+			XFillRectangle (display, window, gc,
+				x1, y1 + h - 8, w, 8);
+			//XSetForeground (display, gc, black);
+			XSetFunction (display, gc, drawmode);
+		}
+		activecolor (foreground);
+		#endif
+
+		#ifdef BLASSIC_USE_WINDOWS
+		RECT r = { x1, y1 + h - 8, x1 + w, y1 + h};
+
+		BitBlt (hdcPixmap, x1, y1, w, h - 8,
+			hdcPixmap, x1, y1 + 8, SRCCOPY);
+		//HBRUSH hbrush= (HBRUSH) GetStockObject (WHITE_BRUSH);
+		LOGPEN logpen;
+		GetObject (* pbackground, sizeof (LOGPEN), & logpen);
+		HBRUSH hbrush= CreateSolidBrush (logpen.lopnColor);
+		FillRect (hdcPixmap, & r, hbrush);
+		DeleteObject (hbrush);
+
+		#if 1
+		if (! fSynchro)
+			reinit_window ();
+		#else
+		//HDC hdc= GetDC (window);
+		BitBlt (hdc, 0, 0, screenwidth, h,
+			hdc, 0, 8, SRCCOPY);
+		FillRect (hdc, & r, hbrush);
+		//ReleaseDC (window, hdc);
+		#endif
+
+		#endif
+
+	}
+	void charout (char c)
+	{
+		pcolor foresave= pforeground;
+		pforeground= foreground;
+		pcolor backsave= pbackground;
+		pbackground= background;
+		switch (c)
+		{
+		case '\n':
+                	x= 0;
+        	        if (++y >= height)
+			{
+				textscroll ();
+				y= height - 1;
+			}
+			break;
+		case '\r':
+			x= 0;
+			break;
+		case '\t':
+			if (x >= (width / zone) * zone)
+			{
+				//cerr << "Fin de linea" << endl;
+				for ( ; x < width; ++x)
+					print (orgx + x, orgy + y, ' ');
+				x= 0;
+				if (++y >= height)
+				{
+					textscroll ();
+					y= height - 1;
+				}
+			}
+			else
+			{
+				do {
+					print (orgx + x, orgy + y, ' ');
+					++x;
+				} while (x % zone);
+			}
+			break;
+		default:
+			print (orgx + x, orgy + y, c);
+			if (++x >= width)
+			{
+				x= 0;
+				if (++y >= height)
+				{
+					textscroll ();
+					y= height - 1;
+				}
+			}
+		}
+		pforeground= foresave;
+		pbackground= backsave;
+	}
+	void invertcursor ()
+	{
+		int x1= (orgx + x) * 8;
+		int y1= (orgy + y) * 8;
+
+		#ifdef BLASSIC_USE_X
+		XSetFunction (display, gc, drawmode_invert);
+		XSetFunction (display, gcp, drawmode_invert);
+		XFillRectangle (display, window, gc, x1, y1 + 6, 8, 2);
+		XFillRectangle (display, pixmap, gcp, x1, y1 + 6, 8, 2);
+		XSetFunction (display, gc, drawmode);
+		XSetFunction (display, gcp, drawmode);
+		#endif
+
+		#ifdef BLASSIC_USE_WINDOWS
+		HBRUSH hbrush= (HBRUSH) GetStockObject (BLACK_BRUSH);
+		HDC ahdc [2]= { hdc, hdcPixmap };
+		for (size_t i= 0; i < 2; ++i)
+		{
+			HDC hdc= ahdc [i];
+			SetROP2 (hdc, drawmode_invert);
+			HBRUSH hold= (HBRUSH) SelectObject (hdc, hbrush);
+			Rectangle (hdc, x1, y1 + 6, x1 + 8, y1 + 8);
+			SelectObject (hdc, hold);
+			SetROP2 (hdc, drawmode);
+		}
+		#endif
+	}
+private:
+	int orgx, orgy, width, height;
+	pcolor foreground;
+	pcolor background;
+	int x, y;
+};
+
+BlWindow windowzero;
+
+typedef std::map <BlChannel, BlWindow *> MapWindow;
+MapWindow mapwindow;
+
+void killwindowifnotzero (MapWindow::value_type & mw)
+{
+	if (mw.first != BlChannel (0) )
+		delete mw.second;
+}
+
+void recreate_windows ()
+{
+	windowzero.setdefault ();
+	windowzero.defaultcolors ();
+	windowzero.cls ();
+	for_each (mapwindow.begin (), mapwindow.end (), killwindowifnotzero);
+	mapwindow.clear ();
+	mapwindow [0]= & windowzero;
+}
 
 inline void do_charout (char c)
 {
@@ -1497,27 +2263,105 @@ inline void do_charout (char c)
 
 } // namespace
 
+void graphics::setcolor (BlChannel ch, int color)
+{
+	mapwindow [ch]->setcolor (color);
+}
+
+void graphics::setbackground (BlChannel ch, int color)
+{
+	mapwindow [ch]->setbackground (color);
+}
+
+void graphics::cls (BlChannel n)
+{
+	mapwindow [n]->cls ();
+}
+
+void graphics::definewindow (BlChannel n, int x1, int x2, int y1, int y2)
+{
+	requiregraphics ();
+	--x1; --x2; --y1; --y2;
+	MapWindow::iterator it= mapwindow.find (n);
+	if (it != mapwindow.end () )
+		it->second->set (x1, x2, y1, y2);
+	else
+		mapwindow [n]= new BlWindow (x1, x2, y1, y2);
+}
+
+void graphics::undefinewindow (BlChannel n)
+{
+	if (n == 0)
+		return;
+	MapWindow::iterator it= mapwindow.find (n);
+	if (it != mapwindow.end () )
+	{
+		delete it->second;
+		mapwindow.erase (it);
+	}
+}
+
 size_t graphics::getlinewidth ()
 {
+	#if 0
 	return maxtcol;
+	#else
+	return windowzero.getwidth ();
+	#endif
 }
 
 void graphics::charout (char c)
 {
-	do_charout (c);
-	idle ();
+	//do_charout (c);
+	windowzero.charout (c);
+	//idle ();
 }
 
 void graphics::stringout (const std::string & str)
 {
-	std::for_each (str.begin (), str.end (), do_charout);
-	idle ();
+	//bool fSynchroNormal= fSynchro;
+	//fSynchro= true;
+
+	//std::for_each (str.begin (), str.end (), do_charout);
+	for (std::string::size_type i= 0, l= str.size (); i < l; ++i)
+		windowzero.charout (str [i]);
+
+	//fSynchro= fSynchroNormal;
+	//if (! fSynchro)
+	//	reinit_window ();
+
+	//idle ();
 }
 
+void graphics::charout (BlChannel ch, char c)
+{
+	mapwindow [ch]->charout (c);
+}
+
+void graphics::stringout (BlChannel ch, const std::string & str)
+{
+	BlWindow * pwin= mapwindow [ch];
+	for (std::string::size_type i= 0, l= str.size (); i < l; ++i)
+		pwin->charout (str [i]);
+}
+
+#if 0
 void graphics::locate (int row, int col)
 {
         trow= row - 1;
         tcol= col - 1;
+}
+#endif
+
+void graphics::gotoxy (int x, int y)
+{
+	trow= y;
+	tcol= x;
+}
+
+void graphics::gotoxy (BlChannel ch, int x, int y)
+{
+	mapwindow [ch]->gotoxy (x, y);
 }
 
 void graphics::tab (size_t n)
@@ -1536,8 +2380,14 @@ void graphics::tab (size_t n)
 	} while (tcol < col);
 }
 
+void graphics::tab (BlChannel ch, size_t n)
+{
+	mapwindow [ch]->tab (n);
+}
+
 void graphics::movecharforward (size_t n)
 {
+	#if 0
 	for (size_t i= 0; i < n; ++i)
 	{
 		if (++tcol >= maxtcol)
@@ -1550,10 +2400,14 @@ void graphics::movecharforward (size_t n)
 			}
 		}
 	}
+	#else
+	windowzero.movecharforward (n);
+	#endif
 }
 
 void graphics::movecharback (size_t n)
 {
+	#if 0
 	for (size_t i=0; i < n; ++i)
 	{
 		if (tcol > 0)
@@ -1567,16 +2421,27 @@ void graphics::movecharback (size_t n)
 			}
 		}
 	}
+	#else
+	windowzero.movecharback (n);
+	#endif
 }
 
 void graphics::movecharup (size_t n)
 {
+	#if 0
 	trow-= n;
+	#else
+	windowzero.movecharup (n);
+	#endif
 }
 
 void graphics::movechardown (size_t n)
 {
+	#if 0
 	trow+= n;
+	#else
+	windowzero.movechardown (n);
+	#endif
 }
 
 void graphics::definesymbol (int symbol, const unsigned char (& byte) [8] )
@@ -1596,7 +2461,74 @@ void graphics::synchronize ()
 	reinit_window ();
 }
 
+namespace {
+
+bool fSynchroSaved= false;
+
+}
+
+void graphics::synchronize_suspend ()
+{
+        fSynchroSaved= fSynchro;
+        if (fSynchro)
+                reinit_window ();
+        fSynchro= false;
+}
+
+void graphics::synchronize_restart ()
+{
+        fSynchro= fSynchroSaved;
+}
+
 int graphics::xmouse () { return xmousepos; }
 int graphics::ymouse () { return ymousepos; }
+
+int graphics::xpos () { return lastx; }
+int graphics::ypos () { return lasty; }
+
+namespace {
+
+void invertcursor ()
+{
+	int x1= tcol * 8;
+	int y1= trow * 8;
+
+	#ifdef BLASSIC_USE_X
+	XSetFunction (display, gc, drawmode_invert);
+	XSetFunction (display, gcp, drawmode_invert);
+	XFillRectangle (display, window, gc, x1, y1 + 6, 8, 2);
+	XFillRectangle (display, pixmap, gcp, x1, y1 + 6, 8, 2);
+	XSetFunction (display, gc, drawmode);
+	XSetFunction (display, gcp, drawmode);
+	#endif
+
+	#ifdef BLASSIC_USE_WINDOWS
+	HBRUSH hbrush= (HBRUSH) GetStockObject (BLACK_BRUSH);
+        HDC ahdc [2]= { hdc, hdcPixmap };
+        for (size_t i= 0; i < 2; ++i)
+        {
+                HDC hdc= ahdc [i];
+	        SetROP2 (hdc, drawmode_invert);
+                HBRUSH hold= (HBRUSH) SelectObject (hdc, hbrush);
+                Rectangle (hdc, x1, y1 + 6, x1 + 8, y1 + 8);
+                SelectObject (hdc, hold);
+	        SetROP2 (hdc, drawmode);
+        }
+	#endif
+}
+
+}
+
+void graphics::showcursor ()
+{
+	//invertcursor ();
+	windowzero.invertcursor ();
+}
+
+void graphics::hidecursor ()
+{
+	//invertcursor ();
+	windowzero.invertcursor ();
+}
 
 // Fin de graphics.cpp

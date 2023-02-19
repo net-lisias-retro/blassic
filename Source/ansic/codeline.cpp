@@ -9,6 +9,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <algorithm>
 #include <cmath>
 #include <cctype>
 using std::isxdigit;
@@ -250,42 +251,94 @@ CodeLine::Token CodeLine::getdata ()
         }
         else
 	{
-                while (pos < len && (c= strcontent [pos]) != ',' && c != ':')
-                {
-                        r.str+= c;
-                        ++pos;
-                }
+		while (pos < len && (c= strcontent [pos]) != ',' && c != ':')
+		{
+			if (c == INTEGER_PREFIX)
+			{
+				r.str+= util::to_string
+					(peek32 (strcontent + pos + 1) );
+				pos+= 5;
+			}
+			else
+			{
+				r.str+= c;
+				++pos;
+			}
+		}
 	}
         r.code= keySTRING;
         return r;
 }
 
-CodeLine::Token CodeLine::gettoken ()
+namespace {
+
+BlChar validinitident [256];
+BlChar validident [256];
+
+bool inittables ()
+{
+	std::fill_n (& validident [0], 256, 0);
+	std::fill_n (& validinitident [0], 256, 0);
+	validident ['_']= '_';
+	for (BlChar i= '0'; i <= '9'; ++i)
+		validident [i]= i;
+	for (BlChar i= 'A'; i <= 'Z'; ++i)
+	{
+		validident [i]= i;
+		validinitident [i]= i;
+	}
+	for (BlChar i= 'a'; i <= 'z'; ++i)
+	{
+		validident [i]= BlChar (i - 'a' + 'A');
+		validinitident [i]= BlChar (i - 'a' + 'A');
+	}
+	return true;
+}
+
+bool initiated= inittables ();
+
+} // namespace
+
+//CodeLine::Token CodeLine::gettoken ()
+void CodeLine::gettoken (Token & r)
 {
 	while (pos < len && isspace (strcontent [pos] ) )
 		++pos;
-	Token r;
 	if (pos >= len)
 	{
 		r.code= lastcode= keyENDLINE;
-		//Prueba
 		++chk;
-		return r;
+		return;
 	}
 	BlChar c= strcontent [pos];
+	BlChar c2;
 	if (iskey (c) )
 	{
-		r.code= strcontent [pos++];
+		r.code= c;
+		++pos;
 		r.code<<= 8;
 		r.code|= strcontent [pos++];
+		if (r.code == keyTHEN || r.code == keyELSE)
+			++chk;
 	}
-	else if (isbeginidentifier (c) )
+	else if ( (c2= validinitident [c]) != 0)
 	{
 		r.code= keyIDENTIFIER;
+		#if 0
+		r.str.erase ();
 		do {
 			r.str+= char (toupper (c) );
 			++pos;
 		} while (pos < len && isidentifier (c= strcontent [pos]) );
+		#else
+		r.str= c2;
+		while ( ++pos < len &&
+			(c2= validident [ (c= strcontent [pos] ) ] ) != 0)
+		{
+			r.str+= c2;
+		}
+		#endif
+
 		if (pos < len && c == '$' || c == '%' || c == '!')
 		{
 			++pos;
@@ -295,6 +348,7 @@ CodeLine::Token CodeLine::gettoken ()
 	else if (isdigit (c) || c == '.')
 	{
 		r.code= keyNUMBER;
+		{
 		std::string strnum;
 		while (pos < len && (isdigit (c= strcontent [pos]) ) )
 		{
@@ -326,13 +380,14 @@ CodeLine::Token CodeLine::gettoken ()
 				++pos;
 			}
 		}
-		r.str+= strnum;
+		r.str= strnum;
+		}
 	}
 	else if (c == '&')
 	{
 		// Hexadecimal, octal or binary number.
 		r.code= keyNUMBER;
-		r.str+= '&';
+		r.str= '&';
                 ++pos;
                 if (pos < len)
                 {
@@ -390,6 +445,7 @@ CodeLine::Token CodeLine::gettoken ()
 			break;
 		case '"':
 			r.code= keySTRING;
+			r.str.erase ();
 			while ( (c= strcontent [pos++]) != '\0')
 				r.str+= c;
 			break;
@@ -410,7 +466,7 @@ CodeLine::Token CodeLine::gettoken ()
 					r.code= '<';
 				}
 			}
-			else r.code= c;
+			else r.code= '<';
 			break;
 		case '>':
 			if (pos < len)
@@ -425,21 +481,22 @@ CodeLine::Token CodeLine::gettoken ()
 					r.code= '>';
 				}
 			}
-			else r.code= c;
+			else r.code= '>';
 			break;
 		case '\'':
 			r.code= lastcode= keyENDLINE;
 			++chk;
 			pos= len;
 			break;
+		case ':':
+			r.code= ':';
+			++chk;
+		break;
 		default:
 			r.code= c;
 		}
 	}
-	if (r.code == ':' || r.code == keyTHEN || r.code == keyELSE)
-		++chk;
 	lastcode= r.code;
-	return r;
 }
 
 void CodeLine::gotochunk (BlChunk chknew)

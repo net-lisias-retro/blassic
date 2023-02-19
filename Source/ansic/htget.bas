@@ -11,7 +11,7 @@ if lower$ (url$) = "-d" then debug= 1: url$= programarg$ (2)
 
 open error as #2
 
-if url$ = "" then url$= "http://www.xente.mundo-r.com/notfound/blassic/"
+if url$ = "" then url$= "http://www.arrakis.es/~ninsesabe/blassic/"
 
 if instr (url$, "http://") = 1 then url$= mid$ (url$, 8)
 
@@ -21,7 +21,12 @@ if pos <> 0 then host$= left$ (url$, pos - 1) : page$= mid$ (url$, pos) else hos
 
 if page$ = "" then page$= "/"
 
-if debug then print #2, url$; ": "; host$; ", "; page$
+if debug then print #2, url$; ": Requesting "; page$; " from "; host$
+
+rem	Added the CR in the lines of request, some servers give
+rem	a "Bad request" response without him.
+
+cr$= chr$ (13)
 
 on error goto no_host
 
@@ -29,10 +34,10 @@ socket host$, 80 as #1
 
 on error goto 0
 
-print #1, "GET "; page$; " HTTP/1.1"
-print #1, "host: "; host$
-print #1, "Connection: close"
-print #1
+print #1, "GET "; page$; " HTTP/1.1"; cr$
+print #1, "host: "; host$; cr$
+print #1, "Connection: close"; cr$
+print #1, cr$
 
 rem Skip http header
 

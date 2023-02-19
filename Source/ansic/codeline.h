@@ -52,10 +52,12 @@ public:
 	void setnumber (BlLineNumber n) { linenumber= n; }
 	BlLineLength length () const { return len; }
 	BlChunk chunk () const { return chk; }
+	BlChar * content () { return strcontent; }
 	const BlChar * content () const { return strcontent; }
 	BlCode actualcode () const { return lastcode; }
         Token getdata ();
-	Token gettoken ();
+	//Token gettoken ();
+	void gettoken (Token & r);
 	void gotochunk (BlChunk chknew);
 	void scan (const std::string & line);
 	void execute (Program & program);

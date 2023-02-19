@@ -14,7 +14,7 @@ public:
 	size_t size () const { return dim.size (); }
 	size_t elements () const;
 	size_t operator [] (size_t n) const { return dim [n]; }
-	size_t evalpos (const Dimension & d);
+	size_t evalpos (const Dimension & d) const;
 private:
 	std::vector <size_t> dim;
 };

@@ -4,6 +4,7 @@
 
 
 #include "var.h"
+#include "sysvar.h"
 #include "error.h"
 #include "util.h"
 
@@ -11,8 +12,8 @@
 #include <algorithm>
 #include <stdexcept>
 
-#include <cctype>
-using std::toupper;
+//#include <cctype>
+//using std::toupper;
 
 #include <iostream>
 using std::cerr;
@@ -72,19 +73,23 @@ VarType typeofvar (const std::string & name)
 	case '$':
 		return VarString;
 	default:
-		return tabletype [toupper (name [0]) - 'A'];
+		//return tabletype [toupper (name [0]) - 'A'];
+		return tabletype [name [0] - 'A'];
 	}
 }
 
 void definevar (VarType type, char c)
 {
-	tabletype [toupper (c) - 'A']= type;
+	//tabletype [toupper (c) - 'A']= type;
+	tabletype [c - 'A']= type;
 }
 
 void definevar (VarType type, char cfrom, char cto)
 {
-	size_t from= toupper (cfrom) - 'A';
-	size_t to= toupper (cto) - 'A';
+	//size_t from= toupper (cfrom) - 'A';
+	//size_t to= toupper (cto) - 'A';
+	size_t from= cfrom - 'A';
+	size_t to= cto - 'A';
 	std::fill (tabletype + from, tabletype + to + 1, type);
 }
 
@@ -320,22 +325,82 @@ std::string * addrvarstring (const std::string & name)
 namespace {
 
 template <class C>
-struct Array {
-	Dimension d;
-	C * value;
+class Array {
+public:
+	#if 0
 	Array (const Dimension & nd, C * nvalue) :
 		d (nd), value (nvalue)
 	{ }
 	Array () :
 		value (0)
 	{ }
+	#else
+	Array (const Dimension & nd) :
+		d (nd),
+		pcount (new size_t),
+		value (new C [nd.elements () ] )
+	{
+		* pcount= 1;
+		std::for_each (value, value + nd.elements (),
+			initnewvar <C> );
+	}
+	Array () : // Default constructor required for map []
+		pcount (new size_t),
+		value (new C [0] )
+	{
+		* pcount= 1;
+	}
+	Array (const Array & a) :
+		d (a.d),
+		pcount (a.pcount),
+		value (a.value)
+	{
+		addref ();
+	}
+	~Array ()
+	{
+		delref ();
+	}
+	void operator = (const Array & a)
+	{
+		if (this != & a)
+		{
+			delref ();
+			d= a.d;
+			pcount= a.pcount;
+			value= a.value;
+			addref ();
+		}
+	}
+	#endif
+	const Dimension & dim () const { return d; }
+	C * getvalue (size_t n) { return value + n; }
+private:
+	Dimension d;
+	size_t * pcount;
+	C * value;
+	void addref ()
+	{
+		++ (* pcount);
+	}
+	void delref ()
+	{
+		if (-- (* pcount) == 0)
+		{
+			//cerr << "Array of dim " << d << " deleted" << endl;
+			delete [] value;
+			delete pcount;
+		}
+	}
 };
 
+#if 0
 template <class C>
 inline Array <C> makeArray (const Dimension & nd, C * nvalue)
 {
 	return Array <C> (nd, nvalue);
 }
+#endif
 
 template <class C>
 struct ArrayVar {
@@ -370,13 +435,23 @@ inline ArrayVar<std::string>::map &
 template <class C>
 inline void dimvar (const std::string & name, const Dimension & d)
 {
-	if (arrayvar <C> ().find (name) != arrayvar <C> ().end () )
+	ArrayVar <C>::iterator it= arrayvar <C> ().find (name),
+		end= arrayvar <C> ().end ();
+	//if (arrayvar <C> ().find (name) != arrayvar <C> ().end () )
+	//	throw ErrAlreadyDim;
+	if (it != end && sysvar::get (sysvar::TypeOfDimCheck) == 0)
 		throw ErrAlreadyDim;
+	#if 0
 	size_t n= d.elements ();
 	util::auto_buffer <C> value (n);
 	arrayvar <C> () [name]= makeArray (d, value.data () );
-	std::for_each (value.begin (), value.end (), initnewvar <C> );
-	value.release ();
+	#else
+	//Array <C> a (d);
+	//arrayvar <C> () [name]= a;
+	arrayvar <C> () [name]= Array <C> (d);
+	#endif
+	//std::for_each (value.begin (), value.end (), initnewvar <C> );
+	//value.release ();
 }
 
 template <class C>
@@ -420,8 +495,9 @@ inline C * addrdim (const std::string & name, const Dimension & d)
 			throw ErrBlassicInternal;
 		}
 	}
-	size_t n= it->second.d.evalpos (d);
-	return it->second.value + n;
+	size_t n= it->second.dim ().evalpos (d);
+	//return it->second.value + n;
+	return it->second.getvalue (n);
 }
 
 template <class C>
@@ -523,6 +599,7 @@ std::string * addrdimstring (const std::string & name, const Dimension & d)
 
 namespace {
 
+#if 0
 template <class C>
 class FreeArray {
 public:
@@ -532,12 +609,13 @@ public:
 		delete [] var.second.value;
 	}
 };
+#endif
 
 template <class C>
 inline void cleararray ()
 {
-	std::for_each (arrayvar <C> ().begin (), arrayvar <C> ().end (),
-		FreeArray<C> () );
+	//std::for_each (arrayvar <C> ().begin (), arrayvar <C> ().end (),
+	//	FreeArray<C> () );
 	arrayvar <C> ().clear ();
 }
 

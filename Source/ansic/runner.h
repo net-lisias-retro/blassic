@@ -7,6 +7,7 @@
 #include "error.h"
 #include "file.h"
 #include "result.h"
+#include "runnerline.h"
 
 #include <stack>
 #include <vector>
@@ -170,9 +171,10 @@ public:
 	void clearerror () { berrLast= BlError (); }
 	void seterror (const BlError & er) { berrLast= er; }
 
-	ProgramPos getposactual () const { return posactual; }
-	void setposactual (ProgramPos pos) { posactual= pos; }
-	void setchunkactual (BlChunk chunk) { posactual.setchunk (chunk); }
+	//ProgramPos getposactual () const { return posactual; }
+	ProgramPos getposactual () const { return runnerline.getposactual (); }
+	//void setposactual (ProgramPos pos) { posactual= pos; }
+	//void setchunkactual (BlChunk chunk) { posactual.setchunk (chunk); }
 
 	void setstatus (StatusProgram stat) { status= stat; }
 	void run_to (BlLineNumber line)
@@ -200,8 +202,13 @@ public:
 	{
 		forstack.push (pfe);
 	}
-	bool for_empty () const { return forstack.empty (); }
-	ForElement & for_top () { return * forstack.top (); }
+	//bool for_empty () const { return forstack.empty (); }
+	ForElement & for_top ()
+	{
+		if (forstack.empty () )
+			throw ErrNextWithoutFor;
+		return * forstack.top ();
+	}
 	void for_pop () { delete forstack.top (); forstack.pop (); }
 
 	void gosub_pop (ProgramPos & pos) { gosubstack.pop (pos); }
@@ -258,6 +265,8 @@ public:
 	}
 
         typedef std::map <BlChannel,BlFile *> ChanFile;
+        bool isfileopen (BlChannel channel) const
+        	{ return chanfile.find (channel) != chanfile.end (); }
         BlFile & getfile (BlChannel channel);
         void setfile (BlChannel channel, BlFile * npfile);
         void close_all ();
@@ -286,13 +295,14 @@ private:
 	BlChannel blcTron;
 	bool fInElse;
         bool fInWend;
-	ProgramPos posactual;
+	//ProgramPos posactual;
 	ProgramPos posgoto;
 
 	BlLineNumber datanumline;
 	BlChunk datachunk;
 	unsigned short dataelem;
 	CodeLine line;
+	RunnerLine runnerline;
         ChanFile chanfile;
 	BlCode codprev;
         BlError berrLast;

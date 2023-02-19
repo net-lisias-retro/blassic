@@ -1,5 +1,9 @@
 // runnerline.h
 
+#ifndef RUNNERLINE_H_
+
+#define RUNNERLINE_H_
+
 #include "blassic.h"
 #include "error.h"
 #include "result.h"
@@ -14,14 +18,26 @@ class Program;
 class RunnerLine {
 public:
 	RunnerLine (Runner & runner, CodeLine & line, Program & program) :
-		line (line),
+		pline (& line),
 		runner (runner),
 		program (program),
 		fInElse (false)
 	{ }
+	void setline (CodeLine & line)
+	{
+		pline= & line;
+		fInElse= false;
+	}
 	void execute ();
+	inline BlLineNumber number () const { return pline->number (); }
+	inline ProgramPos getposactual () const
+	{
+		return ProgramPos (pline->number (), actualchunk);
+	}
 private:
-	CodeLine & line;
+	//CodeLine & line;
+	CodeLine * pline;
+	BlChunk actualchunk;
 	Runner & runner;
 	Program & program;
 	bool fInElse;
@@ -31,13 +47,15 @@ private:
 	typedef bool (RunnerLine::* do_func) (void);
 	typedef std::map <BlCode, do_func> mapfunc_t;
 	static const mapfunc_t mapfunc;
+	static const mapfunc_t::const_iterator mapend;
 	static mapfunc_t initmapfunc ();
 
 	inline BlFile & getfile (BlChannel channel);
 
-	inline void gettoken () { token= line.gettoken (); }
+	//inline void gettoken () { token= line.gettoken (); }
+	inline void gettoken () { pline->gettoken (token); }
 	inline bool endsentence () { return token.isendsentence (); }
-	inline void require_endsentence () const throw (BlErrNo)
+	inline void require_endsentence () const // throw (BlErrNo)
 	{
 		if (! token.isendsentence () )
 			throw ErrSyntax;
@@ -55,6 +73,8 @@ private:
 	void valasc (BlResult & result);
 	void vallen (BlResult & result);
 	void valpeek (BlResult & result);
+	void valpeek16 (BlResult & result);
+	void valpeek32 (BlResult & result);
 	void valprogramptr (BlResult & result);
 	void valrnd (BlResult & result);
 	void valint (BlResult & result);
@@ -115,6 +135,8 @@ private:
 
 	inline BlNumber evalnum ();
 	inline BlNumber expectnum ();
+	inline BlInteger evalinteger ();
+	inline BlInteger expectinteger ();
 	inline BlChannel evalchannel ();
 	inline BlChannel expectchannel ();
 	inline std::string evalstring ();
@@ -125,6 +147,10 @@ private:
 
 	void errorifparam ();
         void gosub_line (BlLineNumber dest);
+
+	void getinkparams ();
+	void getdrawargs (BlInteger & y);
+	void getdrawargs (BlInteger & x, BlInteger & y);
 
 	void print_using (BlFile & out);
 
@@ -158,6 +184,7 @@ private:
 	bool do_data ();
 	bool do_restore ();
 	bool do_input ();
+	void do_line_input ();
 	bool do_line ();
 	bool do_randomize ();
 	bool do_auto ();
@@ -212,8 +239,23 @@ private:
 	bool do_synchronize ();
 	bool do_pause ();
 	bool do_chain ();
-        bool do_environ ();
-        bool do_edit ();
+	bool do_environ ();
+	bool do_edit ();
+	bool do_drawr ();
+	bool do_plotr ();
+	bool do_mover ();
+	bool do_poke16 ();
+	bool do_poke32 ();
+	bool do_renum ();
+	bool do_circle ();
+	bool do_mask ();
+	bool do_window ();
+	void do_graphics_pen ();
+	void do_graphics_paper ();
+	void do_graphics_cls ();
+	bool do_graphics ();
 };
+
+#endif
 
 // Fin de runnerline.h

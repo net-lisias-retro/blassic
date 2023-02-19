@@ -106,41 +106,41 @@ public:
 		vartype= VarInteger;
 		varinteger= BlInteger (varnumber);
 	}
-	BlResult & operator = (const std::string & nstr)
+	/*BlResult & */ void operator = (const std::string & nstr)
 	{
 		vartype= VarString;
 		varstr= nstr;
-		return * this;
+		//return * this;
 	}
-	BlResult & operator = (BlNumber num)
+	/*BlResult & */ void operator = (BlNumber num)
 	{
 		vartype= VarNumber;
 		varnumber= num;
-		varstr.erase ();
-		return * this;
+		//varstr.erase ();
+		//return * this;
 	}
-	BlResult & operator = (BlInteger inum)
+	/*BlResult & */ void operator = (BlInteger inum)
 	{
 		vartype= VarInteger;
 		varinteger= inum;
-		varstr.erase ();
-		return * this;
+		//varstr.erase ();
+		//return * this;
 	}
-	BlResult & operator = (int inum)
+	/*BlResult & */ void operator = (int inum)
 	{
 		vartype= VarInteger;
 		varinteger= inum;
-		varstr.erase ();
-		return * this;
+		//varstr.erase ();
+		//return * this;
 	}
-	BlResult & operator = (size_t inum)
+	/*BlResult & */ void operator = (size_t inum)
 	{
 		vartype= VarInteger;
 		varinteger= inum;
-		varstr.erase ();
-		return * this;
+		//varstr.erase ();
+		//return * this;
 	}
-	BlResult & operator += (const BlResult & br)
+	/*BlResult & */ void operator += (const BlResult & br)
 	{
 		switch (vartype)
 		{
@@ -164,9 +164,9 @@ public:
 		default:
 			throw ErrBlassicInternal;
 		}
-		return * this;
+		//return * this;
 	}
-	BlResult & operator -= (const BlResult & br)
+	/*BlResult & */ void operator -= (const BlResult & br)
 	{
 		switch (vartype)
 		{
@@ -190,9 +190,9 @@ public:
 		default:
 			throw ErrBlassicInternal;
 		}
-		return * this;
+		//return * this;
 	}
-	BlResult & operator *= (const BlResult & br)
+	/*BlResult & */ void operator *= (const BlResult & br)
 	{
 		switch (vartype)
 		{
@@ -215,9 +215,9 @@ public:
 		default:
 			throw ErrBlassicInternal;
 		}
-		return * this;
+		//return * this;
 	}
-	BlResult & operator /= (const BlResult & br)
+	/*BlResult & */ void operator /= (const BlResult & br)
 	{
 		switch (vartype)
 		{
@@ -236,7 +236,7 @@ public:
 		default:
 			throw ErrBlassicInternal;
 		}
-		return * this;
+		//return * this;
 	}
 	BlResult operator - ()
 	{
@@ -252,7 +252,7 @@ public:
 			throw ErrBlassicInternal;
 		}
 	}
-	BlResult & operator %= (const BlResult & br)
+	/*BlResult & */ void operator %= (const BlResult & br)
 	{
 		switch (vartype)
 		{
@@ -270,7 +270,7 @@ public:
 		if (r == 0)
 			throw ErrDivZero;
 		varinteger= varinteger %  r;
-		return * this;
+		//return * this;
 	}
 	bool operator == (const BlResult & br)
 	{

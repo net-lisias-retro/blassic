@@ -59,7 +59,7 @@ LABEL init
 
 progname$= PROGRAMARG$ (1)
 
-numbers= upper$ (programarg$ (2) ) <> "N"
+IF progname$ = "-n" then progname$= PROGRAMARG$ (2) : else numbers= 1
 
 IF progname$ = "" THEN PRINT "Falta argumento" : END
 
@@ -92,7 +92,7 @@ REM Carga la tabla de codigos
 
 LABEL loadtable
 
-numcod= 165
+numcod= 178
 dim name$ (numcod), cod (numcod)
 for i= 1 to numcod
 	read name$ (i), cod (i)
@@ -195,17 +195,26 @@ DATA "FILES", 334
 DATA "PAPER", 335
 DATA "PEN", 336
 DATA "SHELL", 337
-DATA "CHDIR", 338
-DATA "MKDIR", 339
-DATA "RMDIR", 340
-DATA "BREAK", 341
-DATA "SYNCHRONIZE", 342
-DATA "PAUSE", 343
-DATA "CHAIN", 344
-DATA "STR", 345
-DATA "REAL", 346
-DATA "ENVIRON", 347
-DATA "EDIT", 348
+DATA "MERGE", 338
+DATA "CHDIR", 339
+DATA "MKDIR", 340
+DATA "RMDIR", 341
+DATA "BREAK", 342
+DATA "SYNCHRONIZE", 343
+DATA "PAUSE", 344
+DATA "CHAIN", 345
+DATA "STR", 346
+DATA "REAL", 347
+DATA "ENVIRON", 348
+DATA "EDIT", 349
+DATA "DRAWR", 350
+DATA "PLOTR", 351
+DATA "MOVER", 352
+DATA "POKE16", 353
+DATA "POKE32", 354
+DATA "RENUM", 355
+DATA "CIRCLE", 356
+DATA "MASK", 357
 
 REM Funciones de cadena
 
@@ -276,6 +285,10 @@ DATA "CINT", 803
 DATA "FIX", 804
 DATA "XMOUSE", 805
 DATA "YMOUSE", 806
+DATA "XPOS", 807
+DATA "YPOS", 808
+DATA "PEEK16", 809
+DATA "PEEK32", 810
 
 REM Operadores
 

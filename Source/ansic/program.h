@@ -25,7 +25,9 @@ public:
 	//CodeLine getnextline (CodeLine & line);
 	void getnextline (CodeLine & line);
 	//BlLineNumber getnextnum (CodeLine & line);
-	CodeLine getline (BlLineNumber num);
+	//CodeLine getline (BlLineNumber num);
+	void getline (BlLineNumber num, CodeLine & line);
+	void getline (ProgramPos pos, CodeLine & line);
 	void insert (const CodeLine & code);
 	void deletelines (BlLineNumber iniline, BlLineNumber endline);
 	void list (BlLineNumber iniline, BlLineNumber endline,
@@ -34,6 +36,8 @@ public:
 	void load (const std::string & name);
 	void merge (const std::string & name);
 	void renew ();
+	void renum (BlLineNumber blnNew, BlLineNumber blnOld,
+		BlLineNumber blnInc);
 private:
 	Program (const Program &); // Prohibido
 	Program & operator= (const Program &); // Prohibido

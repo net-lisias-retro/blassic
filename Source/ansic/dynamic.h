@@ -39,7 +39,7 @@ inline void dynamicclose (DynamicHandle handle)
 
 #endif
 
-#elif defined (__WIN32__)
+#elif defined __WIN32__
 
 typedef HMODULE DynamicHandle;
 
@@ -54,6 +54,17 @@ inline void dynamicclose (DynamicHandle handle)
 
 #else
 	#error Unknown operating system
+#endif
+
+#ifdef __WIN32__
+
+typedef __declspec (dllimport) int (* DynamicUsrFunc)
+	(int nparams, int * param);
+
+#else
+
+typedef int (* DynamicUsrFunc) (int nparams, int * param);
+
 #endif
 
 // Fin de dymanic.h

@@ -2,7 +2,8 @@ rem invert.bas
 
 d= sysvarptr
 
-charset= peek (d + 20) + 256 * (peek (d + 21) + 256 * (peek (d + 22) + 256 * peek (d+ 23) ) )
+rem charset= peek (d + 20) + 256 * (peek (d + 21) + 256 * (peek (d + 22) + 256 * peek (d+ 23) ) )
+charset= peek32 (d + 20)
 
 mode 10
 

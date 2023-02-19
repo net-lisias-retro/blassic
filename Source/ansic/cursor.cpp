@@ -24,26 +24,52 @@
 
 #endif
 
+#if defined __linux__ || defined __unix__
+
+// Stuff needed by getwidth
+ 
+#include <stdlib.h>
+#include <sys/ioctl.h>
+#include <termios.h>
+  
+// This is from ncurses.
+#ifdef TIOCGSIZE
+# define IOCTL_WINSIZE TIOCGSIZE
+# define STRUCT_WINSIZE struct ttysize
+# define WINSIZE_ROWS(n) (int)n.ts_lines
+# define WINSIZE_COLS(n) (int)n.ts_cols
+#else
+# ifdef TIOCGWINSZ
+#  define IOCTL_WINSIZE TIOCGWINSZ
+#  define STRUCT_WINSIZE struct winsize
+#  define WINSIZE_ROWS(n) (int)n.ws_row
+#  define WINSIZE_COLS(n) (int)n.ws_col
+# endif
+#endif
+
+#endif
+
 #include <iostream>
 #include <map>
 
 namespace {
 
-#ifndef __WIN32__
+#ifdef BLASSIC_USE_TERMINFO
 
 bool fInit= true;
 
 int background= 8;
 
-const char * strCls, * strCup,
-	* strCursorNormal, * strCursorInvisible,
-	* strForeground, * strBackground,
-	* strEnterBold, * strExitBold,
-	* strMoveForward, * strMoveBack,
-	* strMoveForwardN, * strMoveBackN,
-	* strMoveUp, * strMoveDown,
-	* strMoveUpN, * strMoveDownN,
-	* strSaveCursorPos, * strRestoreCursorPos;
+const char
+	* strCls= NULL,           * strCup= NULL,
+	* strCursorNormal= NULL,  * strCursorInvisible= NULL,
+	* strForeground= NULL,    * strBackground= NULL,
+	* strEnterBold= NULL,     * strExitBold= NULL,
+	* strMoveForward= NULL,   * strMoveBack= NULL,
+	* strMoveForwardN= NULL,  * strMoveBackN= NULL,
+	* strMoveUp= NULL,        * strMoveDown= NULL,
+	* strMoveUpN= NULL,       * strMoveDownN= NULL,
+	* strSaveCursorPos= NULL, * strRestoreCursorPos= NULL;
 
 const char * newstr (const char * str)
 {
@@ -54,13 +80,6 @@ const char * newstr (const char * str)
 	strcpy (n, str);
 	return n;
 }
-
-#if 0
-inline const char * mytgetstr (const char * id)
-{
-	return newstr (tgetstr ( (char *) id, 0) );
-}
-#endif
 
 inline const char * calltigetstr (const char * id)
 {
@@ -82,12 +101,50 @@ int putfunc (int ic)
 	return c;
 }
 
-void calltputs (const char * str)
+inline void calltputs (const char * str)
 {
-	tputs (str, 1, putfunc);
+	if (str != NULL)
+		tputs (str, 1, putfunc);
+}
+
+inline void calltparm (const char * str, int n)
+{
+	if (str != NULL)
+		calltputs (tparm ( (char *) str, n) );		
 }
 
 void initkeytable ();
+
+struct str_terminfo {
+	const char * & str;
+	const char * tinfoname;
+};
+
+const str_terminfo strinfo []= {
+	{ strCls, "clear" },
+	{ strCup, "cup" },
+
+	{ strCursorNormal, "cnorm" },
+	{ strCursorInvisible, "civis" },
+
+	{ strForeground, "setaf" },
+	{ strBackground, "setab" },
+
+	{ strEnterBold, "bold" },
+	{ strExitBold, "sgr0" },
+
+	{ strMoveForward, "cuf1" },
+	{ strMoveBack, "cub1" },
+	{ strMoveForwardN, "cuf" },
+	{ strMoveBackN, "cub" },
+	{ strMoveUp, "cuu1" },
+	{ strMoveDown, "cud1" },
+	{ strMoveUpN, "cuu" },
+	{ strMoveDownN, "cud" },
+
+	{ strSaveCursorPos, "sc" },
+	{ strRestoreCursorPos, "rc" },
+};
 
 void init ()
 {
@@ -102,46 +159,15 @@ void init ()
 		#if 0
 		//calltputs (tgetstr ( (char *) "smcup", 0) );
 		const char * str= calltigetstr ("smcup");
-		if (str != 0)
-			calltputs (str);
+		calltputs (str);
 		#endif
 
 		const char * str_keypad_xmit= calltigetstr ("smkx");
-		if (str_keypad_xmit != 0)
-			calltputs (str_keypad_xmit);
+		calltputs (str_keypad_xmit);
 	}
 
-	//strCls= mytgetstr ("clear");
-	strCls= mytigetstr ("clear");
-
-	strCup= mytigetstr ("cup");
-	//strCup= newstr (tgetstr ("cup", 0) );
-
-	//strCursorNormal= mytgetstr ("ve");
-	strCursorNormal= mytigetstr ("cnorm");
-	//strCursorInvisible= mytgetstr ("vi");
-	strCursorInvisible= mytigetstr ("civis");
-
-	//strForeground= newstr (tigetstr ("setf") ); // Sf
-	//strBackground= newstr (tigetstr ("setb") ); // Sb
-	strForeground= mytigetstr ("setaf"); // Sf
-	strBackground= mytigetstr ("setab"); // Sb
-
-	strEnterBold= mytigetstr ("bold");
-	strExitBold= mytigetstr ("sgr0");
-
-	strMoveForward= mytigetstr ("cuf1");
-	strMoveBack= mytigetstr ("cub1");
-	strMoveForwardN= mytigetstr ("cuf");
-	strMoveBackN= mytigetstr ("cub");
-
-	strMoveUp= mytigetstr ("cuu1");
-	strMoveDown= mytigetstr ("cud1");
-	strMoveUpN= mytigetstr ("cuu");
-	strMoveDownN= mytigetstr ("cud");
-
-	strSaveCursorPos= mytigetstr ("sc");
-	strRestoreCursorPos= mytigetstr ("rc");
+	for (size_t i= 0; i < util::dim_array (strinfo); ++i)
+		strinfo [i].str= mytigetstr (strinfo [i].tinfoname);
 
 	initkeytable ();
 }
@@ -169,7 +195,7 @@ void quitconsole ()
 
 	cursorvisible ();
 
-	#ifndef __WIN32__
+	#ifdef BLASSIC_USE_TERMINFO
 
 	if (! fInit)
 	{
@@ -183,13 +209,43 @@ void quitconsole ()
 			#endif
 
 			const char * str_keypad_local= calltigetstr ("rmkx");
-			if (str_keypad_local != 0)
-				calltputs (str_keypad_local);
+			calltputs (str_keypad_local);
 		}
 
 	}
 
 	#endif
+}
+
+size_t getwidth ()
+{
+	size_t width;
+	if (graphics::ingraphicsmode () )
+		width= graphics::getlinewidth ();
+	else
+	{
+		#ifdef __WIN32__
+                HANDLE h= GetStdHandle (STD_OUTPUT_HANDLE);
+                CONSOLE_SCREEN_BUFFER_INFO info;
+                if (GetConsoleScreenBufferInfo (h, & info) )
+                        width= info.dwSize.X;
+                else
+                        width= 80;
+		#else
+		STRUCT_WINSIZE win;
+		if (ioctl (0, IOCTL_WINSIZE, & win) == 0)
+			width= WINSIZE_COLS (win);
+		else
+		{
+			const char * aux= getenv ("COLUMNS");
+			if (aux)
+				width= atoi (aux);
+			else
+				width= 80;
+		}
+		#endif
+	}
+	return width;
 }
 
 void cursorvisible ()
@@ -225,6 +281,12 @@ void cursorinvisible ()
 
 void showcursor ()
 {
+	if (graphics::ingraphicsmode () )
+	{
+		graphics::showcursor ();
+		return;
+	}
+
 	#ifdef __WIN32__
 
         HANDLE h= GetStdHandle (STD_OUTPUT_HANDLE);
@@ -233,7 +295,7 @@ void showcursor ()
         info.bVisible= TRUE;
         SetConsoleCursorInfo (h, & info);
 
-	#else
+	#elif defined BLASSIC_USE_TERMINFO
 
 	checkinit ();
 
@@ -245,6 +307,12 @@ void showcursor ()
 
 void hidecursor ()
 {
+	if (graphics::ingraphicsmode () )
+	{
+		graphics::hidecursor ();
+		return;
+	}
+
 	#ifdef __WIN32__
 
         HANDLE h= GetStdHandle (STD_OUTPUT_HANDLE);
@@ -253,7 +321,7 @@ void hidecursor ()
         info.bVisible= FALSE;
         SetConsoleCursorInfo (h, & info);
 
-	#else
+	#elif defined BLASSIC_USE_TERMINFO
 
 	checkinit ();
 
@@ -293,16 +361,16 @@ void cls ()
                 }
         }
 
-	#else
+	#elif defined BLASSIC_USE_TERMINFO
 
 	checkinit ();
 
-	if (strCls)
-		calltputs (strCls);
+	calltputs (strCls);
 
 	#endif
 }
 
+#if 0
 void locate (int row, int col)
 {
 	#ifdef BLASSIC_USE_WINDOWS
@@ -310,12 +378,36 @@ void locate (int row, int col)
         COORD coord= { SHORT (col - 1), SHORT (row - 1) };
         SetConsoleCursorPosition (GetStdHandle (STD_OUTPUT_HANDLE), coord);
 
-	#else
+	#elif defined BLASSIC_USE_TERMINFO
 
 	checkinit ();
 
 	if (strCup)
 		calltputs (tgoto (strCup, col - 1, row - 1) );
+
+	#endif
+}
+#endif
+
+void gotoxy (int x, int y)
+{
+	if (graphics::ingraphicsmode () )
+	{
+		graphics::gotoxy (x, y);
+		return;
+	}
+
+	#ifdef BLASSIC_USE_WINDOWS
+
+        COORD coord= { SHORT (x), SHORT (y) };
+        SetConsoleCursorPosition (GetStdHandle (STD_OUTPUT_HANDLE), coord);
+
+	#elif defined BLASSIC_USE_TERMINFO
+
+	checkinit ();
+
+	if (strCup)
+		calltputs (tgoto (strCup, x, y) );
 
 	#endif
 }
@@ -332,10 +424,9 @@ void movecharforward ()
 
         movecharforward (1);
 
-	#else
+	#elif defined BLASSIC_USE_TERMINFO
 
-	if (strMoveForward)
-		calltputs (strMoveForward);
+	calltputs (strMoveForward);
 
 	#endif
 }
@@ -352,10 +443,9 @@ void movecharback ()
 
         movecharback (1);
 
-	#else
+	#elif defined BLASSIC_USE_TERMINFO
 
-	if (strMoveBack)
-		calltputs (strMoveBack);
+	calltputs (strMoveBack);
 
 	#endif
 }
@@ -372,10 +462,9 @@ void movecharup ()
 
         movecharup (1);
 
-	#else
+	#elif defined BLASSIC_USE_TERMINFO
 
-	if (strMoveUp)
-		calltputs (strMoveUp);
+	calltputs (strMoveUp);
 
 	#endif
 }
@@ -392,24 +481,24 @@ void movechardown ()
 
         movechardown (1);
 
-	#else
+	#elif defined BLASSIC_USE_TERMINFO
 
-	if (strMoveDown)
-		calltputs (strMoveDown);
+	calltputs (strMoveDown);
 
 	#endif
 }
 
 namespace {
 
-#if defined __unix__ || defined __linux__
+#ifdef BLASSIC_USE_TERMINFO
 
 inline void auxmovechar (const char * strN, const char * str, size_t n)
 {
 	if (n != 0)
 	{
 		if (strN)
-			calltputs (tparm (strN, n) );
+			//calltputs (tparm ( (char *) strN, n) );
+			calltparm (strN, n);
 		else
 			if (str)
 				for (size_t i= 0; i < n; ++i)
@@ -445,7 +534,7 @@ void movecharforward (size_t n)
                 SetConsoleCursorPosition (h, info.dwCursorPosition);
         }
 
-	#else
+	#elif defined BLASSIC_USE_TERMINFO
 
 	auxmovechar (strMoveForwardN, strMoveForward, n);
 
@@ -470,7 +559,7 @@ void movecharback (size_t n)
                 SetConsoleCursorPosition (h, info.dwCursorPosition);
         }
 
-	#else
+	#elif defined BLASSIC_USE_TERMINFO
 
 	auxmovechar (strMoveBackN, strMoveBack, n);
 
@@ -495,7 +584,7 @@ void movecharup (size_t n)
                 SetConsoleCursorPosition (h, info.dwCursorPosition);
         }
 
-	#else
+	#elif defined BLASSIC_USE_TERMINFO
 
 	auxmovechar (strMoveUpN, strMoveUp, n);
 
@@ -520,7 +609,7 @@ void movechardown (size_t n)
                 SetConsoleCursorPosition (h, info.dwCursorPosition);
         }
 
-	#else
+	#elif defined BLASSIC_USE_TERMINFO
 
 	auxmovechar (strMoveDownN, strMoveDown, n);
 
@@ -531,10 +620,9 @@ void savecursorpos ()
 {
 	#ifdef BLASSIC_USE_WINDOWS
 
-	#else
+	#elif defined BLASSIC_USE_TERMINFO
 
-	if (strSaveCursorPos)
-		calltputs (strSaveCursorPos);
+	calltputs (strSaveCursorPos);
 
 	#endif
 }
@@ -543,10 +631,9 @@ void restorecursorpos ()
 {
 	#ifdef BLASSIC_USE_WINDOWS
 
-	#else
+	#elif defined BLASSIC_USE_TERMINFO
 
-	if (strRestoreCursorPos)
-		calltputs (strRestoreCursorPos);
+	calltputs (strRestoreCursorPos);
 
 	#endif
 }
@@ -572,19 +659,19 @@ inline int mapcolor (int n)
 void textcolor (int color)
 {
         #ifdef __WIN32__
+
         HANDLE h= GetStdHandle (STD_OUTPUT_HANDLE);
         attributes= (attributes & WORD (0xF0) ) | WORD (color & 0x0F);
         SetConsoleTextAttribute (h, attributes);
 
-	#else
+	#elif defined BLASSIC_USE_TERMINFO
 
 	color= mapcolor (color & 0xF);
 	bool intensity= color > 7;
 	if (intensity)
 	{
 		color&= 7;
-		if (strEnterBold)
-			calltputs (strEnterBold);
+		calltputs (strEnterBold);
 	}
 	else
 	{
@@ -595,8 +682,10 @@ void textcolor (int color)
 			textbackground (background);
 		}
 	}
-	if (strForeground)
-		calltputs (tparm ( (char *) strForeground, color) );
+	//if (strForeground)
+	//	calltputs (tparm ( (char *) strForeground, color) );
+	calltparm (strForeground, color);
+
         #endif
 }
 
@@ -611,8 +700,10 @@ void textbackground (int color)
 
 	background= color;
 	color= mapcolor (color & 0xF);
-	if (strBackground)
-		calltputs (tparm ( (char *) strBackground, color) );
+	//if (strBackground)
+	//	calltputs (tparm ( (char *) strBackground, color) );
+	calltparm (strBackground, color);
+
         #endif
 }
 
@@ -625,7 +716,7 @@ enum ReadType { ReadWait, ReadNoWait };
 std::string string_from_key_event (const KEY_EVENT_RECORD & kr)
 {
         char c= kr.uChar.AsciiChar;
-        if (c != '\0')
+	if (c != '\0')
                 return std::string (1, c);
         WORD k= kr.wVirtualKeyCode;
         std::string str= string_from_key (k);
@@ -686,7 +777,7 @@ std::string readkey (ReadType type)
         return str;
 }
 
-#else
+#elif defined BLASSIC_USE_TERMINFO
 
 class MapSpecial {
 public:
@@ -694,7 +785,7 @@ public:
 	void addkey (const string & str, string::size_type pos,
 		const string & keyname)
 	{
-		TraceFunc tr ("MapSpecial::addkey");
+		//TraceFunc tr ("MapSpecial::addkey");
 
 		ASSERT (pos < str.size () );
 		char c= str [pos];
@@ -874,13 +965,16 @@ std::string readkey (ReadType type)
 	static std::string charpending;
         std::string str;
 	bool reset_blocking_mode= false;
+	int l;
+	char c;
 
 	if (! charpending.empty () )
 		goto check_it;
 
+	#if 0
+
         if (type == ReadWait)
         {
-                //cursorvisible ();
 		//fcntl (STDIN_FILENO, F_SETFL, 0);
 		wait_event ();
 	}
@@ -890,14 +984,28 @@ std::string readkey (ReadType type)
 		reset_blocking_mode= true;
 	}
 
-	int l;
-	char c;
-
 	//read_another:
 
 	l= read (STDIN_FILENO, & c, 1);
 	if (l == 1)
 		str+= c;
+
+	#else
+
+	fcntl (STDIN_FILENO, F_SETFL, O_NONBLOCK);
+	reset_blocking_mode= true;
+	l= read (STDIN_FILENO, & c, 1);
+	if (l != 1 && type == ReadWait)
+	{
+		do {
+			wait_event ();
+			l= read (STDIN_FILENO, & c, 1);
+		} while (l != 1);
+	}
+	if (l == 1)
+		str+= c;
+
+	#endif
 
 	read_another:
 	

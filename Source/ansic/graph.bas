@@ -63,23 +63,22 @@ label redraw
 cls
 
 rem Color 0, mode copy.
-pen 0, , 0
+color 0
+mover 0, 0, , 0
 
 rem ********
 rem * Axis *
 rem ********
 
-xx= fn calculxx (0)
-plot xx, 0 : draw xx, yy2
+if x1 * x2 < 0 then xx= fn calculxx (0): plot xx, 0 : draw xx, yy2
 
-yy= fn calculyy (0)
-plot 0, yy : draw xx2, yy
+if y1 * y2 < 0 then yy= fn calculyy (0): plot 0, yy : draw xx2, yy
 
 rem *****************
 rem * Draw Function *
 rem *****************
 
-pen 1
+color 1
 
 xx= 0
 x= fn calculx (xx)
@@ -98,8 +97,7 @@ next
 
 label tecla
 
-rem Mode invert.
-pen ,, 1
+gosub modexor
 
 gosub recuadro
 
@@ -108,8 +106,7 @@ get a$ : a$= upper$ (a$)
 rem color 15
 gosub recuadro
 
-rem Mode normal
-pen ,,0
+gosub modenormal
 
 if a$ = "O" or a$ = "LEFT" then inix= inix - 1 : goto tecla
 if a$ = "P" or a$ = "RIGHT" then inix= inix + 1 : goto tecla
@@ -131,7 +128,7 @@ if a$ = "Q" or a$ = esc$ then goto endprogram
 
 if a$ = "R" then goto redraw
 
-if a$ = "V" then pen 0: locate 1, 1: print "X1= "; x1; " X2= "; x2; " Y1= "; y1; " Y2= "; y2 : goto tecla
+if a$ = "V" then locate 1, 1: print "X1= "; x1; " X2= "; x2; " Y1= "; y1; " Y2= "; y2 : goto tecla
 
 if a$ = "CLICK" then gosub mousedraw: goto tecla
 
@@ -143,7 +140,7 @@ xs2= fn calculx (inix + width)
 ys1= fn calculy (yy2 - (iniy + height) )
 ys2= fn calculy (yy2 - iniy)
 
-if xs1 = xs2 or ys1 = ys2 then pen 0: locate 1, 1: print "**TOO CLOSE**" : goto tecla
+if xs1 = xs2 or ys1 = ys2 then locate 1, 1: print "**TOO CLOSE**" : goto tecla
 
 x1= xs1: x2= xs2: y1= ys1: y2= ys2
 x21= x2 - x1
@@ -153,7 +150,7 @@ goto showfunction
 
 label mousedraw
 
-pen ,,1
+gosub modexor
 
 oinix= inix: oiniy= iniy: oheight= height: owidth= width
 
@@ -174,12 +171,30 @@ if width < 0 then inix= inix + width: width= -width
 
 if height < 0 then iniy= iniy + height: height= - height
 
-pen ,,0
+gosub modenormal
 
 return
 
 label recuadro
 plot inix, iniy to inix, iniy + height to inix + width, iniy + height to inix + width, iniy to inix, iniy
+return
+
+label modenormal
+
+rem Set graphics mode copy and mask mode draw first point.
+color 15
+mover 0, 0, , 0
+mask , 1
+
+return
+
+label modexor
+
+rem Set graphics mode XOR and mask mode not draw first point.
+color 15
+mover 0, 0, , 1
+mask , 0
+
 return
 
 label endprogram

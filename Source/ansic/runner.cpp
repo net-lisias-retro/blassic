@@ -1,7 +1,6 @@
 // runner.cpp
 
 #include "runner.h"
-#include "runnerline.h"
 #include "keyword.h"
 #include "var.h"
 #include "codeline.h"
@@ -37,15 +36,6 @@ inline bool iscomp (BlCode code)
 		code == '<' || code == keyMINOREQUAL ||
 		code == '>' || code == keyGREATEREQUAL;
 }
-
-namespace {
-
-void deletefile (Runner::ChanFile::value_type & chf)
-{
-        delete chf.second;
-}
-
-} // namespace
 
 //************************************************
 //		LocalLevel
@@ -100,6 +90,7 @@ void LocalLevel::Internal::addlocal (const std::string & name)
 		}
 		break;
 	default:
+		std::cerr << "Invalid local variable\n";
 		throw ErrBlassicInternal;
 	}
 	maploc [name]= result;
@@ -185,12 +176,30 @@ void LocalLevel::addlocal (const std::string & name)
 //		class Runner
 //************************************************
 
+namespace {
+
+const std::string strbreak ("**BREAK**");
+
+void deletefile (Runner::ChanFile::value_type & chf)
+{
+        delete chf.second;
+}
+
+void deletefileifnotzero (Runner::ChanFile::value_type & chf)
+{
+	if (chf.first != BlChannel (0) )
+		delete chf.second;
+}
+
+} // namespace
+
 Runner::Runner (Program & prog) :
 	program (prog),
 	status (ProgramEnded),
 	fTron (false),
 	fInElse (false),
 	fInWend (false),
+	runnerline (* this, line, program),
 	blnErrorGoto (0),
 	breakstate (BreakStop),
 	blnAuto (0)
@@ -222,15 +231,24 @@ void Runner::setfile (BlChannel channel, BlFile * npfile)
 
 void Runner::close_all ()
 {
+	#if 0
 	std::for_each (chanfile.begin (), chanfile.end (), deletefile);
 	chanfile.clear ();
 	chanfile [0]= new BlFileConsole (std::cin, std::cout);
+	#else
+	BlFile * bfsave= chanfile [0];
+	std::for_each (chanfile.begin (), chanfile.end (),
+		deletefileifnotzero);
+	chanfile.clear ();
+	chanfile [0]= bfsave;
+	#endif
 }
 
 void Runner::closechannel (BlChannel channel)
 {
         ChanFile::iterator it= chanfile.find (channel);
-        if (it != chanfile.end () ) {
+        if (it != chanfile.end () )
+        {
                 delete it->second;
                 chanfile.erase (it);
         }
@@ -292,14 +310,16 @@ inline bool Runner::checkstatus (CodeLine & line, const CodeLine & line0)
                         line= program.getfirstline ();
                 else
                         //line= program.getline (gotoline);
-			line= program.getline (posgoto.getnum () );
+			//line= program.getline (posgoto.getnum () );
+			//program.getline (posgoto.getnum (), line);
+			program.getline (posgoto, line);
                 if (line.number () == 0)
                         status= ProgramEnded;
                 else
                 {
                         status= ProgramRunning;
                         //line.gotochunk (gotochunk);
-			line.gotochunk (posgoto.getchunk () );
+			//line.gotochunk (posgoto.getchunk () );
 			return true;
                 }
                 break;
@@ -309,16 +329,25 @@ inline bool Runner::checkstatus (CodeLine & line, const CodeLine & line0)
 			if (gotoline != 0)
 			{
 				//if (actualline != gotoline)
-				if (posactual.getnum () != gotoline)
-					line= program.getline (gotoline);
+				//if (posactual.getnum () != gotoline)
+				//if (getposactual().getnum () != gotoline)
+				if (runnerline.number () != gotoline)
+					//line= program.getline (gotoline);
+					//program.getline (gotoline, line);
+					program.getline (posgoto, line);
+				else
+					line.gotochunk (posgoto.getchunk () );
 			}
 			else
+			{
 				if (line.number () != 0)
 					line= line0;
+				line.gotochunk (posgoto.getchunk () );
+			}
 		}
 		status= ProgramRunning;
 		//line.gotochunk (gotochunk);
-		line.gotochunk (posgoto.getchunk () );
+		//line.gotochunk (posgoto.getchunk () );
 		return true;
         case ProgramRunning:
                 if (line.number () != 0)
@@ -338,6 +367,7 @@ void Runner::runline (CodeLine & codeline)
 {
 	line= codeline;
 	CodeLine line0= codeline;
+	//RunnerLine runnerline (* this, line, program);
 	do
 	{
 		try
@@ -345,8 +375,7 @@ void Runner::runline (CodeLine & codeline)
 			try
 			{
 				do {
-					RunnerLine runnerline
-						(* this, line, program);
+					runnerline.setline (line);
 			        	if (fTron && line.number () != 0)
 						tronline (line.number () );
 					runnerline.execute ();
@@ -379,10 +408,14 @@ void Runner::runline (CodeLine & codeline)
 			switch (getbreakstate () )
 			{
 			case BreakStop:
-				std::cerr << "**BREAK**";
-				if (line.number () != 0)
-					std::cerr << " in " << line.number ();
-				std::cerr << std::endl;
+				{
+					BlFile & bf= getfile (0);
+					bf << strbreak;
+					if (line.number () != 0)
+						bf << " in " <<
+						BlNumber (line.number () );
+					bf << '\n';
+				}
 				set_break (actual);
 				setstatus (ProgramStopped);
 				break;
@@ -405,6 +438,7 @@ bool Runner::processline (const std::string & line)
 	{
 		if (blnAuto != 0)
 		{
+			// This probably must be changed.
 			if (code.empty () )
 				program.deletelines (blnAuto, blnAuto);
 			else
@@ -415,25 +449,38 @@ bool Runner::processline (const std::string & line)
 			if (blnAuto > BlMaxLineNumber - blnAutoInc)
 			{
 				blnAuto= 0;
-				throw BlError (ErrLineExhausted, blnAuto);
+				throw BlError (ErrLineExhausted, 0);
 			}
 			else
 				blnAuto+= blnAutoInc;
 		}
 		else
 		{
+			if (code.empty () )
+				return false;
 			runline (code);
 			return true;
 		}
 	}
 	else
 	{
+		if (nline > BlMaxLineNumber)
+			throw BlError (ErrLineExhausted, 0);
 		if (code.empty () )
 			program.deletelines (nline, nline);
 		else
 			program.insert (code);
 		if (blnAuto != 0)
-			blnAuto= code.number () + blnAutoInc;
+		{
+			blnAuto= code.number ();
+			if (blnAuto > BlMaxLineNumber - blnAutoInc)
+			{
+				blnAuto= 0;
+				throw BlError (ErrLineExhausted, 0);
+			}
+			else
+				blnAuto+= blnAutoInc;
+		}
 	}
 	return false;
 }
@@ -446,11 +493,15 @@ void Runner::interactive ()
 	using std::cout;
 	using std::flush;
 
-	cout << "\nBlassic " <<
-		version::Major << '.' << version::Minor << '.' <<
-		version::Release << "\n"
-		"(C) 2001-2002 Julian Albo\n"
-		"\n";
+	{
+		std::ostringstream oss;
+		oss << "\nBlassic " <<
+			version::Major << '.' << version::Minor << '.' <<
+			version::Release << "\n"
+			"(C) 2001-2002 Julian Albo\n"
+			"\n";
+		getfile (0) << oss.str ();
+	}
 	bool showprompt= true;
 	for (;;)
 	{
@@ -480,7 +531,7 @@ void Runner::interactive ()
 		if (fInterrupted)
 		{
 			fInterrupted= false;
-			getfile (0) << "**BREAK**\n";
+			getfile (0) << strbreak << '\n';
 			cin.clear ();
 			blnAuto= 0;
 			continue;
@@ -501,9 +552,7 @@ void Runner::interactive ()
 		}
 		catch (BlError & be)
 		{
-			std::ostringstream oss;
-			oss << be;
-			getfile (0) << oss.str ();
+			getfile (0) << util::to_string (be);
 		}
 	} // for
 }

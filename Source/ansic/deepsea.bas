@@ -49,11 +49,11 @@ gosub defchars
 d= sysvarptr
 charset= peek (d+20) + 256 * (peek (d+21) + 256 * (peek (d+22) + 256 * peek (d+23) ) )
 
-g$= "DEEP": xpos= 5: ypos= sealevel + 2: gosub rotulo
+g$= "DEEP": posx= 5: posy= sealevel + 2: gosub rotulo
 
 pause 500
 
-g$= "SEA": xpos= 9: ypos= sealevel + 10: gosub rotulo
+g$= "SEA": posx= 9: posy= sealevel + 10: gosub rotulo
 
 pause 750
 
@@ -169,6 +169,8 @@ return
 
 label movecharges
 
+killed= 0
+
 for i= 1 to maxcharge
 	if xcharge (i) = 0 then goto nextcharge
 	countcharge (i)= countcharge (i) - 1
@@ -182,10 +184,12 @@ for i= 1 to maxcharge
 	locate ycharge (i), xcharge (i): print charge$;
 
 	dist= xcharge (i) - xsub
-	if ycharge (i) = ysub and dist >= 0 and dist < 3 then goto gameover
+	if ycharge (i) = ysub and dist >= 0 and dist < 3 then killed= 1
 
 	label nextcharge
 next
+
+if killed then goto gameover
 
 return
 
@@ -313,12 +317,12 @@ label gameover
 d= sysvarptr
 charset= peek (d+20) + 256 * (peek (d+21) + 256 * (peek (d+22) + 256 * peek (d+23) ) )
 
-xpos= 5
-g$= "GAME": ypos= sealevel + 2: gosub rotulo
+posx= 5
+g$= "GAME": posy= sealevel + 2: gosub rotulo
 
 pause 500
 
-g$= "OVER": ypos= sealevel + 10: gosub rotulo
+g$= "OVER": posy= sealevel + 10: gosub rotulo
 
 while inkey$ <> "" : wend
 
@@ -332,14 +336,14 @@ l= len (g$)
 pen 0, 0
 for i= 0 to 7
 	for j= 1 to l
-		jpos= (j - 1) * 8
+		posj= (j - 1) * 8
 		c= asc (mid$ (g$, j, 1) )
 		n= peek (charset + c * 8 + i)
-		mask= 128
+		m= 128
 		for k= 0 to 7
-			locate ypos + i, xpos + k + jpos
-			if n and mask then print black$;
-			mask= mask / 2
+			locate posy + i, posx + k + posj
+			if n and m then print black$;
+			m= m / 2
 		next
 	next
 	synchronize

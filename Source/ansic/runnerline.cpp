@@ -31,6 +31,7 @@ using std::endl;
 
 #if defined __unix__ || defined __linux__ // Kylix defines only __linux__
 #include <unistd.h>
+#include <glob.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
@@ -45,7 +46,7 @@ using std::unlink;
 
 namespace {
 
-#if defined (__unix__)
+#if defined __unix__ || defined __linux__
 
 const char * os_family= "unix";
 
@@ -96,6 +97,10 @@ mapfunction_t mapfunction;
 } // namespace
 
 const RunnerLine::mapfunc_t RunnerLine::mapfunc= initmapfunc ();
+
+// Avoid call mapfunc.end every time.
+const RunnerLine::mapfunc_t::const_iterator
+	RunnerLine::mapend= mapfunc.end ();
 
 RunnerLine::mapfunc_t RunnerLine::initmapfunc ()
 {
@@ -190,6 +195,16 @@ RunnerLine::mapfunc_t RunnerLine::initmapfunc ()
 	m [keyCHAIN]=        & RunnerLine::do_chain;
         m [keyENVIRON]=      & RunnerLine::do_environ;
         m [keyEDIT]=         & RunnerLine::do_edit;
+        m [keyDRAWR]=        & RunnerLine::do_drawr;
+        m [keyPLOTR]=        & RunnerLine::do_plotr;
+        m [keyMOVER]=        & RunnerLine::do_mover;
+        m [keyPOKE16]=       & RunnerLine::do_poke16;
+        m [keyPOKE32]=       & RunnerLine::do_poke32;
+        m [keyRENUM]=        & RunnerLine::do_renum;
+        m [keyCIRCLE]=       & RunnerLine::do_circle;
+        m [keyMASK]=         & RunnerLine::do_mask;
+        m [keyWINDOW]=       & RunnerLine::do_window;
+        m [keyGRAPHICS]=     & RunnerLine::do_graphics;
 	return m;
 }
 
@@ -237,6 +252,19 @@ inline BlNumber RunnerLine::expectnum ()
 {
 	gettoken ();
 	return evalnum ();
+}
+
+inline BlInteger RunnerLine::evalinteger ()
+{
+	BlResult result;
+	eval (result);
+	return result.integer ();
+}
+
+inline BlInteger RunnerLine::expectinteger ()
+{
+	gettoken ();
+	return evalinteger ();
 }
 
 inline BlChannel RunnerLine::evalchannel ()
@@ -330,6 +358,20 @@ void RunnerLine::valpeek (BlResult & result)
 	BlChar * addr= (BlChar *) size_t (result.number () );
 	//result= BlNumber (size_t (* addr) );
 	result= BlInteger (size_t (* addr) );
+}
+
+void RunnerLine::valpeek16 (BlResult & result)
+{
+	getparenarg (result);
+	BlChar * addr= (BlChar *) size_t (result.number () );
+	result= peek16 (addr);
+}
+
+void RunnerLine::valpeek32 (BlResult & result)
+{
+	getparenarg (result);
+	BlChar * addr= (BlChar *) size_t (result.number () );
+	result= BlNumber (static_cast <unsigned long> (peek32 (addr) ) );
 }
 
 void RunnerLine::valprogramptr (BlResult & result)
@@ -450,14 +492,8 @@ private:
 
 void RunnerLine::valusr (BlResult & result)
 {
-        #ifdef _Windows
-	typedef __declspec (dllimport) int (*usrfunc) (int nparams, int * param);
-        #else
-	typedef int (*usrfunc) (int nparams, int * param);
-        #endif
-
 	expecttoken ('(');
-	size_t addr= 0;
+	void * symaddr;
 	DynamicHandle libhandle= 0;
         GuardHandle guard (& libhandle);
 
@@ -465,10 +501,11 @@ void RunnerLine::valusr (BlResult & result)
 	switch (result.type () )
 	{
 	case VarNumber:
-		addr= size_t (result.number () );
+		symaddr= reinterpret_cast <void *>
+			(size_t (result.number () ) );
 		break;
 	case VarInteger:
-		addr= result.integer ();
+		symaddr= reinterpret_cast <void  *> (result.integer () );
 		break;
 	case VarString:
 		{
@@ -478,7 +515,7 @@ void RunnerLine::valusr (BlResult & result)
                         libhandle= dynamicload (libname);
 			if (! libhandle)
 				throw ErrNoDynamicLibrary;
-                        void * symaddr= dynamicaddr (libhandle, funcname);
+                        symaddr= dynamicaddr (libhandle, funcname);
                         #ifdef _Windows
                         if (! symaddr)
                         {
@@ -488,7 +525,6 @@ void RunnerLine::valusr (BlResult & result)
                         #endif
 			if (! symaddr)
 				throw ErrNoDynamicSymbol;
-			addr= size_t (symaddr);
 		}
 		break;
 	default:
@@ -499,8 +535,10 @@ void RunnerLine::valusr (BlResult & result)
         std::vector <int> vparam;
         while (token.code == ',')
         {
-                BlNumber newpar= expectnum ();
-                vparam.push_back (int (newpar) );
+                //BlNumber newpar= expectnum ();
+                //vparam.push_back (int (newpar) );
+		expect (result);
+		vparam.push_back (result.integer () );
                 ++nparams;
         }
 	requiretoken (')');
@@ -511,8 +549,10 @@ void RunnerLine::valusr (BlResult & result)
 		param.alloc (nparams);
 		std::copy (vparam.begin (), vparam.end (), param.begin () );
 	}
-	usrfunc f= usrfunc (addr);
-	//result= BlNumber (f (nparams, param) );
+
+	// reinterpret_cast produces a warning in gcc.
+	//DynamicUsrFunc f= reinterpret_cast <DynamicUsrFunc> (symaddr);
+	DynamicUsrFunc f= (DynamicUsrFunc) symaddr;
 	result= static_cast <BlInteger> (f (nparams, param) );
 }
 
@@ -520,12 +560,50 @@ void RunnerLine::valval (BlResult & result)
 {
         getparenarg (result);
         std::string str= result.str ();
-        size_t i= 0, l= str.size ();
-        while (i < l && str [i] == ' ')
-                ++i;
-        if (i > 0)
-                str= str.substr (i);
-        result= CodeLine::Token::number (str);
+        switch (sysvar::get (sysvar::TypeOfVal) )
+	{
+	case 0:
+		// VAL simple.
+		{
+			#if 0
+			size_t i= 0, l= str.size ();
+			while (i < l && str [i] == ' ')
+				++i;
+			#else
+			std::string::size_type i=
+				str.find_first_not_of (" \t");
+			if (i > 0)
+				if (i == std::string::npos)
+					str.erase ();
+				else
+					str= str.substr (i);
+			#endif
+		}
+		result= CodeLine::Token::number (str);
+		break;
+	case 1:
+		// VAL with expression evaluation (Sinclair ZX)
+		if (str.find_first_not_of (" \t")
+			== std::string::npos)
+		{
+			result= 0;
+			break;
+		}
+		str= std::string ("0 ") + str;
+		{
+			CodeLine code;
+			code.scan (str);
+			RunnerLine runline (runner, code, program);
+			runline.expect (result);
+			if (runline.token.code != keyENDLINE)
+				throw ErrSyntax;
+		}
+		if (! result.is_numeric () )
+			throw ErrMismatch;
+		break;
+	default:
+		throw ErrNotImplemented;
+	}
 }
 
 void RunnerLine::valeof (BlResult & result)
@@ -1410,6 +1488,20 @@ void RunnerLine::valbase (BlResult & result)
 		result= graphics::ymouse ();
 		gettoken ();
 		break;
+	case keyXPOS:
+		result= graphics::xpos ();
+		gettoken ();
+		break;
+	case keyYPOS:
+		result= graphics::ypos ();
+		gettoken ();
+		break;
+	case keyPEEK16:
+		valpeek16 (result);
+		break;
+	case keyPEEK32:
+		valpeek32 (result);
+		break;
         case keyFN:
                 valfn (result);
                 break;
@@ -1696,7 +1788,8 @@ void RunnerLine::errorifparam ()
 
 void RunnerLine::gosub_line (BlLineNumber dest)
 {
-        ProgramPos posgosub= runner.getposactual ();
+        //ProgramPos posgosub= runner.getposactual ();
+	ProgramPos posgosub (getposactual () );
         posgosub.nextchunk ();
         #if 1
 	if (token.code == keyENDLINE && posgosub.getnum () != 0)
@@ -1711,6 +1804,41 @@ void RunnerLine::gosub_line (BlLineNumber dest)
 	}
 	#endif
         runner.gosub_line (dest, posgosub);
+}
+
+void RunnerLine::getinkparams ()
+{
+	if (endsentence () )
+		return;
+	requiretoken (',');
+	gettoken ();
+	if (token.code != ',')
+	{
+		BlInteger ink= evalinteger ();
+		graphics::setcolor (ink);
+		if (token.code != ',')
+		{
+			require_endsentence ();
+			return;
+		}
+	}
+	gettoken ();
+	BlInteger inkmode= evalinteger ();
+	require_endsentence ();
+	graphics::setdrawmode (inkmode);
+}
+
+void RunnerLine::getdrawargs (BlInteger & y)
+{
+	requiretoken (',');
+	y= expectinteger ();
+	getinkparams ();
+}
+
+void RunnerLine::getdrawargs (BlInteger & x, BlInteger & y)
+{
+	x= expectinteger ();
+	getdrawargs (y);
 }
 
 bool RunnerLine::do_empty_sentence ()
@@ -2184,8 +2312,27 @@ bool RunnerLine::do_print ()
 		else
 			require_endsentence ();
         }
-        BlFile & out= getfile (channel);
-	if (endsentence () ) {
+	BlFile & out= getfile (channel);
+	if (token.code == '@')
+	{
+		BlResult result;
+		expect (result);
+		BlInteger pos= result.integer ();
+		requiretoken (',');
+		gettoken ();
+		#if 0
+		BlInteger row= (pos / 32) + 1;
+		BlInteger col= (pos % 32) + 1;
+		if (graphics::ingraphicsmode () )
+			graphics::locate (row, col);
+		else
+			locate (row, col);
+		#else
+		out.gotoxy (pos % 32, pos / 32);
+		#endif
+	}
+	if (endsentence () )
+	{
 		out << '\n';
 		return false;
 	}
@@ -2194,12 +2341,18 @@ bool RunnerLine::do_print ()
         bool ended= false;
 	do {
                 switch (token.code) {
+                case ',':
+                case ';':
+                	// Line if it were preceded by an empty statement
+                	break;
 		case keyUSING:
 			print_using (out);
 			ended= true;
 			break;
                 case keyTAB:
-                        getparenarg (result);
+                        //getparenarg (result);
+			// Not required to improve Sinclair ZX compatibility.
+			expect (result);
                         n= result.integer ();
 			out.tab (n);
                         break;
@@ -2210,17 +2363,23 @@ bool RunnerLine::do_print ()
 			out.putspaces (n);
                         break;
                 case keyAT:
+                	out.flush ();
                         {
-				int col, row;
-				BlNumber number= expectnum ();
-				col= int (number) + 1;
+				expect (result);
+				//BlInteger row= result.integer () + 1;
+				BlInteger row= result.integer ();
 				requiretoken (',');
-				number= expectnum ();
-				row= int (number) + 1;
+				expect (result);
+				//BlInteger col= result.integer () + 1;
+				BlInteger col= result.integer ();
+				#if 0
 				if (graphics::ingraphicsmode () )
 					graphics::locate (row, col);
 				else
 					locate (row, col);
+				#else
+				out.gotoxy (col, row);
+				#endif
                         }
                         break;
                 default:
@@ -2259,22 +2418,34 @@ bool RunnerLine::do_print ()
 
 bool RunnerLine::do_for ()
 {
-	ProgramPos posfor= runner.getposactual ();
-	posfor.nextchunk ();
+	//ProgramPos posfor= runner.getposactual ();
+	ProgramPos posfor (getposactual () );
+	//posfor.nextchunk ();
 	expecttoken (keyIDENTIFIER);
 	std::string varname= token.str;
 	expecttoken ('=');
 
-	BlNumber initial= expectnum ();
+	//BlNumber initial= expectnum ();
+	BlResult initial;
+	expect (initial);
 
 	requiretoken (keyTO);
-	BlNumber final= expectnum ();
 
-	BlNumber step= (token.code == keySTEP) ? expectnum () : 1;
+	//BlNumber final= expectnum ();
+	BlResult final;
+	expect (final);
+
+	//BlNumber step= (token.code == keySTEP) ? expectnum () : 1;
+	BlResult step;
+	if (token.code == keySTEP)
+		expect (step);
+	else
+		step= 1;
 
 	switch (token.code)
 	{
 	case ':':
+		posfor.nextchunk ();
 		break;
 	case keyENDLINE:
 		#if 1
@@ -2294,12 +2465,17 @@ bool RunnerLine::do_for ()
 	{
 	case VarNumber:
 		runner.push_for (new ForElementNumber
-			(varname, posfor, initial, final, step) );
+			(varname, posfor, initial.number (),
+				final.number (), step.number () ) );
+			//(varname, posfor, initial,
+			//	final, step) );
 		break;
 	case VarInteger:
 		runner.push_for (new ForElementInteger
-			(varname, posfor, BlInteger (initial),
-				BlInteger (final), BlInteger (step) ) );
+			(varname, posfor, initial.integer (),
+				final.integer (), step.integer () ) );
+			//(varname, posfor, initial,
+			//	final, step) );
 		break;
 	case VarString:
 		throw ErrMismatch;
@@ -2312,32 +2488,55 @@ bool RunnerLine::do_for ()
 bool RunnerLine::do_next ()
 {
 	gettoken ();
-	std::string varname;
-	if (! endsentence () )
+	//std::string varname;
+	if (endsentence () )
         {
-		requiretoken (keyIDENTIFIER);
-		varname= token.str;
-		gettoken ();
-	}
-
-	for (;;)
-	{
-		if (runner.for_empty () )
-			throw ErrNextWithoutFor;
+		//if (runner.for_empty () )
+		//	throw ErrNextWithoutFor;
 		ForElement & fe= runner.for_top ();
-		if (! varname.empty () && ! fe.isvar (varname) )
-			throw ErrNextWithoutFor;
 		if (fe.next () )
 		{
 			runner.jump_to (fe.getpos () );
 			return true;
 		}
 		runner.for_pop ();
+		return false;
+	}
+
+	for (;;)
+	{
+		requiretoken (keyIDENTIFIER);
+		//varname= token.str;
+		//gettoken ();
+		//if (runner.for_empty () )
+		//	throw ErrNextWithoutFor;
+		ForElement * pfe= & runner.for_top ();
+		//if (! varname.empty () && ! fe.isvar (varname) )
+		if (! pfe->isvar (token.str) )
+		{
+			if (sysvar::get (sysvar::TypeOfNextCheck) == 0)
+				throw ErrNextWithoutFor;
+			else
+			{
+				// In ZX style NEXT can be omitted.
+				do {
+					runner.for_pop ();
+					pfe= & runner.for_top ();
+				} while (! pfe->isvar (token.str) );
+			}
+		}
+		if (pfe->next () )
+		{
+			runner.jump_to (pfe->getpos () );
+			return true;
+		}
+		runner.for_pop ();
+		gettoken ();
 		if (endsentence () )
 			break;
 		requiretoken (',');
-		expecttoken (keyIDENTIFIER);
-		varname= token.str;
+		//expecttoken (keyIDENTIFIER);
+		//varname= token.str;
 		gettoken ();
 	}
 	return false;
@@ -2465,10 +2664,13 @@ bool RunnerLine::do_stop ()
 	errorifparam ();
 	BlFile & f= getfile (0);
 	f << "**Stopped**";
-	if (line.number () != 0)
-		f << " in " << line.number ();
+	//if (line.number () != 0)
+	//	f << " in " << line.number ();
+	if (pline->number () != 0)
+		f << " in " << pline->number ();
 	f << '\n';
-	ProgramPos posbreak (runner.getposactual () );
+	//ProgramPos posbreak (runner.getposactual () );
+	ProgramPos posbreak (getposactual () );
 	posbreak.nextchunk ();
 	runner.set_break (posbreak);
 	runner.setstatus (ProgramStopped);
@@ -2524,7 +2726,9 @@ bool RunnerLine::do_read ()
 	BlChunk & datachunk= runner.getdatachunk ();
 	unsigned short & dataelem= runner.getdataelem ();
 
-	CodeLine dataline= program.getline (datanumline);
+	//CodeLine dataline= program.getline (datanumline);
+	CodeLine dataline;
+	program.getline (datanumline, dataline);
 	CodeLine::Token datatok;
 otra:
 	if (dataline.number () == 0)
@@ -2534,17 +2738,20 @@ otra:
 		datachunk= 0;
 		dataelem= 0;
 	}
-	datatok= dataline.gettoken ();
+	//datatok= dataline.gettoken ();
+	dataline.gettoken (datatok);
         if (dataline.chunk () < datachunk)
         {
         	while (dataline.chunk () < datachunk)
         	{
-	        	datatok= dataline.gettoken ();
+	        	//datatok= dataline.gettoken ();
+			dataline.gettoken (datatok);
 		        if (datatok.code == keyENDLINE)
 			        break;
 	        }
 	        if (datatok.code != keyENDLINE)
-			datatok= dataline.gettoken ();
+			//datatok= dataline.gettoken ();
+			dataline.gettoken (datatok);
         }
 	if (datatok.code == keyENDLINE)
 	{
@@ -2559,7 +2766,8 @@ otra2:
 		dataelem= 0;
 		datachunk= dataline.chunk ();
 		do {
-			datatok= dataline.gettoken ();
+			//datatok= dataline.gettoken ();
+			dataline.gettoken (datatok);
 		} while (datatok.code != keyENDLINE &&
 			dataline.chunk () == datachunk);
 		if (datatok.code == keyENDLINE)
@@ -2569,20 +2777,24 @@ otra2:
 			program.getnextline (dataline);
 			if (dataline.number () == 0)
 				throw ErrDataExhausted;
-			datatok= dataline.gettoken ();
+			//datatok= dataline.gettoken ();
+			dataline.gettoken (datatok);
 		}
                 else
-                        datatok= dataline.gettoken ();
+                        //datatok= dataline.gettoken ();
+			dataline.gettoken (datatok);
 	}
         datatok= dataline.getdata ();
 	unsigned short elem= 0;
 otra3:
 	while (elem < dataelem)
 	{
-		datatok= dataline.gettoken ();
+		//datatok= dataline.gettoken ();
+		dataline.gettoken (datatok);
 		if (datatok.code == ':')
 		{
-                        datatok= dataline.gettoken ();
+                        //datatok= dataline.gettoken ();
+			dataline.gettoken (datatok);
                         dataelem= 0;
 			goto otra2;
                 }
@@ -3015,35 +3227,8 @@ bool RunnerLine::do_input ()
 	return false;
 }
 
-bool RunnerLine::do_line ()
+void RunnerLine::do_line_input ()
 {
-	gettoken ();
-	if (token.code != keyINPUT)
-	{
-                graphics::Point from;
-                if (token.code == '-')
-                        from= graphics::getlast ();
-                else
-                {
-                        requiretoken ('(');
-		        BlNumber x= expectnum ();
-        		requiretoken (',');
-	        	BlNumber y= expectnum ();
-                        requiretoken (')');
-                        expecttoken ('-');
-                        from= graphics::Point (int (x), int (y) );
-                }
-                expecttoken ('(');
-		BlNumber x= expectnum ();
-		requiretoken (',');
-		BlNumber y= expectnum ();
-                requiretoken (')');
-                gettoken ();
-		require_endsentence ();
-                graphics::move (from.x, from.y);
-		graphics::line (int (x), int (y) );
-		return false;
-	}
 	gettoken ();
 	BlChannel channel= 0;
 	if (token.code == '#')
@@ -3074,7 +3259,7 @@ bool RunnerLine::do_line ()
         	{
 			std::cin.clear ();
 			if (runner.getbreakstate () != Runner::BreakCont)
-				return false;
+				return;
 			else
 			{
 				fInterrupted= false;
@@ -3089,6 +3274,74 @@ bool RunnerLine::do_line ()
 		cursorinvisible ();
 
 	assignvarstring (varname, value);
+}
+
+bool RunnerLine::do_line ()
+{
+	gettoken ();
+	if (token.code == keyINPUT)
+	{
+		do_line_input ();
+		return false;
+	}
+	graphics::Point from;
+	if (token.code == '-')
+		from= graphics::getlast ();
+	else
+	{
+		requiretoken ('(');
+		BlInteger x= expectinteger ();
+		requiretoken (',');
+		BlInteger y= expectinteger ();
+		requiretoken (')');
+		expecttoken ('-');
+		from= graphics::Point (x, y);
+	}
+	expecttoken ('(');
+	BlInteger x= expectinteger ();
+	requiretoken (',');
+	BlInteger y= expectinteger ();
+	requiretoken (')');
+	gettoken ();
+	enum Type { TypeLine, TypeRect, TypeFillRect };
+	Type type= TypeLine;
+	if (! endsentence () )
+	{
+		requiretoken (',');
+		gettoken ();
+		if (token.code != ',')
+		{
+			BlInteger color= evalinteger ();
+			graphics::setcolor (color);
+		}
+		if (token.code == ',')
+		{
+			gettoken ();
+			requiretoken (keyIDENTIFIER);
+			if (token.str == "B")
+				type= TypeRect;
+			else if (token.str == "BF")
+				type= TypeFillRect;
+			else throw ErrSyntax;
+			gettoken ();
+		}
+		require_endsentence ();
+	}
+
+	switch (type)
+	{
+	case TypeLine:
+		graphics::move (from.x, from.y);
+		graphics::line (x, y);
+		break;
+	case TypeRect:
+		graphics::rectangle (from, graphics::Point (x, y) );
+		break;
+	case TypeFillRect:
+		graphics::rectanglefilled (from, graphics::Point (x, y) );
+		break;
+	}
+
 	return false;
 }
 
@@ -3119,7 +3372,8 @@ bool RunnerLine::do_randomize ()
 
 bool RunnerLine::do_auto ()
 {
-	if (line.number () != 0)
+	//if (line.number () != 0)
+	if (pline->number () != 0)
 		throw ErrInvalidCommand;
 	BlLineNumber
 		auto_ini= sysvar::get32 (sysvar::AutoInit),
@@ -3443,30 +3697,46 @@ bool RunnerLine::do_close ()
 
 bool RunnerLine::do_locate ()
 {
-	//BlNumber bnRow= expectnum ();
+	gettoken ();
+	BlChannel ch= 0;
+	if (token.code == '#')
+	{
+		ch= expectchannel ();
+		requiretoken (',');
+		gettoken ();
+	}
 	BlResult brRow;
-	expect (brRow);
+	eval (brRow);
 	requiretoken (',');
 	//BlNumber bnCol= expectnum ();
 	BlResult brCol;
 	expect (brCol);
 	require_endsentence ();
+	#if 0
         if (graphics::ingraphicsmode () )
                 //graphics::locate (int (bnRow), int (bnCol) );
 		graphics::locate (brRow.integer (), brCol.integer () );
         else
 	        //locate (int (bnRow), int (bnCol) );
 		locate (brRow.integer (), brCol.integer () );
+	#else
+	BlFile & out= getfile (ch);
+	out.gotoxy (brCol.integer () - 1, brRow.integer () - 1);
+	#endif
 	return false;
 }
 
 bool RunnerLine::do_cls ()
 {
-	errorifparam ();
-	if (graphics::ingraphicsmode () )
-		graphics::cls ();
-	else
-	        cls ();
+	gettoken ();
+	BlChannel ch= 0;
+	if (token.code == '#')
+	{
+		ch= expectchannel ();
+	}
+	require_endsentence ();
+	BlFile & out= getfile (ch);
+	out.cls ();
 	return false;
 }
 
@@ -3485,23 +3755,26 @@ bool RunnerLine::do_write ()
         char quote= out.quote ();
         for (;;)
         {
-                eval (result);
-                switch (result.type () )
-                {
-                case VarNumber:
-                        out << result.number ();
-                        break;
-		case VarInteger:
-			out<< result.integer ();
-			break;
-                case VarString:
-                        if (quote) out << quote;
-                        out << result.str ();
-                        if (quote) out << quote;
-                        break;
-                default:
-                        throw ErrBlassicInternal;
-                }
+        	if (token.code != ',')
+        	{
+			eval (result);
+			switch (result.type () )
+			{
+			case VarNumber:
+				out << result.number ();
+				break;
+			case VarInteger:
+				out<< result.integer ();
+				break;
+			case VarString:
+				if (quote) out << quote;
+				out << result.str ();
+				if (quote) out << quote;
+				break;
+			default:
+				throw ErrBlassicInternal;
+			}
+		}
                 if (token.code == ',')
                 {
                         out << out.delimiter ();
@@ -3509,32 +3782,65 @@ bool RunnerLine::do_write ()
                 }
                 else break;
         }
+	require_endsentence ();
 	out << '\n';
 	return false;
 }
 
 bool RunnerLine::do_mode ()
 {
-	BlNumber mode= expectnum ();
-	if (endsentence () )
-		graphics::setmode (int (mode) );
+	//BlNumber mode= expectnum ();
+	BlResult result;
+	expect (result);
+
+	BlInteger mode;
+	if (result.type () == VarString)
+	{
+		require_endsentence ();
+		graphics::setmode (result.str () );
+		mode= 1;
+	}
 	else
 	{
-                requiretoken (',');
-		BlNumber height= expectnum ();
-		require_endsentence ();
-		graphics::setmode (int (mode), int (height) );
+		mode= result.integer ();
+		if (endsentence () )
+			graphics::setmode (mode);
+		else
+		{
+			requiretoken (',');
+			//BlNumber height= expectnum ();
+			expect (result);
+			BlInteger height= result.integer ();
+			bool inverty= false;
+			if (token.code == ',')
+			{
+				expect (result);
+				inverty= result.integer ();
+			}
+			require_endsentence ();
+			graphics::setmode (mode, height, inverty);
+		}
 	}
+	if (mode != 0)
+		runner.setfile (0, new BlFileWindow (0) );
+	else
+		runner.setfile (0, new BlFileConsole (std::cin, std::cout) );
 	return false;
 }
 
 bool RunnerLine::do_move ()
 {
+	#if 0
 	BlNumber x= expectnum ();
 	requiretoken (',');
 	BlNumber y= expectnum ();
 	require_endsentence ();
 	graphics::move (int (x), int (y) );
+	#else
+	BlInteger x, y;
+	getdrawargs (x, y);
+	graphics::move (x, y);
+	#endif
 	return false;
 }
 
@@ -3606,7 +3912,7 @@ bool RunnerLine::do_get ()
 bool RunnerLine::do_label ()
 {
         expecttoken (keyIDENTIFIER);
-	std::string label= token.str;
+	//std::string label= token.str;
         gettoken ();
 	require_endsentence ();
 	return false;
@@ -3651,7 +3957,8 @@ bool RunnerLine::do_delimiter ()
 bool RunnerLine::do_repeat ()
 {
 	errorifparam ();
-	ProgramPos posrepeat (runner.getposactual () );
+	//ProgramPos posrepeat (runner.getposactual () );
+	ProgramPos posrepeat (getposactual () );
 	if (token.code == keyENDLINE) {
 		// ***REVISAR***
 		if (posrepeat.getnum () != 0)
@@ -3685,7 +3992,8 @@ bool RunnerLine::do_until ()
 
 bool RunnerLine::do_while ()
 {
-	ProgramPos poswhile (runner.getposactual () );
+	//ProgramPos poswhile (runner.getposactual () );
+	ProgramPos poswhile (getposactual () );
 	BlResult br;
 	expect (br);
 	bool cond= br.tobool ();
@@ -3709,11 +4017,14 @@ bool RunnerLine::do_while ()
                 getnextchunk ();
                 if (token.code == keyENDLINE)
                 {
-                        if (line.number () == 0)
+                        //if (line.number () == 0)
+                        if (pline->number () == 0)
                                 throw ErrWhileWithoutWend;
                         //line= program.getnextline (line);
-			program.getnextline (line);
-                        if (line.number () == 0)
+			//program.getnextline (line);
+			program.getnextline (* pline);
+                        //if (line.number () == 0)
+                        if (pline->number () == 0)
                                 throw ErrWhileWithoutWend;
 			sameline= false;
                         gettoken ();
@@ -3729,7 +4040,8 @@ bool RunnerLine::do_while ()
 	require_endsentence ();
 	if (sameline)
 		return false;
-	ProgramPos pos (line.number (), line.chunk () );
+	//ProgramPos pos (line.number (), line.chunk () );
+	ProgramPos pos (pline->number (), pline->chunk () );
 	if (token.code == keyENDLINE)
 	{
 		// Line can't be 0.
@@ -3752,7 +4064,7 @@ bool RunnerLine::do_wend ()
 
 bool RunnerLine::do_plot ()
 {
-	BlNumber x, y;
+	BlInteger x, y;
 	std::vector <graphics::Point> points;
 	gettoken ();
 	if (token.code == keyTO)
@@ -3761,23 +4073,23 @@ bool RunnerLine::do_plot ()
 	}
 	else
 	{
-		x= evalnum ();
+		x= evalinteger ();
 		requiretoken (',');
-		y= expectnum ();
-		if (endsentence () )
+		y= expectinteger ();
+		if (token.code != keyTO)
 		{
-			graphics::plot (int (x), int (y) );
+			getinkparams ();
+			graphics::plot (x, y);
 			return false;
 		}
-		requiretoken (keyTO);
 		points.push_back (graphics::Point (int (x), int (y) ) );
 	}
 	for (;;)
 	{
-		x= expectnum ();
+		x= expectinteger ();
 		requiretoken (',');
-		y= expectnum ();
-		points.push_back (graphics::Point (int (x), int (y) ) );
+		y= expectinteger ();
+		points.push_back (graphics::Point (x, y) );
 		if (endsentence () )
 			break;
 		requiretoken (keyTO);
@@ -3956,11 +4268,28 @@ bool RunnerLine::do_mid_s ()
 
 bool RunnerLine::do_draw ()
 {
-	BlNumber x= expectnum ();
-	requiretoken (',');
-	BlNumber y= expectnum ();
-	require_endsentence ();
-	graphics::line (int (x), int (y) );
+	//BlNumber x= expectnum ();
+	BlResult r;
+	expect (r);
+	if (r.type () == VarString)
+		graphics::draw (r.str () );
+	else
+	{
+		BlInteger x= r.integer ();
+		#if 0
+		requiretoken (',');
+		//BlNumber y= expectnum ();
+		expect (r);
+		BlInteger y= r.integer ();
+
+		require_endsentence ();
+		#else
+		BlInteger y;
+		getdrawargs (y);
+		#endif
+		//graphics::line (int (x), int (y) );
+		graphics::line (x, y);
+	}
 	return false;
 }
 
@@ -4016,7 +4345,8 @@ bool RunnerLine::do_def_fn ()
 	if (endsentence () )
 	{
 		// Multi sentence body.
-		ProgramPos posfn (line.number (), line.chunk () );
+		//ProgramPos posfn (line.number (), line.chunk () );
+		ProgramPos posfn (pline->number (), pline->chunk () );
 		if (token.code == keyENDLINE)
 			posfn.nextline ();
 		bool sameline= true;
@@ -4025,11 +4355,14 @@ bool RunnerLine::do_def_fn ()
 			getnextchunk ();
 			if (token.code == keyENDLINE)
 			{
-				if (line.number () == 0)
+				//if (line.number () == 0)
+				if (pline->number () == 0)
 					throw ErrInvalidDirect;
 				//line= program.getnextline (line);
-				program.getnextline (line);
-				if (line.number () == 0)
+				//program.getnextline (line);
+				program.getnextline (* pline);
+				//if (line.number () == 0)
+				if (pline->number () == 0)
 					throw ErrIncompleteDef;
 				sameline= false;
 				gettoken ();
@@ -4049,7 +4382,8 @@ bool RunnerLine::do_def_fn ()
 		require_endsentence ();
 		if (! sameline)
                 {
-			ProgramPos pos (line.number (), line.chunk () );
+			//ProgramPos pos (line.number (), line.chunk () );
+			ProgramPos pos (pline->number (), pline->chunk () );
 			if (token.code == keyENDLINE)
 			{
 				// Line can't be 0.
@@ -4346,46 +4680,127 @@ bool RunnerLine::do_kill ()
 
 bool RunnerLine::do_files ()
 {
-	std::string str;
-	#ifdef _Windows
-	str= "DIR";
-	#else
-	str= "ls -C";
-	#endif
-	gettoken ();
-	if (! endsentence () )
+        std::string param;
+        gettoken ();
+        if (! endsentence () )
+                param= evalstring ();
+	require_endsentence ();
+        if (param.empty () )
+                param= "*";
+        std::vector <std::string> file;
+
+	#ifdef __WIN32__
 	{
-		std::string strparam= evalstring ();
-		str+= ' ';
-		str+= strparam;
-		require_endsentence ();
+		WIN32_FIND_DATA fd;
+		HANDLE h= FindFirstFile (param.c_str (), & fd);
+		if (h != INVALID_HANDLE_VALUE)
+		{
+			try
+			{
+				do {
+					file.push_back (fd.cFileName);
+				} while (FindNextFile (h, & fd) );
+				FindClose (h);
+			}
+			catch (...)
+			{
+				FindClose (h);
+				throw;
+			}
+		}
 	}
-	system (str.c_str () );
+	#else
+	{
+		glob_t g;
+		glob (param.c_str (), 0, NULL, & g);
+		for (size_t i=0; i < g.gl_pathc; ++i)
+		{
+			//cerr << g.gl_pathv [i] << endl;
+			file.push_back (g.gl_pathv [i] );
+		}
+		globfree ( & g);
+	}
+	#endif
+
+        const size_t l= file.size ();
+        size_t maxlength= 0;
+        for (size_t i= 0; i < l; ++i)
+                maxlength= std::max (maxlength, file [i].size () );
+        ++maxlength;
+        size_t width= getwidth ();
+	size_t cols= width / maxlength;
+	BlFile & bf= getfile (0);
+        if (cols <= 1)
+        {
+                for (size_t i= 0; i < l; ++i)
+                        bf << file [i] << '\n';
+        }
+        else
+        {
+                const size_t widthcol= width / cols;
+                for (size_t i= 0; i < l; ++i)
+                {
+                        const std::string & str= file [i];
+                        bf << file [i];
+                        if (i % cols == cols - 1)
+                                bf << '\n';
+                        else
+                                bf << std::string
+                                	(widthcol - str.size (), ' ');
+                }
+                if ( l > 0 && l % cols != 0)
+                        bf << '\n';
+        }
 	return false;
 }
 
 bool RunnerLine::do_paper ()
 {
-	BlNumber color= expectnum ();
+	gettoken ();
+	BlChannel ch= 0;
+	if (token.code == '#')
+	{
+		ch= expectchannel ();
+		requiretoken (',');
+		gettoken ();
+	}
+	BlNumber color= evalnum ();
 	require_endsentence ();
+	#if 0
         if (graphics::ingraphicsmode () )
 	        graphics::setbackground (int (color) );
         else
                 textbackground (int (color) );
+	#else
+	BlFile & out= getfile (ch);
+	out.setbackground (int (color) );
+	#endif
 	return false;
 }
 
 bool RunnerLine::do_pen ()
 {
 	gettoken ();
+	BlChannel ch= 0;
+	if (token.code == '#')
+	{
+		ch= expectchannel ();
+		requiretoken (',');
+		gettoken ();
+	}
+	BlFile & out= getfile (ch);
 	if (token.code != ',')
 	{
 		// All parameters can't be omitted
 		BlNumber color= evalnum ();
+		#if 0
                 if (graphics::ingraphicsmode () )
 		        graphics::setcolor (int (color) );
                 else
                         textcolor (int (color) );
+		#else
+		out.setcolor (int (color) );
+		#endif
 		if (token.code != ',')
 		{
 			require_endsentence ();
@@ -4607,16 +5022,254 @@ bool RunnerLine::do_edit ()
 
 	#endif
 
+	return false;
+}
+
+bool RunnerLine::do_drawr ()
+{
+	#if 0
+	BlNumber x= expectnum ();
+	requiretoken (',');
+	BlNumber y= expectnum ();
+	require_endsentence ();
+	graphics::liner (int (x), int (y) );
+	#else
+	BlInteger x, y;
+	getdrawargs (x, y);
+	graphics::liner (x, y);
+	#endif
+	return false;
+}
+
+bool RunnerLine::do_plotr ()
+{
+	#if 0
+	BlNumber x= expectnum ();
+	requiretoken (',');
+	BlNumber y= expectnum ();
+	require_endsentence ();
+	graphics::plotr (int (x), int (y) );
+	#else
+	BlInteger x, y;
+	getdrawargs (x, y);
+	graphics::plotr (x, y);
+	#endif
+	return false;
+}
+
+bool RunnerLine::do_mover ()
+{
+	#if 0
+	BlNumber x= expectnum ();
+	requiretoken (',');
+	BlNumber y= expectnum ();
+	require_endsentence ();
+	graphics::mover (int (x), int (y) );
+	#else
+	BlInteger x, y;
+	getdrawargs (x, y);
+	graphics::mover (x, y);
+	#endif
+	return false;
+}
+
+bool RunnerLine::do_poke16 ()
+{
+	BlNumber bnAddr= expectnum ();
+	requiretoken (',');
+	BlChar * addr= (BlChar *) (unsigned int) bnAddr;
+	BlNumber bnValue= expectnum ();
+	require_endsentence ();
+	unsigned short value= (unsigned short) bnValue;
+	poke16 (addr, value);
+	return false;
+}
+
+bool RunnerLine::do_poke32 ()
+{
+	BlNumber bnAddr= expectnum ();
+	requiretoken (',');
+	BlChar * addr= (BlChar *) (unsigned int) bnAddr;
+	BlNumber bnValue= expectnum ();
+	require_endsentence ();
+	BlInteger value= BlInteger (bnValue);
+	poke32 (addr, value);
+	return false;
+}
+
+bool RunnerLine::do_renum ()
+{
+	BlResult r;
+	gettoken ();
+	BlLineNumber newnumber= 10, oldnumber= 0, increment= 10;
+	if (! endsentence () && token.code != ',')
+		newnumber= evallinenumber ();
+	if (! endsentence () )
+	{
+		requiretoken (',');
+		gettoken ();
+		if (token.code != ',')
+			oldnumber= evallinenumber ();
+		if (! endsentence () )
+		{
+			requiretoken (',');
+			gettoken ();
+			increment= evallinenumber ();
+		}
+	}
+	require_endsentence ();
+	program.renum (newnumber, oldnumber, increment);
+	runner.setstatus (ProgramEnded);
 	return true;
+}
+
+bool RunnerLine::do_circle ()
+{
+	BlResult r;
+	expect (r);
+	BlInteger x= r.integer ();
+	requiretoken (',');
+	expect (r);
+	BlInteger y= r.integer ();
+	requiretoken (',');
+	expect (r);
+	BlInteger radius= r.integer ();
+	require_endsentence ();
+	graphics::circle (x, y, radius);
+	return false;
+}
+
+bool RunnerLine::do_mask ()
+{
+	BlResult r;
+	gettoken ();
+	if (token.code != ',')
+	{
+		eval (r);
+		graphics::mask (r.integer () );
+	}
+	if (! endsentence () )
+	{
+		requiretoken (',');
+		expect (r);
+		graphics::maskdrawfirstpoint (r.integer () );
+	}
+	require_endsentence ();
+	return false;
+}
+
+bool RunnerLine::do_window ()
+{
+	gettoken ();
+	BlChannel ch= 0;
+	if (token.code == '#')
+	{
+		ch= expectchannel ();
+		requiretoken (',');
+		gettoken ();
+	}
+	BlInteger x1= evalinteger ();
+	requiretoken (',');
+	BlInteger x2= expectinteger ();
+	requiretoken (',');
+	BlInteger y1= expectinteger ();
+	requiretoken (',');
+	BlInteger y2= expectinteger ();
+	require_endsentence ();
+	if (runner.isfileopen (ch) )
+	{
+		BlFile & bf= runner.getfile (ch);
+		BlFileWindow * pw= dynamic_cast <BlFileWindow *>
+			(& bf);
+		if (pw != NULL)
+		{
+			pw->reset (x1, x2, y1, y2);
+			return false;
+		}
+	}
+	#if 0
+	// We need to close first because if it is already a window
+	// it will be deleted after the creation resulting in the
+	// window become destroyed.
+	runner.closechannel (ch);
+	#endif
+	runner.setfile (ch, new BlFileWindow (ch, x1, x2, y1, y2) );
+	return false;
+}
+
+void RunnerLine::do_graphics_pen ()
+{
+	gettoken ();
+	if (token.code != ',')
+	{
+		BlInteger ink= evalinteger ();
+		graphics::setcolor (ink);
+		if (endsentence () )
+			return;
+		requiretoken (',');
+	}
+	BlInteger transpmode= expectinteger ();
+	graphics::settransparent (transpmode);
+	require_endsentence ();
+}
+
+void  RunnerLine::do_graphics_paper ()
+{
+	BlInteger ink= expectinteger ();
+	require_endsentence ();
+	graphics::setbackground (ink);
+}
+
+void  RunnerLine::do_graphics_cls ()
+{
+	gettoken ();
+	require_endsentence ();
+	graphics::cls ();
+}
+
+bool  RunnerLine::do_graphics ()
+{
+	gettoken ();
+	switch (token.code)
+	{
+	case keyPEN:
+		do_graphics_pen ();
+		break;
+	case keyPAPER:
+		do_graphics_paper ();
+		break;
+	case keyCLS:
+		do_graphics_cls ();
+		break;
+	default:
+		throw ErrSyntax;
+	}
+	return false;
 }
 
 void RunnerLine::execute ()
 {
         bool more= true;
-	runner.setposactual (ProgramPos (line.number () ) );
+	//runner.setposactual (ProgramPos (line.number () ) );
+	//runner.setposactual (ProgramPos (pline->number () ) );
         do {
+		#if 0
 		graphics::idle ();
-		codprev= line.actualcode ();
+		#else
+		// We avoid calling idle too many times.
+		if (graphics::ingraphicsmode () )
+		{
+			static size_t counter= 0;
+			if (counter ++ == 100)
+			{
+				graphics::idle ();
+				counter= 0;
+			}
+		}
+		#endif
+
+		//codprev= line.actualcode ();
+		codprev= pline->actualcode ();
 		if (codprev == keyELSE)
 		{
 			if (fInElse)
@@ -4625,7 +5278,9 @@ void RunnerLine::execute ()
 				break;
 		}
 		gettoken ();
-		runner.setchunkactual (line.chunk () );
+		//runner.setchunkactual (line.chunk () );
+		//runner.setchunkactual (pline->chunk () );
+		actualchunk= pline->chunk ();
 		// else can be preceded by ":"
 		if (token.code == keyELSE)
 		{
@@ -4647,12 +5302,19 @@ void RunnerLine::execute ()
 			if (endsentence () )
 				throw ErrPolite;
 		}
-		mapfunc_t::const_iterator it= mapfunc.find (token.code);
-		if (it == mapfunc.end () )
-			throw ErrSyntax;
-		if ( (this->*it->second) ())
+		if (token.code == keyENDLINE)
 			more= false;
-        } while (more);
+		else
+		{
+			mapfunc_t::const_iterator it=
+				mapfunc.find (token.code);
+			//if (it == mapfunc.end () )
+			if (it == mapend)
+				throw ErrSyntax;
+			if ( (this->*it->second) ())
+				more= false;
+		}
+	} while (more);
 }
 
 // Fin de runnerline.cpp

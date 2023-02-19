@@ -9,8 +9,13 @@
 #include <iomanip>
 #include <algorithm>
 #include <cctype>
-using std::string;
 #include <sstream>
+
+using std::string;
+// For debugging.
+using std::cerr;
+using std::endl;
+using std::flush;
 
 #include "blassic.h"
 
@@ -88,7 +93,9 @@ public:
 	//inline CodeLine getnextline (CodeLine & line);
 	inline void getnextline (CodeLine & line);
 	//BlLineNumber getnextnum (CodeLine & line);
-	inline CodeLine getline (BlLineNumber num);
+	//inline CodeLine getline (BlLineNumber num);
+	inline void getlineinpos (Position pos, CodeLine & line);
+	inline void getline (BlLineNumber num, CodeLine & line);
 	void insert (const CodeLine & code);
 	void deletelines (BlLineNumber iniline, BlLineNumber endline);
 	void list (BlLineNumber iniline, BlLineNumber endline,
@@ -97,6 +104,8 @@ public:
 	void load (const std::string & name);
 	void merge (const std::string & name);
 	void renew ();
+	void renum (BlLineNumber blnNew, BlLineNumber blnOld,
+		BlLineNumber blnInc);
 private:
 	BlChar * program;
 	BlLineLength size;
@@ -168,15 +177,25 @@ inline BlLineNumber Program::Internal::getlabel (const std::string & label)
 	if (it != labelcache.end () )
 		return it->second;
 	CodeLine line= getfirstline ();
+	CodeLine::Token token;
 	while (line.number () != 0)
 	{
-		CodeLine::Token token= line.gettoken ();
+		//CodeLine::Token token= line.gettoken ();
+		line.gettoken (token);
 		if (token.code == keyLABEL)
 		{
-			token= line.gettoken ();
+			//token= line.gettoken ();
+			line.gettoken (token);
 			if (label == token.str)
 			{
-				labelcache [label]= line.number ();
+				BlLineNumber n (line.number () );
+				labelcache [label]= n;
+				// Probably the next action is jump to it,
+				// then we put it in the cache.
+				linecache [n]= line.content () - program
+					- sizeof (BlLineNumber)
+					- sizeof (BlLineLength);
+;
 				return line.number ();
 			}
 		}
@@ -233,7 +252,13 @@ inline BlLineNumber Program::Internal::getnextnum (CodeLine & line)
 }
 #endif
 
-inline CodeLine Program::Internal::getline (BlLineNumber num)
+inline void Program::Internal::getlineinpos (Position pos, CodeLine & line)
+{
+	line.assign (linecontent (pos), numline (pos), sizeline (pos) );
+}
+
+//inline CodeLine Program::Internal::getline (BlLineNumber num)
+inline void Program::Internal::getline (BlLineNumber num, CodeLine & line)
 {
 	Position pos= 0;
 
@@ -245,13 +270,22 @@ inline CodeLine Program::Internal::getline (BlLineNumber num)
         	while (pos < size && numline (pos) < num)
 		        pos= nextline (pos);
 	        if (pos >= size)
-		        return CodeLine (0, 0, 0);
+		{
+			//return CodeLine (0, 0, 0);
+			line.assign (0, 0, 0);
+			return;
+		}
                 linecache [num]= pos;
         }
-	return CodeLine (
-		//program + pos + sizeof (BlLineNumber) + sizeof (BlLineLength),
-		linecontent (pos),
-		numline (pos), sizeline (pos) );
+	//return CodeLine (
+	//	//program + pos + sizeof (BlLineNumber) + sizeof (BlLineLength),
+	//	linecontent (pos),
+	//	numline (pos), sizeline (pos) );
+	//line.assign (
+	//	//program + pos + sizeof (BlLineNumber) + sizeof (BlLineLength),
+	//	linecontent (pos),
+	//	numline (pos), sizeline (pos) );
+	getlineinpos (pos, line);
 }
 
 void Program::Internal::insert (const CodeLine & code)
@@ -420,8 +454,10 @@ void Program::Internal::list
 			else
 				line+= c;
 		}
-                out << line;
-		out << '\n';
+                //out << line;
+		//out << '\n';
+		line+= '\n';
+		out << line;
 		if (fInterrupted)
 			break;
 	}
@@ -624,6 +660,168 @@ void Program::Internal::renew ()
 	}
 }
 
+namespace {
+
+typedef MAP <BlLineNumber, BlLineNumber> MapLine;
+
+void showmappedline (const MapLine::value_type & linepair)
+{
+	cerr << linepair.first << " mappped to " << linepair.second << endl;
+}
+
+bool iscodewithnumber (BlCode code)
+{
+	return (code == keyGOTO || code == keyGOSUB || code == keyRUN ||
+		code == keyRESTORE || code == keyRESUME ||
+		code == keyDELETE || code == keyLIST ||
+		code == keyEDIT ||
+		code == keyTHEN || code == keyELSE);
+}
+
+void changeline (CodeLine & line, const MapLine & mapline)
+{
+	const BlLineLength l= line.length ();
+	BlChar * s= line.content ();
+	BlLineLength p= 0;
+	BlChar c;
+	while (p < l)
+	{
+		c= s [p];
+		if (iskey (c) )
+		{
+			BlCode code= BlCode ( (BlCode (c) << 8 ) ) |
+				BlCode (s [p+1] );
+			p+= 2;
+			//cerr << "Key " << decodekeyword (code) << flush;
+			if (iscodewithnumber (code) )
+			{
+				//cerr << " analyzing" << flush;
+				for (;;)
+				{
+					while (p < l && isspace (s [p] ) )
+						++p;
+					if (p >= l)
+						break;
+					c= s [p];
+					if (c == INTEGER_PREFIX)
+					{
+						BlLineNumber old= getLineNumber
+							(s + p + 1);
+						//cerr << " Find " << old <<
+						//	flush;
+						MapLine::const_iterator it=
+							mapline.find (old);
+						if (it != mapline.end () )
+						{
+							//cerr << " Changed " <<
+							//	it->second <<
+							//	flush;
+							setLineNumber
+								(s + p + 1,
+								it->second);
+						}
+						p+= 1 + sizeof (BlInteger);
+					}
+					else if (c == ':')
+					{
+						++p;
+						break;
+					}
+					else if (c == '"')
+					{
+						while (s [++p] != '\0')
+							continue;
+						++p;
+					}
+					else if (iskey (c) )
+						p+= 2;
+					else if (c == '\'')
+					{
+						p= l;
+						break;
+					}
+					else ++p;
+				}
+				//cerr << endl;
+			}
+			//else cerr << endl;
+		}
+		else if (c == INTEGER_PREFIX)
+			p+= 1 + sizeof (BlInteger);
+		else if (c == '"')
+		{
+			while (s [++p] != '\0')
+				continue;
+			++p;
+		}
+		else if (c == '\'')
+			break;
+		else ++p;
+	}
+}
+
+}
+
+void Program::Internal::renum (BlLineNumber blnNew, BlLineNumber blnOld,
+	BlLineNumber blnInc)
+{
+	clear_cache ();
+
+	Position pos= 0;
+	MapLine mapline;
+
+	// Find first line to renum.
+	BlLineNumber previous= 0;
+	while (pos < size && numline (pos) < blnOld)
+	{
+		previous= numline (pos);
+		//cerr << "Skipping line " << previous << endl;
+		pos= nextline (pos);
+	}
+	if (previous >= blnNew)
+		throw ErrMismatch;
+
+	// Change the line numbers.
+	BlLineNumber actual;
+	BlLineNumber blnMax= BlMaxLineNumber - blnInc;
+	bool overflow= false;
+	for ( ; pos < size; pos= nextline (pos) )
+	{
+		actual= numline (pos);
+		if (actual != blnNew)
+		{
+			if (overflow)
+				throw ErrLineExhausted;
+			mapline [actual]= blnNew;
+			//setLineNumber (program + pos, blnNew);
+		}
+		if (blnNew > blnMax)
+			overflow= true;
+		else
+			blnNew+= blnInc;
+	}
+
+	//for_each (mapline.begin (), mapline.end (), showmappedline);
+
+	// Change refereneces to lines.
+	MapLine::iterator it, mapend= mapline.end ();
+	CodeLine line;
+	for (pos= 0; pos < size; pos= nextline (pos) )
+	{
+		actual= numline (pos);
+		getlineinpos (pos, line);
+		//cerr << "Exploring line " << actual << endl;
+		it= mapline.find (actual);
+		if (it != mapend)
+		{
+			//cerr << "Changing line " << actual <<
+			//	" by " << it->second << endl;
+			setLineNumber (program + pos, it->second);
+		}
+		changeline (line, mapline);
+	}
+}
+
 //**********************************************************
 //		Program
 //**********************************************************
@@ -667,9 +865,28 @@ BlLineNumber Program::getnextnum (CodeLine & line)
 }
 #endif
 
+#if 0
 CodeLine Program::getline (BlLineNumber num)
 {
 	return pin->getline (num);
+}
+#endif
+
+void Program::getline (BlLineNumber num, CodeLine & line)
+{
+	pin->getline (num, line);
+}
+
+void Program::getline (ProgramPos pos, CodeLine & line)
+{
+	BlLineNumber n= pos.getnum ();
+	pin->getline (n, line);
+	if (line.number () == n)
+	{
+		BlChunk ch= pos.getchunk ();
+		if (ch != 0)
+			line.gotochunk (ch);
+	}
 }
 
 void Program::insert (const CodeLine & code)
@@ -706,6 +923,12 @@ void Program::merge (const std::string & name)
 void Program::renew ()
 {
 	pin->renew ();
+}
+
+void Program::renum (BlLineNumber blnNew, BlLineNumber blnOld,
+	BlLineNumber blnInc)
+{
+	pin->renum (blnNew, blnOld, blnInc);
 }
 
 // Fin de program.cpp

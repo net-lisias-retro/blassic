@@ -5,6 +5,7 @@
 #include "trace.h"
 #include "error.h"
 #include "var.h"
+#include "cursor.h"
 #include "graphics.h"
 #include "util.h"
 using util::to_string;
@@ -49,9 +50,14 @@ void BlFile::outstring (const std::string &)
 void BlFile::outchar (char)
 	{ throw ErrFileMode; }
 
+#if 0
+
 void BlFile::outnumber (BlNumber n)
 {
-	outstring (to_string (n) );
+	//outstring (to_string (n) );
+	std::ostringstream oss;
+	oss << std::setprecision (16) << n;
+	outstring (oss.str () );
 }
 
 void BlFile::outinteger (BlInteger n)
@@ -65,6 +71,8 @@ void BlFile::outlinenumber (BlLineNumber l)
         oss << std::setw (7) << l;
         outstring (oss.str () );
 }
+
+#endif
 
 BlFile & operator << (BlFile & bf, const std::string & str)
 {
@@ -80,19 +88,26 @@ BlFile & operator << (BlFile & bf, char c)
 
 BlFile & operator << (BlFile & bf, BlNumber n)
 {
-        bf.outnumber (n);
+        //bf.outnumber (n);
+	std::ostringstream oss;
+	oss << std::setprecision (16) << n;
+	bf.outstring (oss.str () );
         return bf;
 }
 
 BlFile & operator << (BlFile & bf, BlInteger n)
 {
-	bf.outinteger (n);
+	//bf.outinteger (n);
+	bf.outstring (to_string (n) );
 	return bf;
 }
 
 BlFile & operator << (BlFile & bf, BlLineNumber l)
 {
-        bf.outlinenumber (l);
+	//bf.outlinenumber (l);
+	std::ostringstream oss;
+	oss << std::setw (7) << l;
+	bf.outstring (oss.str () );
         return bf;
 }
 
@@ -124,6 +139,18 @@ void BlFile::assign (const std::string &, const std::string &, Align)
 { }
 
 std::string BlFile::read (size_t)
+{ throw ErrFileMode; }
+
+void BlFile::gotoxy (int, int)
+{ throw ErrFileMode; }
+
+void BlFile::setcolor (int)
+{ throw ErrFileMode; }
+
+void BlFile::setbackground (int)
+{ throw ErrFileMode; }
+
+void BlFile::cls ()
 { throw ErrFileMode; }
 
 //***********************************************
@@ -241,6 +268,8 @@ void BlFileConsole::outchar (char c)
 	}
 }
 
+#if 0
+
 void BlFileConsole::outnumber (BlNumber n)
 {
 	if (graphics::ingraphicsmode () )
@@ -255,6 +284,112 @@ void BlFileConsole::outinteger (BlInteger n)
 		graphics::stringout (to_string (n) );
 	else
 		out << n;
+}
+
+#endif
+
+void BlFileConsole::gotoxy (int x, int y)
+{
+	::gotoxy (x, y);
+}
+
+void BlFileConsole::setcolor (int color)
+{
+	textcolor (color);
+}
+
+void BlFileConsole::setbackground (int color)
+{
+	textbackground (color);
+}
+
+void BlFileConsole::cls ()
+{
+	::cls ();
+}
+
+//***********************************************
+//		BlFileWindow
+//***********************************************
+
+BlFileWindow::BlFileWindow (BlChannel ch) :
+        BlFile (OpenMode (Input | Output) ),
+	ch (ch)
+{
+	if (ch != 0)
+		throw ErrBlassicInternal;
+}
+
+BlFileWindow::BlFileWindow (BlChannel ch, int x1, int x2, int y1, int y2) :
+        BlFile (OpenMode (Input | Output) ),
+	ch (ch)
+{
+	graphics::definewindow (ch, x1, x2, y1, y2);
+}
+
+BlFileWindow::~BlFileWindow ()
+{
+	graphics::undefinewindow (ch);
+}
+
+void BlFileWindow::reset (int x1, int x2, int y1, int y2)
+{
+	graphics::definewindow (ch, x1, x2, y1, y2);
+}
+
+bool BlFileWindow::eof ()
+{
+	return false;
+}
+
+void BlFileWindow::flush ()
+{
+	// Nothing to do
+}
+
+void BlFileWindow::getline (std::string &)
+{
+	throw ErrNotImplemented;
+}
+
+std::string BlFileWindow::read (size_t)
+{
+	throw ErrNotImplemented;
+}
+
+void BlFileWindow::tab (size_t n)
+{
+	graphics::tab (ch, n);
+}
+
+void BlFileWindow::gotoxy (int x, int y)
+{
+	graphics::gotoxy (ch, x, y);
+}
+
+void BlFileWindow::setcolor (int color)
+{
+	graphics::setcolor (ch, color);
+}
+
+void BlFileWindow::setbackground (int color)
+{
+	graphics::setbackground (ch, color);
+}
+
+void BlFileWindow::outstring (const std::string & str)
+{
+	graphics::stringout (ch, str);
+}
+
+void BlFileWindow::outchar (char c)
+{
+	graphics::charout (ch, c);
+}
+
+void BlFileWindow::cls ()
+{
+	graphics::cls (ch);
 }
 
 //***********************************************
@@ -282,6 +417,8 @@ void BlFileOut::outchar (char c)
 	ofs () << c;
 }
 
+#if 0
+
 void BlFileOut::outnumber (BlNumber n)
 {
 	ofs () << n;
@@ -296,6 +433,8 @@ void BlFileOut::outlinenumber (BlLineNumber l)
 {
 	ofs () << std::setw (7) << l;
 }
+
+#endif
 
 //***********************************************
 //		BlFileOutString
@@ -566,57 +705,57 @@ BlFilePopen::BlFilePopen (const std::string & str, OpenMode nmode) :
         command+= " /C ";
         command+= str;
 
-        HANDLE hread, hwrite, hchild;
-        DWORD STD_HANDLE_used;
+        HANDLE hread, hwrite;
+        HANDLE hchild;
+        const HANDLE haux= INVALID_HANDLE_VALUE;
         SECURITY_ATTRIBUTES sec;
         sec.nLength= sizeof sec;
         sec.lpSecurityDescriptor= NULL;
         sec.bInheritHandle= TRUE;
         if (CreatePipe (& hread, & hwrite, & sec, 0) == 0)
                 throw "Al diablo";
-
+        STARTUPINFO start;
+        GetStartupInfo (& start);
+        start.dwFlags= STARTF_USESTDHANDLES;
         switch (nmode)
         {
         case BlFile::Input:
-                STD_HANDLE_used= STD_OUTPUT_HANDLE;
                 hpipe= hread;
                 hchild= hwrite;
+                start.hStdInput= haux;
+                start.hStdOutput= hwrite;
+                start.hStdError= hwrite;
                 break;
         case BlFile::Output:
-                STD_HANDLE_used= STD_INPUT_HANDLE;
                 hpipe= hwrite;
                 hchild= hread;
+                start.hStdInput= hread;
+                start.hStdOutput= haux;
+                start.hStdError= haux;
                 break;
         default:
 		cerr << "Bad file mode in popen" << endl;
 		throw ErrBlassicInternal;
         }
-        HANDLE hsave= GetStdHandle (STD_HANDLE_used);
-        SetStdHandle (STD_HANDLE_used, hchild);
 
-        STARTUPINFO start;
-        GetStartupInfo (& start);
         PROCESS_INFORMATION procinfo;
-        BOOL createresult= CreateProcess (NULL, (char *) command.c_str (),
+        BOOL createresult= CreateProcess (
+                NULL, (char *) command.c_str (),
                 NULL, NULL,
                 TRUE, 0,
                 NULL, NULL, & start, & procinfo);
 
         CloseHandle (hchild);
-        SetStdHandle (STD_HANDLE_used, hsave);
 
         if (createresult == 0)
         {
                 CloseHandle (hpipe);
                 throw "Cuernos";
         }
-        //WaitForInputIdle (procinfo.hProcess, 100);
         CloseHandle (procinfo.hProcess);
         CloseHandle (procinfo.hThread);
-        Sleep (10);
 
-	#else
-        // No windows
+	#else // No windows
 
 	const char * type;
 	switch (nmode)

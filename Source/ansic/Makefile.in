@@ -159,19 +159,22 @@ blassic_CXXFLAGS = \
 blassic_LDADD = -lncurses @SVGALIB_LIBS@ -L/usr/X11R6/lib -lX11
 
 EXAMPLE_PROGS = \
-	4raya.bas anime.bas anime2.bas args.bas ascii.bas automod.bas \
-	autoview.bas batnum.bas bench.bas bingrep.bas bubble.bas \
-	chart.bas colores.bas deepsea.bas defchar.bas deriv.bas \
-	eliza.bas error.bas euler.bas fecha.bas flip.bas fnfact.bas \
-	fnfactrec.bas fnrecur.bas genmucha.bas graph.bas hamurs.bas \
-	hockey.bas htget.bas invert.bas label.bas labeldata.bas \
-	lineas.bas liscua.bas list.bas machinecode.bas maildrop.bas \
-	memerror.bas mkcv.bas mouse.bas nonumber.bas nttp.bas numbers.bas \
-	path.bas pid.bas points.bas points2.bas popenin.bas \
+	4raya.bas anime.bas anime2.bas args.bas ascii.bas asnorojo.bas \
+	automod.bas autoview.bas batnum.bas bench.bas bingrep.bas \
+	biorritmo.bas bubble.bas chart.bas colores.bas deepsea.bas \
+	defchar.bas deriv.bas drawtest.bas eliza.bas error.bas \
+	estrella.bas euler.bas europa.bas fecha.bas flip.bas fnfact.bas \
+	fnfactrec.bas fnrecur.bas fractale.bas genmucha.bas \
+	graficos3d.bas graph.bas hamurs.bas hockey.bas htget.bas \
+	interpolacion.bas invert.bas label.bas labeldata.bas lineas.bas \
+	liscua.bas list.bas machinecode.bas maildrop.bas mastermind.bas \
+	memerror.bas mkcv.bas mouse.bas nonumber.bas nttp.bas \
+	numbers.bas path.bas pid.bas points.bas points2.bas popenin.bas \
 	popenout.bas popenout2.bas presskey.bas prueba.bas randomr.bas \
-	randomw.bas raqueta.bas repeat.bas salvo1.bas slowprint.bas \
-	snoopy.bas telefono.bas testdl.bas testfn.bas testlocal.bas \
-	textcolor.bas textpaper.bas trim.bas viewpass.bas while.bas
+	randomw.bas raqueta.bas repeat.bas repg.bas salvo1.bas \
+	shellsort.bas slowprint.bas snoopy.bas telefono.bas testdl.bas \
+	testfn.bas testlocal.bas testrect.bas textcolor.bas \
+	textpaper.bas trim.bas viewpass.bas while.bas
 
 
 @INSTALL_EXAMPLE_PROGS_TRUE@examplesdir = $(datadir)/@PACKAGE@/examples
@@ -289,9 +292,9 @@ DIST_SOURCES = $(blassic_SOURCES) $(gencharset_SOURCES)
 DATA = $(examples_DATA)
 
 DIST_COMMON = README AUTHORS COPYING ChangeLog INSTALL Makefile.am \
-	Makefile.in NEWS THANKS aclocal.m4 blassic.spec.in config.guess \
-	config.sub configure configure.ac depcomp install-sh missing \
-	mkinstalldirs
+	Makefile.in NEWS THANKS TODO aclocal.m4 blassic.spec.in \
+	config.guess config.sub configure configure.ac depcomp \
+	install-sh missing mkinstalldirs
 SOURCES = $(blassic_SOURCES) $(gencharset_SOURCES)
 
 all: $(BUILT_SOURCES)

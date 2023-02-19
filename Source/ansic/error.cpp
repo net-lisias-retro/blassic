@@ -59,6 +59,7 @@ errcode table []= {
         errcode (ErrRenameFile,         "Rename file error"),
         errcode (ErrOperatingSystem,    "Operating system error"),
         errcode (ErrPastEof,            "Input past EOF"),
+        errcode (ErrNoGraphics,         "Graphics mode required"),
 };
 
 errcode * table_end= table + sizeof (table);
@@ -85,7 +86,7 @@ std::string ErrStr (BlErrNo err)
 	return strbuf.str ();
 }
 
-std::ostream & operator << (std::ostream & os, BlError & bl)
+std::ostream & operator << (std::ostream & os, const BlError & bl)
 {
 	os << ErrStr (bl.err);
 	const BlLineNumber line= bl.getpos ().getnum ();

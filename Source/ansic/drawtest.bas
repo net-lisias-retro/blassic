@@ -1,0 +1,4 @@
+10 mode 1
+20 draw "BM120,96;U26;R13;D26;L13"
+40 draw "L6;U6;E6;BR13;F6;D6;L6;BU26;H6;G6"
+80 get a$

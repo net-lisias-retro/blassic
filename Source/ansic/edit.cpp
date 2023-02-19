@@ -10,6 +10,8 @@
 
 using util::to_string;
 
+#if 0
+
 #if defined __linux__ || defined __unix__
 
 #include <stdlib.h>
@@ -29,6 +31,8 @@ using util::to_string;
 #  define WINSIZE_ROWS(n) (int)n.ws_row
 #  define WINSIZE_COLS(n) (int)n.ws_col
 # endif
+#endif
+
 #endif
 
 #endif
@@ -56,10 +60,15 @@ public:
 	Edit (BlFile & bf, std::string & str, size_t npos) :
 		bf (bf),
 		str (str),
-		npos (npos)
+		npos (npos),
+		width (getwidth () )
 	{
-		getwidth ();
+                graphics::synchronize_suspend ();
 	}
+        ~Edit ()
+        {
+                graphics::synchronize_restart ();
+        }
 	bool do_it ();
 private:
 	BlFile & bf;
@@ -67,7 +76,7 @@ private:
 	size_t npos;
 	size_t width;
 
-	void getwidth ();
+	//void getwidth ();
 	void back ();
 	void forward ();
 	void deletechar ();
@@ -75,6 +84,7 @@ private:
 	void showinitial ();
 };
 
+#if 0
 void Edit::getwidth ()
 {
 	if (graphics::ingraphicsmode () )
@@ -96,6 +106,7 @@ void Edit::getwidth ()
 	}
 
 }
+#endif
 
 void Edit::back ()
 {
@@ -220,14 +231,13 @@ bool Edit::do_it ()
 {
 	showinitial ();
 
-	//cursorvisible ();
-	//showcursor ();
 	bool editing= true;
 	bool retval= true;
 	while (editing)
 	{
 		showcursor ();
 		std::string key= getkey ();
+		hidecursor ();
 		if (key.size () == 1)
 		{
 			char c= key [0];
@@ -312,8 +322,7 @@ bool Edit::do_it ()
 				forward ();
 		}
 	}
-	//cursorinvisible ();
-	hidecursor ();
+	//hidecursor ();
 
 	// After exit, cursor must be positioned after the line edited.
 	bf << str.substr (npos) << '\n';

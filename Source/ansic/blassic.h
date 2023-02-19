@@ -23,6 +23,12 @@
 
 #endif
 
+#if defined __unix__ || defined __linux__ || defined __APPLE__
+
+#define BLASSIC_USE_TERMINFO
+
+#endif
+
 #ifdef __linux__
 
 // Uncomment next #define if you want to use the svgalib option
@@ -54,7 +60,9 @@ typedef double BlNumber;
 typedef long BlInteger;
 const BlInteger BlIntegerMax= 2147483647;
 typedef unsigned long BlLineNumber;
-const BlLineNumber BlMaxLineNumber= 0xFFFFFFFF;
+// We limit the max line number as if it were signed.
+//const BlLineNumber BlMaxLineNumber= 0xFFFFFFFF;
+const BlLineNumber BlMaxLineNumber= BlIntegerMax;
 typedef unsigned long BlLineLength;
 typedef unsigned short BlChunk;
 typedef unsigned short BlErrNo;
@@ -62,7 +70,13 @@ typedef unsigned short BlChannel;
 
 class ProgramPos {
 public:
-	ProgramPos (BlLineNumber num= 0, BlChunk chunk= 0) :
+	ProgramPos () :
+		num (0), chunk (0)
+	{ }
+	ProgramPos (BlLineNumber num) :
+		num (num), chunk (0)
+	{ }
+	ProgramPos (BlLineNumber num, BlChunk chunk) :
 		num (num), chunk (chunk)
 	{ }
 	void operator= (BlLineNumber num)
@@ -104,6 +118,15 @@ private:
 
 std::string getprogramarg (size_t n);
 void setprogramargs (const std::vector <std::string> & nargs);
+
+inline BlInteger peek16 (const BlChar * p)
+{
+	#ifdef BLASSIC_INTEL
+	return * reinterpret_cast <const unsigned short *> (p);
+	#else
+	return p [0] | (static_cast <unsigned short> (p [1]) << 8);
+	#endif
+}
 
 inline void poke16 (BlChar * p, short n)
 {

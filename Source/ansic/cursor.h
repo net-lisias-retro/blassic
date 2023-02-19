@@ -8,6 +8,8 @@
 void initconsole ();
 void quitconsole ();
 
+size_t getwidth ();
+
 void cursorvisible ();
 void cursorinvisible ();
 void showcursor ();
@@ -15,7 +17,8 @@ void hidecursor ();
 
 void cls ();
 
-void locate (int row, int col);
+//void locate (int row, int col);
+void gotoxy (int x, int y);
 void movecharforward ();
 void movecharback ();
 void movecharforward (size_t n);

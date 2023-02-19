@@ -3,8 +3,10 @@
       7 m= val (programarg$ (1) ) : if m = 0 then m= 1
       8 h= val (programarg$ (2) )
      10 if h = 0 then mode m else mode m, h
-     15 w= peek (d) + 256 * peek (d + 1)
-     16 h= peek (d + 2) + 256 * peek (d + 3)
+     15 rem w= peek (d) + 256 * peek (d + 1)
+     16 rem h= peek (d + 2) + 256 * peek (d + 3)
+     17 w= peek16 (d)
+     18 h= peek16 (d + 2)
      20 FOR i= 0 TO h STEP 10
      30 MOVE 0, i
      40 draw w - 1, i

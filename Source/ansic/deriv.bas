@@ -2,7 +2,9 @@
 2 rem Autor: Diego Soriano, El Ordenador Personal 42, Noviembre 1985
 3 rem Original escrito para MSX
 4 rem Adaptacion: Julian Albo
-5 rem **** NO FUNCIONA. Si alguien encuentra el error por favor, comuníquemelo****
+5 rem **** NO FUNCIONA. Si alguien encuentra el error por favor, comuníquemelo ****
+6 rem Algunas correcciones realizadas, principalmente tener en cuenta que STR$ en
+7 rem Blassic no incluye espacio inicial. Mejor que antes, pero todavia mal.
 10 clear
 20 dim fp$ (100), mu$ (15)
 30 cls
@@ -23,7 +25,9 @@
 180 d= len (t$): d$= t$: gosub 560
 185 if cr = 1 then cr= 0: goto 230
 190 if t$ = "" then sd= 0: gosub 1200: goto 90
-200 if ok >= 1 and pa$ = "" then p1$= p1$ + "(": kl= 1: goto 110 else goto 110
+200 if ok >= 1 and pa$ = "" then p1$= p1$ + "(": kl= 1: ok= 0: sd= 1
+205 if ok >= 1 then sd= 1
+210 if fu$ = "" then dp$= pa$: c= 1: if ok >= 1 then p1$= p1$ + "(": kl= 1: goto 110 else goto 110
 220 gosub 680
 221 print"de$="; de$
 222 if de$ = "1" and sp = 1 and sg$ <> "-" then p1$= left$ (p1$, len (p1$) - 1): de$= "": goto 150
@@ -42,9 +46,9 @@
 340 if p$ = ")" then m (t)= p + 0.5: p= p - 1: goto 420
 350 if p$ = "X" then m (t)= 0.9: goto 420
 360 if p$ = "D" then m (t)= 0.7: goto 420
-370 if p$ = "+" or p$ = "-" and mi$ <> "*" and mi$ <> "^" and t > 1 and mi$ <> "(" then i= 0.25: ok= ok + 1: goto 410
+370 if (p$ = "+" or p$ = "-") and mi$ <> "*" and mi$ <> "^" and t > 1 and mi$ <> "(" then i= 0.25: ok= ok + 1: goto 410
 380 if p$ = "*" then i= 0.35: goto 410
-390 if p$ = "/" then i= 0.5: goto 410
+390 if p$ = "/" then i= 0.45: goto 410
 400 m (t)= 0: goto 420
 410 m (t)= p + i
 420 next t
@@ -55,7 +59,7 @@
 470 if m (t) = 0.35 and m (t + 1) <> 0.7 and m (t - 1) <> 0.7 then fm= 1
 480 if m (t) = 0.45 then if m (t - 2) <> 0.9 then fd= 1
 490 next t
-500 t$= mid$ (d$, c, t -c)
+500 t$= mid$ (d$, c, t - c)
 510 i1= c - 1: i2= t
 520 if i2 > len (t$) then i2= len (t$)
 530 c= t
@@ -70,14 +74,14 @@
 620 pa$= mid$ (d$, t + 1, d - t -1)
 630 sg$= left$ (fu$, 1)
 631 if sg$ = "+" or sg$ = "-" then pk= 2 else pk= 1
-635 if fu$ = sg$ and val (right$ (d$, 1)) <> 0 then gosub 661: goto 650
+635 if fu$ = sg$ and val (right$ (d$, 1) ) <> 0 then gosub 661: goto 650
 640 if sg$ = "+" or sg$ = "-" then fu$= right$ (fu$, len (fu$) - 1)
 650 if (sg$ <> "+" and sg$ <> "-") then sg$= ""
 660 return
 661 for t= len (d$) to 1 step -1: p$= mid$ (d$, t, 1)
-662 if p$= "^" then ex$= right$ (d$, d - t): pa$= left$ (d$, t - 2): pa$= right$ (pa$, len (pa$) - pk): goto 664
+662 if p$ = "^" then ex$= right$ (d$, d - t): pa$= left$ (d$, t - 2): pa$= right$ (pa$, len (pa$) - pk): goto 664
 663 next t
-664 ex= val (ex$): ep= ex - 1: ep$= str$ (ep): if ep > 0 then ep$= right$ (ep$, len (ep$) - 1)
+664 ex= val (ex$): ep= ex - 1: ep$= str$ (ep): if ep > 0 and left$ (ep$, 1) = " " then ep$= right$ (ep$, len (ep$) - 1)
 666 if ep$ <> "1" then de$= ex$ + "*(" + pa$ + ")^" + ep$ else de$= ex$ + "*(" + pa$ + ")"
 668 cr= 1
 669 return
@@ -114,8 +118,8 @@
 960 sg= sgn (cp): if sg < 0 then sg$= "-" else sg$= "+"
 970 cp= abs (cp)
 980 gp= gr - 1
-990 cp$= str$ (cp): if cp >= 0 then cp$= right$ (cp$, len (cp$) - 1)
-1000 gp$= str$ (gp): if gp >= 0 then gp$= right$ (gp$, len (gp$) - 1)
+990 cp$= str$ (cp): if cp >= 0 and left$ (cp$, 1) = " " then cp$= right$ (cp$, len (cp$) - 1)
+1000 gp$= str$ (gp): if gp >= 0 and left$ (gp$, 1) = " " then gp$= right$ (gp$, len (gp$) - 1)
 1010 de$= cp$
 1020 if gp$ <> "0" then de$= de$ + h$
 1030 if gp$ <> "1" and gp$ <> "0" then de$= de$ + "^" + gp$
@@ -165,7 +169,7 @@
 1460 j= j + 1
 1470 if p > len (t$) then j= j - 1: goto 1490
 1480 goto 1400
-1490 rp= val (mu$ (k2) ): rp$= str$ (rp): if rp > 0 then rp$= right$ (rp$, len (rp$) - 1)
+1490 rp= val (mu$ (k2) ): rp$= str$ (rp): if rp > 0 and left$ (rp$, 1) = " " then rp$= right$ (rp$, len (rp$) - 1)
 1500 if rp$ = mu$ (k2) then k2= k2 + 1: goto 1490
 1510 h$= "D" + mu$ (k2) + "D"
 1520 for t= 0 to j

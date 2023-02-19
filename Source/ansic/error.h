@@ -49,7 +49,8 @@ const BlErrNo
         ErrSocket=             37,
         ErrRenameFile=         38,
 	ErrOperatingSystem=    39,
-	ErrPastEof=            40;
+	ErrPastEof=            40,
+	ErrNoGraphics=         41;
 
 class BlError {
 public:
@@ -73,7 +74,8 @@ public:
         //BlLineNumber getline () { return line; }
         //BlChunk getchunk () { return chunk; }
 	ProgramPos getpos () const { return pos; }
-	friend std::ostream & operator << (std::ostream & os, BlError & be);
+	friend std::ostream & operator << (std::ostream & os,
+		const BlError & be);
 private:
 	BlErrNo err;
 	//BlLineNumber line;

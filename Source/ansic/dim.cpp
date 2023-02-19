@@ -21,7 +21,7 @@ size_t Dimension::elements () const
 	return r.value ();
 }
 
-size_t Dimension::evalpos (const Dimension & d)
+size_t Dimension::evalpos (const Dimension & d) const
 {
 	size_t n= size ();
 	if (d.size () != n)

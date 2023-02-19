@@ -12,6 +12,7 @@ void set (size_t var, char value);
 void set16 (size_t var, short value);
 void set32 (size_t var, long value);
 
+BlChar get (size_t var);
 unsigned long get32 (size_t var);
 
 const size_t
@@ -25,8 +26,12 @@ const size_t
 	AutoInc= 16,
 	CharGen= 20,
 	ShellResult= 24,
-	// 1 byte reserved
-	EndSysVar= 26;
+	TypeOfVal= 25,	// 0: simple, 1: expression evluation,
+			// else unimplemented.
+	TypeOfNextCheck= 26,	// 0: normal, else ZX-type
+	TypeOfDimCheck= 27,	// 0: cannot dim already dimensioned
+				// 1: Silently redim
+	EndSysVar= 28;
 
 } // namespace sysvar
 
