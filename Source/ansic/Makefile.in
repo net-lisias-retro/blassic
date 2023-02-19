@@ -144,6 +144,8 @@ blassic_SOURCES = \
 	token.h \
 	trace.cpp \
 	trace.h \
+	using.cpp \
+	using.h \
 	util.h \
 	var.cpp \
 	var.h \
@@ -244,7 +246,8 @@ am_blassic_OBJECTS = blassic-charset.$(OBJEXT) blassic-blassic.$(OBJEXT) \
 	blassic-runner.$(OBJEXT) blassic-runnerline.$(OBJEXT) \
 	blassic-socket.$(OBJEXT) blassic-sysvar.$(OBJEXT) \
 	blassic-token.$(OBJEXT) blassic-trace.$(OBJEXT) \
-	blassic-var.$(OBJEXT) blassic-version.$(OBJEXT)
+	blassic-using.$(OBJEXT) blassic-var.$(OBJEXT) \
+	blassic-version.$(OBJEXT)
 blassic_OBJECTS = $(am_blassic_OBJECTS)
 blassic_DEPENDENCIES =
 blassic_LDFLAGS =
@@ -280,6 +283,7 @@ am__depfiles_maybe = depfiles
 @AMDEP_TRUE@	./$(DEPDIR)/blassic-sysvar.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/blassic-token.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/blassic-trace.Po \
+@AMDEP_TRUE@	./$(DEPDIR)/blassic-using.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/blassic-var.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/blassic-version.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/gencharset-gencharset.Po
@@ -372,6 +376,7 @@ blassic-socket.$(OBJEXT): socket.cpp
 blassic-sysvar.$(OBJEXT): sysvar.cpp
 blassic-token.$(OBJEXT): token.cpp
 blassic-trace.$(OBJEXT): trace.cpp
+blassic-using.$(OBJEXT): using.cpp
 blassic-var.$(OBJEXT): var.cpp
 blassic-version.$(OBJEXT): version.cpp
 blassic$(EXEEXT): $(blassic_OBJECTS) $(blassic_DEPENDENCIES) 
@@ -408,6 +413,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/blassic-sysvar.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/blassic-token.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/blassic-trace.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/blassic-using.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/blassic-var.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/blassic-version.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gencharset-gencharset.Po@am__quote@
@@ -666,6 +672,18 @@ blassic-trace.obj: trace.cpp
 @AMDEP_TRUE@	depfile='$(DEPDIR)/blassic-trace.Po' tmpdepfile='$(DEPDIR)/blassic-trace.TPo' @AMDEPBACKSLASH@
 @AMDEP_TRUE@	$(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(blassic_CXXFLAGS) $(CXXFLAGS) -c -o blassic-trace.obj `cygpath -w trace.cpp`
+
+blassic-using.o: using.cpp
+@AMDEP_TRUE@	source='using.cpp' object='blassic-using.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@	depfile='$(DEPDIR)/blassic-using.Po' tmpdepfile='$(DEPDIR)/blassic-using.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@	$(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(blassic_CXXFLAGS) $(CXXFLAGS) -c -o blassic-using.o `test -f using.cpp || echo '$(srcdir)/'`using.cpp
+
+blassic-using.obj: using.cpp
+@AMDEP_TRUE@	source='using.cpp' object='blassic-using.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@	depfile='$(DEPDIR)/blassic-using.Po' tmpdepfile='$(DEPDIR)/blassic-using.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@	$(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(blassic_CXXFLAGS) $(CXXFLAGS) -c -o blassic-using.obj `cygpath -w using.cpp`
 
 blassic-var.o: var.cpp
 @AMDEP_TRUE@	source='var.cpp' object='blassic-var.o' libtool=no @AMDEPBACKSLASH@

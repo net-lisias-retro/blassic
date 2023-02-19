@@ -1,5 +1,5 @@
 // cursor.h
-// Revision 24-may-2003
+// Revision 9-jun-2003
 
 #ifndef CURSOR_H_
 #define CURSOR_H_
@@ -37,17 +37,11 @@ void textbackground (int color);
 std::string inkey ();
 std::string getkey ();
 
-#ifdef __WIN32__
-
 void clean_input ();
 
-#else
-
-inline void clean_input () { }
-
-#endif
-
 void ring ();
+
+void set_title (const std::string & title);
 
 #endif
 

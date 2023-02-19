@@ -1,5 +1,5 @@
 // runner.h
-// Revision 25-may-2003
+// Revision 4-jun-2003
 
 #ifndef RUNNER_H_
 #define RUNNER_H_
@@ -13,6 +13,75 @@
 #include <stack>
 #include <vector>
 #include <map>
+
+class GlobalRunner {
+public:
+	GlobalRunner (Program & prog);
+	~GlobalRunner ();
+	Program & getprogram () { return program; }
+
+	// TRON stuff
+	bool istron () const { return fTron; }
+	void tron (bool fLine, BlChannel blc)
+	{
+		fTron= true;
+		fTronLine= fLine;
+		blcTron= blc;
+	}
+	void troff () { fTron= false; }
+
+	// Channel stuff
+	typedef std::map <BlChannel,BlFile *> ChanFile;
+	void assign_channel_var
+		(const std::string & var, const std::string & value,
+			BlFile::Align align)
+	{
+		for (ChanFile::iterator it= chanfile.begin ();
+			it != chanfile.end ();
+			++it)
+		{
+			it->second->assign (var, value, align);
+		}
+	}
+	bool isfileopen (BlChannel channel) const
+	{ return chanfile.find (channel) != chanfile.end (); }
+	BlFile & getfile (BlChannel channel);
+	void setfile (BlChannel channel, BlFile * npfile);
+	void close_all ();
+	void destroy_windows ();
+	void closechannel (BlChannel channel);
+	void windowswap (BlChannel ch1, BlChannel ch2);
+	void tronline (BlLineNumber n);
+
+	// DATA / READ stuff
+	BlLineNumber & getdatanumline () { return datanumline; }
+	BlChunk & getdatachunk () { return datachunk; }
+	unsigned short & getdataelem () { return dataelem; }
+	void setreadline (BlLineNumber bln)
+	{
+		datanumline= 0;
+		datachunk= 0;
+		dataelem= 0;
+	}
+
+	// ON ERROR GOTO stuff.
+	void seterrorgoto (BlLineNumber line) { blnErrorGoto= line; }
+	BlLineNumber geterrorgoto () { return blnErrorGoto; }
+
+private:
+	Program & program;
+
+	bool fTron, fTronLine;
+	BlChannel blcTron;
+
+	ChanFile chanfile;
+
+	BlLineNumber datanumline;
+	BlChunk datachunk;
+	unsigned short dataelem;
+
+	BlLineNumber blnErrorGoto;
+};
 
 class Element {
 public:
@@ -165,7 +234,9 @@ private:
 
 class Runner {
 public:
-	Runner (Program & prog);
+	//Runner (Program & prog);
+	Runner (GlobalRunner & gr);
+	Runner (const Runner & runner);
         ~Runner ();
         void clear ();
         void getline (std::string & line);
@@ -206,6 +277,16 @@ public:
 		posgoto= pos;
 		status= ProgramJump;
 	}
+	void goto_to (BlLineNumber line)
+	{
+		posgoto= line;
+		status= ProgramGoto;
+	}
+	void goto_to (ProgramPos pos)
+	{
+		posgoto= pos;
+		status= ProgramGoto;
+	}
 
 	void push_for (ForElement * pfe)
 	{
@@ -237,7 +318,8 @@ public:
 	void while_pop () { whilestack.pop (); }
 	WhileElement & while_top () { return whilestack.top (); }
 	void while_push (const WhileElement & we) { whilestack.push (we); }
-	
+
+	#if 0	
 	void tron (bool fLine, BlChannel blc)
 	{
 		fTron= true;
@@ -245,6 +327,12 @@ public:
 		blcTron= blc;
 	}
 	void troff () { fTron= false; }
+	#else
+	void tron (bool fLine, BlChannel blc)
+	{ globalrunner.tron (fLine, blc); }
+	void troff () { globalrunner.troff (); }
+	#endif
+
 	void jump_break ()
 	{
 		if (! posbreak)
@@ -255,14 +343,21 @@ public:
 	}
 	void set_break (ProgramPos pos) { posbreak= pos; }
 
-	BlLineNumber & getdatanumline () { return datanumline; }
-	BlChunk & getdatachunk () { return datachunk; }
-	unsigned short & getdataelem () { return dataelem; }
+	BlLineNumber & getdatanumline ()
+	{ return globalrunner.getdatanumline (); }
+	BlChunk & getdatachunk ()
+	{ return globalrunner.getdatachunk (); }
+	unsigned short & getdataelem ()
+	{ return globalrunner.getdataelem (); }
 
-	void seterrorgoto (BlLineNumber line) { blnErrorGoto= line; }
-	BlLineNumber geterrorgoto () { return blnErrorGoto; }
+	void seterrorgoto (BlLineNumber line)
+	{ globalrunner.seterrorgoto (line); }
+	BlLineNumber geterrorgoto ()
+	{ return globalrunner.geterrorgoto (); }
 
-	typedef std::map <BlChannel,BlFile *> ChanFile;
+	//typedef std::map <BlChannel,BlFile *> ChanFile;
+
+	#if 0
 	void assign_channel_var
 		(const std::string & var, const std::string & value,
 			BlFile::Align align)
@@ -274,16 +369,32 @@ public:
 			it->second->assign (var, value, align);
 		}
 	}
+	#else
+	void assign_channel_var
+		(const std::string & var, const std::string & value,
+			BlFile::Align align)
+	{ globalrunner.assign_channel_var (var, value, align); }
+	#endif
+        //bool isfileopen (BlChannel channel) const
+        //{ return chanfile.find (channel) != chanfile.end (); }
         bool isfileopen (BlChannel channel) const
-        	{ return chanfile.find (channel) != chanfile.end (); }
-        BlFile & getfile (BlChannel channel);
-        void setfile (BlChannel channel, BlFile * npfile);
-        void close_all ();
-        void destroy_windows ();
-        void closechannel (BlChannel channel);
-        void windowswap (BlChannel ch1, BlChannel ch2);
+        { return globalrunner.isfileopen (channel); }
+	BlFile & getfile (BlChannel channel)
+	{ return globalrunner.getfile (channel); }
+        void setfile (BlChannel channel, BlFile * npfile)
+        { globalrunner.setfile (channel, npfile); }
+        void close_all ()
+        { globalrunner.close_all (); }
+        void destroy_windows ()
+        { globalrunner.destroy_windows (); }
+        void closechannel (BlChannel channel)
+        { globalrunner.closechannel (channel); }
+        void windowswap (BlChannel ch1, BlChannel ch2)
+        { globalrunner.windowswap (ch1, ch2); }
 
-	void setreadline (BlLineNumber bln);
+	void setreadline (BlLineNumber bln)
+	{ globalrunner.setreadline (bln); }
+
         void goto_line (BlLineNumber dest);
         void gosub_line (BlLineNumber dest, ProgramPos posgosub);
 	enum BreakState { BreakStop, BreakCont, BreakGosub };
@@ -301,24 +412,27 @@ public:
 	void setauto (BlLineNumber line, BlLineNumber inc)
 	{ blnAuto= line; blnAutoInc= inc; }
 private:
+	GlobalRunner & globalrunner;
 	Program & program;
 	StatusProgram status;
-	bool fTron, fTronLine;
-	BlChannel blcTron;
+	//bool fTron, fTronLine;
+	//BlChannel blcTron;
 	bool fInElse;
         bool fInWend;
 	//ProgramPos posactual;
 	ProgramPos posgoto;
 
-	BlLineNumber datanumline;
-	BlChunk datachunk;
-	unsigned short dataelem;
+	//BlLineNumber datanumline;
+	//BlChunk datachunk;
+	//unsigned short dataelem;
+
 	CodeLine line;
 	RunnerLine runnerline;
-        ChanFile chanfile;
+        //ChanFile chanfile;
 	BlCode codprev;
         BlError berrLast;
-        BlLineNumber blnErrorGoto;
+
+        //BlLineNumber blnErrorGoto;
 
 	BreakState breakstate;
 	BlLineNumber breakgosubline;
@@ -331,7 +445,8 @@ private:
 	std::stack <RepeatElement> repeatstack;
         std::stack <WhileElement> whilestack;
 
-        void tronline (BlLineNumber n);
+        //void tronline (BlLineNumber n);
+	void tronline (BlLineNumber n) { globalrunner.tronline (n); }
         bool checkstatus (CodeLine & line, const CodeLine & line0);
         bool processline (const std::string & line);
 };

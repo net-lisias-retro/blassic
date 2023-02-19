@@ -17,7 +17,7 @@ PROJECT = blassic.exe
 OBJFILES = blassic.obj codeline.obj error.obj keyword.obj program.obj runner.obj token.obj \
   var.obj dim.obj file.obj cursor.obj graphics.obj sysvar.obj version.obj \
   trace.obj socket.obj runnerline.obj function.obj key.obj charset.obj edit.obj \
-  directory.obj
+  directory.obj using.obj
 RESFILES =
 RESDEPEN = $(RESFILES)
 LIBFILES =

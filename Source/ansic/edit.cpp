@@ -1,5 +1,5 @@
 // edit.cpp
-// Revision 21-may-2003
+// Revision 1-jun-2003
 
 //#include "cursor.h"
 #include "graphics.h"
@@ -31,11 +31,11 @@ void showstring (BlFile & bf, const std::string & str)
 {
 	for (size_t i= 0, l= str.size (); i < l; ++i)
 	{
-		char c= str [i];
+		unsigned char c= str [i];
 		if (c < 32)
 			bf << '\\' << char (c + 'A');
 		else
-			bf << c;
+			bf << static_cast <char> (c);
 	}
 	bf.flush ();
 }
@@ -187,10 +187,14 @@ void Edit::showrest ()
 
 void Edit::showinitial ()
 {
+	TraceFunc tr ("Edit::showinitial");
+
 	//bf << '\r' << str;
 	//bf.flush ();
-	bf << '\r';
-	bf.movecharforward (inicol);
+
+	//bf << '\r';
+	//bf.movecharforward (inicol);
+
 	showstring (bf, str);
 
 	size_t l= str.size () + inicol;
@@ -267,6 +271,8 @@ void Edit::down ()
 
 bool Edit::do_it ()
 {
+	TraceFunc tr ("Edit::do_it");
+
 	showinitial ();
 
 	bool editing= true;
@@ -274,11 +280,13 @@ bool Edit::do_it ()
 	while (editing)
 	{
 		bf.showcursor ();
+		tr.message ("Waiting key");
 		std::string key= bf.getkey ();
+		tr.message ("Received key");
 		bf.hidecursor ();
 		if (key.size () == 1)
 		{
-			char c= key [0];
+			unsigned char c= key [0];
 			switch (c)
 			{
 			case '\r': case '\n':
@@ -380,7 +388,9 @@ bool Edit::do_it ()
 			history.erase (history.begin (),
 				history.begin () + histsize - maxhist + 1);
 		}
-		history.push_back (str);
+		if (! str.empty () && (history.empty () ||
+				history [history.size () - 1] != str) )
+			history.push_back (str);
 	}
 	
 	return retval;

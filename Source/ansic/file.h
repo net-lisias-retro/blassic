@@ -1,5 +1,5 @@
 // file.h
-// Revision 24-may-2003
+// Revision 1-jun-2003
 
 #ifndef FILE_H_
 #define FILE_H_
@@ -73,6 +73,8 @@ public:
 	virtual void setbackground (int color);
 	virtual void cls ();
 	virtual std::string copychr ();
+	virtual int pos ();
+	virtual int vpos ();
 private:
         virtual void outstring (const std::string & str);
         virtual void outchar (char c);
@@ -108,6 +110,7 @@ public:
 	virtual void setcolor (int color);
 	virtual void setbackground (int color);
 	virtual void cls ();
+	int pos ();
 private:
         void outstring (const std::string & str);
         void outchar (char c);
@@ -116,6 +119,10 @@ private:
 
         std::istream & in;
         std::ostream & out;
+        bool ttyin, ttyout;
+        #ifndef _Windows
+        int xpos;
+        #endif
 };
 
 class BlFileWindow : public BlFile {
@@ -147,6 +154,8 @@ public:
 	virtual void setbackground (int color);
 	virtual void cls ();
 	std::string copychr ();
+	int pos ();
+	int vpos ();
 private:
         void outstring (const std::string & str);
         void outchar (char c);

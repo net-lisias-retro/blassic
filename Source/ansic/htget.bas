@@ -15,9 +15,9 @@ if url$ = "" then url$= "http://www.arrakis.es/~ninsesabe/blassic/"
 
 if instr (url$, "http://") = 1 then url$= mid$ (url$, 8)
 
-pos= instr (url$, "/")
+p= instr (url$, "/")
 
-if pos <> 0 then host$= left$ (url$, pos - 1) : page$= mid$ (url$, pos) else host$= url$: page$= ""
+if p <> 0 then host$= left$ (url$, p - 1) : page$= mid$ (url$, p) else host$= url$: page$= ""
 
 if page$ = "" then page$= "/"
 

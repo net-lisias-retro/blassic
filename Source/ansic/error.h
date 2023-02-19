@@ -1,5 +1,5 @@
 // error.h
-// Revision 17-may-2003
+// Revision 4-jun-2003
 
 #ifndef ERROR_H_
 #define ERROR_H_
@@ -54,18 +54,11 @@ const BlErrNo
 	ErrNoGraphics=         41,
 	ErrImproperArgument=   42,
 	ErrDomain=             43,
-	ErrRange=              44;
+	ErrRange=              44,
+	ErrLineNotExist=       45;
 
 class BlError {
 public:
-	#if 0
-	BlError (BlErrNo nerr, BlLineNumber nline, BlChunk nchunk= 0) :
-		err (nerr),
-		//line (nline),
-                //chunk (nchunk)
-                pos (nline, nchunk)
-	{ }
-	#endif
 	BlError () :
 		err (0),
 		pos (0, 0)
@@ -74,16 +67,16 @@ public:
 		err (nerr),
 		pos (pos)
 	{ }
+	BlError (const BlError & e, BlErrNo newerr) :
+		err (newerr),
+		pos (e.pos)
+	{ }
         BlErrNo geterr () const { return err; }
-        //BlLineNumber getline () { return line; }
-        //BlChunk getchunk () { return chunk; }
 	ProgramPos getpos () const { return pos; }
 	friend std::ostream & operator << (std::ostream & os,
 		const BlError & be);
 private:
 	BlErrNo err;
-	//BlLineNumber line;
-        //BlChunk chunk;
 	ProgramPos pos;
 };
 

@@ -16,13 +16,13 @@
    9054 REM You can see an empty REM in line 10 after execution.
    9055 POKE p + 10, 0
    9060 addr= p + 11
-   9070 pos= addr
+   9070 p= addr
    9080 READ code$
    9090 rem PRINT code$; "-";
    9100 IF code$ = "xx" THEN RETURN
    9110 code= VAL ("&" + code$)
-   9120 POKE pos, code
-   9130 pos= pos + 1
+   9120 POKE p, code
+   9130 p= p + 1
    9140 GOTO 9080
   10000 REM
   10010 REM Machine code

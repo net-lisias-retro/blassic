@@ -1,5 +1,5 @@
 // file.cpp
-// Revision 24-may-2003
+// Revision 1-jun-2003
 
 #include "blassic.h"
 #include "file.h"
@@ -30,6 +30,47 @@ using std::endl;
 #else
 #include <io.h> // isatty
 #endif
+
+//***********************************************
+//		Auxiliary functions
+//***********************************************
+
+namespace {
+
+class updateposchar {
+public:
+	updateposchar (int & pos) :
+		pos (pos)
+	{ }
+	void operator () (const char c)
+	{
+		switch (c)
+		{
+		case '\r':
+		case '\n':
+			pos= 0;
+			break;
+		case '\t':
+			pos= ( (pos / 8) + 1) * 8;
+			break;
+		default:
+			++pos;
+		}
+	}
+private:
+	int & pos;
+};
+
+void updatepos (int & pos, const std::string & str)
+{
+	std::for_each (str.begin (), str.end (), updateposchar (pos) );
+}
+
+} // namespace
+
+//***********************************************
+//              BlFile
+//***********************************************
 
 BlFile::BlFile (OpenMode nmode) :
         mode (nmode),
@@ -196,6 +237,12 @@ void BlFile::cls ()
 std::string BlFile::copychr ()
 { throw ErrFileMode; }
 
+int BlFile::pos ()
+{ throw ErrFileMode; }
+
+int BlFile::vpos ()
+{ throw ErrFileMode; }
+
 //***********************************************
 //              BlFileConsole
 //***********************************************
@@ -203,7 +250,12 @@ std::string BlFile::copychr ()
 BlFileConsole::BlFileConsole (std::istream & nin, std::ostream & nout) :
         BlFile (OpenMode (Input | Output) ),
         in (nin),
-        out (nout)
+        out (nout),
+        ttyin (isatty (0) ),
+        ttyout (isatty (1) )
+        #ifndef _Windows
+        , xpos (0)
+        #endif
 {
 }
 
@@ -278,18 +330,35 @@ void BlFileConsole::hidecursor ()
 
 std::string BlFileConsole::getkey ()
 {
-	return ::getkey ();
+	TraceFunc tr ("BlFileConsole::getkey");
+
+	std::string str= ::getkey ();
+
+	#ifdef __WIN32__
+
+	if (ttyin && str.size () == 1)
+	{
+		char c= str [0];
+		OemToCharBuff (& c, & c, 1);
+		return std::string (1, c);
+	}
+	
+	#endif
+
+	return str;
 }
 
 void BlFileConsole::getline (std::string & str)
 {
-	#ifdef __WIN32__
+	TraceFunc tr ("BlFileConsole::getline");
 
-	bool tty= isatty (0);
-	if (tty)
+	//#ifdef __WIN32__
+
+	if (ttyin)
 	{
 		std::string auxstr;
-		int inicol= getcursorx ();
+		//int inicol= getcursorx ();
+		int inicol= pos ();
 		while (! editline (* this, auxstr, 0, inicol) )
 			continue;
 		swap (str, auxstr);
@@ -297,11 +366,11 @@ void BlFileConsole::getline (std::string & str)
 	else
 		std::getline (in, str);
 
-	#else
+	//#else
 
-	std::getline (in, str);
+	//std::getline (in, str);
 
-	#endif
+	//#endif
 
 	if (fInterrupted)
 	{
@@ -312,7 +381,7 @@ void BlFileConsole::getline (std::string & str)
 
         #ifdef __WIN32__
 
-	if (tty)
+	if (ttyin)
 	{
 	        size_t l= str.size ();
 		util::auto_buffer <char> aux (l);
@@ -338,7 +407,13 @@ void BlFileConsole::tab (size_t n)
 	}
 	else
 	{
-		outstring (std::string (n, ' ') );
+		int p= pos ();
+		if (p > static_cast <int> (n) )
+		{
+			outchar ('\n');
+			p= pos ();
+		}
+		outstring (std::string (n - p, ' ') );
 	}
 }
 
@@ -349,17 +424,24 @@ void BlFileConsole::outstring (const std::string & str)
                 graphics::stringout (str);
                 return;
         }
+
         #ifdef __WIN32__
 
-        size_t l= str.size ();
-	util::auto_buffer <char> aux (l + 1);
-        CharToOemBuff (str.data (), aux, l);
-        aux [l]= 0;
-        out << aux;
+	if (ttyout)
+	{
+		size_t l= str.size ();
+		util::auto_buffer <char> aux (l + 1);
+		CharToOemBuff (str.data (), aux, l);
+		aux [l]= 0;
+		out << aux;
+	}
+	else
+		out << str;
 
         #else
 
         out << str;
+        updatepos (xpos, str);
 
         #endif
 
@@ -378,13 +460,18 @@ void BlFileConsole::outchar (char c)
                 return;
         }
         #ifdef __WIN32__
-        CharToOemBuff (& c, & c, 1);
+	if (ttyout)
+	        CharToOemBuff (& c, & c, 1);
 	#endif
 
 	if (c == '\n')
 		out << endl;
 	else
 		out << c;
+
+	#ifndef _Windows
+	updateposchar (xpos).operator () (c);
+	#endif
 
 	if (! out)
 	{
@@ -416,6 +503,9 @@ void BlFileConsole::outinteger (BlInteger n)
 void BlFileConsole::gotoxy (int x, int y)
 {
 	::gotoxy (x, y);
+	#ifndef _Windows
+	xpos= x;
+	#endif
 }
 
 void BlFileConsole::setcolor (int color)
@@ -431,6 +521,18 @@ void BlFileConsole::setbackground (int color)
 void BlFileConsole::cls ()
 {
 	::cls ();
+	#ifndef _Windows
+	xpos= 0;
+	#endif
+}
+
+int BlFileConsole::pos ()
+{
+	#ifdef _Windows
+	return getcursorx ();
+	#else
+	return xpos;
+	#endif
 }
 
 //***********************************************
@@ -589,6 +691,16 @@ void BlFileWindow::cls ()
 std::string BlFileWindow::copychr ()
 {
 	return graphics::copychr (ch);
+}
+
+int BlFileWindow::pos ()
+{
+	return graphics::xpos (ch);
+}
+
+int BlFileWindow::vpos ()
+{
+	return graphics::ypos (ch);
 }
 
 //***********************************************

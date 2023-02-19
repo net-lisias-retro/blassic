@@ -1,11 +1,15 @@
 // cursor.cpp
-// Revision 28-may-2003
+// Revision 9-jun-2003
 
 #include "cursor.h"
 #include "graphics.h"
 #include "key.h"
 #include "util.h"
 #include "trace.h"
+
+#include <map>
+#include <sstream>
+#include <cstdlib>
 
 #ifdef __WIN32__
 
@@ -257,6 +261,8 @@ size_t getwidth ()
 
 void cursorvisible ()
 {
+	TraceFunc tr ("cursorvisible");
+
 	// checkinit not needed, is done by showcursor
 	showcursor ();
 
@@ -273,6 +279,8 @@ void cursorvisible ()
 
 void cursorinvisible ()
 {
+	TraceFunc tr ("cursorinvisible");
+
 	// checkinit not needed, is done by hidecursor
 	hidecursor ();
 
@@ -959,12 +967,10 @@ public:
 	PollInput ()
 	{
 		pfd.fd= STDIN_FILENO;
-		//pfd.events= POLLIN | POLLERR | POLLNVAL;
-		pfd.events= POLLIN | POLLERR | POLLNVAL | POLLRDNORM;
+		pfd.events= POLLIN | POLLERR | POLLNVAL;
 	}
 	int poll ()
 	{
-		pfd.events= POLLIN | POLLERR | POLLNVAL | POLLRDNORM;
 		return ::poll (& pfd, 1, 100);
 	}
 private:
@@ -1130,21 +1136,43 @@ std::string getkey ()
         return readkey (ReadWait);
 }
 
-#ifdef __WIN32__
 
 void clean_input ()
 {
-        Sleep (100);
-        HANDLE h= GetStdHandle (STD_INPUT_HANDLE);
-        INPUT_RECORD input;
-        DWORD n= 0;
-        PeekConsoleInput (h, & input, 1, & n);
-        if (n && input.EventType == KEY_EVENT &&
-                        ! input.Event.KeyEvent.bKeyDown)
-                ReadConsoleInput (h, & input, 1, & n);
-}
+	TraceFunc tr ("clean_input");
 
-#endif
+	if (graphics::ingraphicsmode () )
+	{
+		graphics::clean_input ();
+	}
+	else
+	{
+		#ifdef __WIN32__
+
+		Sleep (100);
+		HANDLE h= GetStdHandle (STD_INPUT_HANDLE);
+		INPUT_RECORD input;
+		DWORD n= 0;
+		PeekConsoleInput (h, & input, 1, & n);
+		if (n && input.EventType == KEY_EVENT &&
+				! input.Event.KeyEvent.bKeyDown)
+			ReadConsoleInput (h, & input, 1, & n);
+
+		#else
+
+		fcntl (STDIN_FILENO, F_SETFL, O_NONBLOCK);
+		int l;
+		const int lbuf= 32;
+		char buffer [lbuf + 1];
+		do
+		{
+			l= read (STDIN_FILENO, buffer, lbuf);
+		} while (l > 0);
+		fcntl (STDIN_FILENO, F_SETFL, 0);
+
+		#endif
+	}
+}
 
 void ring ()
 {
@@ -1154,7 +1182,119 @@ void ring ()
 
 	#elif defined BLASSIC_USE_TERMINFO
 
-	calltputs (strBell);
+	if (graphics::ingraphicsmode () )
+		graphics::ring ();
+	else
+		calltputs (strBell);
+
+	#endif
+}
+
+//************************************************
+//	set_title
+//************************************************
+
+#ifdef BLASSIC_USE_TERMINFO
+
+// Escape sequences from the "How to change the title of an xterm",
+// by Ric Lister, http://www.tldp.org/HOWTO/mini/Xterm-Title.html
+
+namespace
+{
+
+void set_title_xterm (const std::string & title)
+{
+	std::ostringstream oss;
+	oss << "\x1B]0;" << title << "\x07";
+	const std::string str= oss.str ();
+	write (STDOUT_FILENO, str.c_str (), str.size () );
+}
+
+void set_title_iris_ansi (const std::string & title)
+{
+	std::ostringstream oss;
+	oss << "\x1BP1.y" << title << "\x1B\\"; // Set window title
+	oss << "\x1BP3.y" << title << "\x1B\\"; // Set icon title
+	const std::string str= oss.str ();
+	write (STDOUT_FILENO, str.c_str (), str.size () );
+}
+
+void set_title_sun_cmd (const std::string & title)
+{
+	std::ostringstream oss;
+	oss << "\x1B]l;" << title << "\x1B\\"; // Set window title
+	oss << "\x1B]L;" << title << "\x1B\\"; // Set icon title
+	const std::string str= oss.str ();
+	write (STDOUT_FILENO, str.c_str (), str.size () );
+}
+
+void set_title_hpterm (const std::string & title)
+{
+	std::ostringstream oss;
+	const std::string::size_type l= title.size ();
+	oss << "\x1B&f0k" << l << 'D' << title; // Set window title
+	oss << "\x1B&f-1k" << l << 'D' << title; // Set icon title
+	const std::string str= oss.str ();
+	write (STDOUT_FILENO, str.c_str (), str.size () );
+}
+
+typedef void (* set_title_t) (const std::string &);
+
+struct Cstring_less {
+	bool operator () (const char * p, const char * q)
+	{ return strcmp (p, q) < 0; }
+};
+
+typedef std::map <const char *, set_title_t, Cstring_less> maptitle_t;
+maptitle_t maptitle;
+
+bool initmaptitle ()
+{
+	maptitle ["xterm"]=     set_title_xterm;
+	maptitle ["aixterm"]=   set_title_xterm;
+	maptitle ["dtterm"]=    set_title_xterm;
+	maptitle ["iris-ansi"]= set_title_iris_ansi;
+	maptitle ["sun-cmd"]=   set_title_sun_cmd;
+	maptitle ["hpterm"]=    set_title_hpterm;
+	return true;
+}
+
+bool maptitle_inited= initmaptitle ();
+
+}
+
+#endif
+
+void set_title (const std::string & title)
+{
+	TraceFunc tr ("set_title");
+
+	if (graphics::ingraphicsmode () )
+	{
+		graphics::set_title (title);
+		return;
+	}
+
+	#ifdef BLASSIC_USE_WINDOWS
+
+	SetConsoleTitle (title.c_str () );
+
+	#elif defined BLASSIC_USE_TERMINFO
+
+	if (! isatty (STDOUT_FILENO) )
+		return;
+
+	char * term= getenv ("TERM");
+	if (term)
+	{
+		maptitle_t::iterator it= maptitle.find (term);
+		if (it != maptitle.end () )
+			(* it->second) (title);
+		else
+		{
+			tr.message ("TERM not found");
+		}
+	}
 
 	#endif
 }

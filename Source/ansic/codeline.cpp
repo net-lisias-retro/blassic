@@ -1,5 +1,5 @@
-//	codeline.cpp
-// Revision 14-may-2003
+// codeline.cpp
+// Revision 29-may-2003
 
 //#include "codeline.h"
 #include "program.h"
@@ -149,6 +149,8 @@ BlNumber CodeLine::Token::number () const
                 return number (str);
         case keyINTEGER:
                 return valueint;
+	case keyENDLINE:
+		return 0.0;
         default:
         	cerr << "Codeline::Token::number called but code= " <<
         		code << " is not valid." << endl;
@@ -262,8 +264,19 @@ CodeLine::Token CodeLine::getdata ()
 			}
 			else
 			{
-				r.str+= c;
-				++pos;
+				if (iskey (c) )
+				{
+					BlCode s= c;
+					s<<= 8;
+					s|= strcontent [pos + 1];
+					r.str+= decodekeyword (s);
+					pos+= 2;
+				}
+				else
+				{
+					r.str+= c;
+					++pos;
+				}
 			}
 		}
 		std::string::size_type l= r.str.find_last_not_of (" ");

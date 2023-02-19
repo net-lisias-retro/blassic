@@ -1,5 +1,5 @@
 // keyword.cpp
-// Revision 26-may-2003
+// Revision 9-jun-2003
 
 #include "keyword.h"
 #include "util.h"
@@ -150,6 +150,7 @@ const_keycode table []= {
 	keycode ("DEFSNG",            keyDEFSNG),
 	keycode ("DEFDBL",            keyDEFDBL),
 	keycode ("INK",               keyINK),
+	keycode ("SET_TITLE",         keySET_TITLE),
 
 	keycode ("MID$",              keyMID_S),
 	keycode ("LEFT$",             keyLEFT_S),
@@ -181,6 +182,8 @@ const_keycode table []= {
 	keycode ("FINDFIRST$",        keyFINDFIRST_S),
 	keycode ("FINDNEXT$",         keyFINDNEXT_S),
 	keycode ("COPYCHR$",          keyCOPYCHR_S),
+	keycode ("STRERR$",           keySTRERR_S),
+	keycode ("DEC$",              keyDEC_S),
 
         keycode ("ASC",               keyASC),
 	keycode ("LEN",               keyLEN),
@@ -238,6 +241,8 @@ const_keycode table []= {
 	keycode ("ATAN2",             keyATAN2),
 	keycode ("TEST",              keyTEST),
 	keycode ("TESTR",             keyTESTR),
+	keycode ("POS",               keyPOS),
+	keycode ("VPOS",              keyVPOS),
 
 	keycode ("NOT",               keyNOT),
 	keycode ("OR",                keyOR),

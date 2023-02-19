@@ -2,7 +2,3 @@
 	- POPEN blocks in windows in interactive mode, needs correction.
 
 I don't know why. Someone knows a good implementation of popen on Win32?
-
-	- There is no correct implementation of TAB yet, except in graphics
-mode. In the meantime we simply write a number of spaces corresponding to
-the parameter of TAB.

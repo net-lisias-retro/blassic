@@ -1,4 +1,5 @@
 //	blassic.cpp
+// Revision 9-jun-2003
 
 #include <assert.h>
 
@@ -58,6 +59,7 @@ USEUNIT("key.cpp");
 USEUNIT("charset.cpp");
 USEUNIT("edit.cpp");
 USEUNIT("directory.cpp");
+USEUNIT("using.cpp");
 //---------------------------------------------------------------------------
 bool fInterrupted= false;
 
@@ -172,7 +174,9 @@ int blassic (int argc, char * * argv)
 
 	CodeLine code;
 	Program program;
-	Runner runner (program);
+	GlobalRunner globalrunner (program);
+	//Runner runner (program);
+	Runner runner (globalrunner);
 
 	int n= 1;
 	while (n < argc)
@@ -291,6 +295,8 @@ int blassic (int argc, char * * argv)
 				short narg= short (argc - n - 1);
 				setprogramargs (argv + n + 1, narg);
 				program.load (argv [n] );
+				set_title (argv [n] );
+				graphics::set_default_title (argv [n] );
 				runner.run ();
 			}
 			catch (BlError & be)

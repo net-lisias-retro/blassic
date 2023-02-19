@@ -9,6 +9,10 @@ next
 
 print
 
+a$= "Raiz de ### es ##.######
 for i= 1 to 10
-	print using "Raiz de ## es #.######"; i; sqr (i)
+	print using a$; i; sqr (i)
+next
+for i= 100 to 900 step 100
+	print using a$; i; sqr (i)
 next

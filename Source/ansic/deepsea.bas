@@ -5,7 +5,7 @@ rem		*****************************
 rem	*********************************************************
 rem	**  A simple game demostrating Blassic's capabilites.  **
 rem 	**                                                     **
-rem	**        (C) 2002 Julian Albo "NotFound"              **
+rem	**      (C) 2002-2003 Julian Albo "NotFound"           **
 rem	**                                                     **
 rem	**  Distributable under the terms of the GPL License.  **
 rem	*********************************************************
@@ -16,6 +16,8 @@ randomize time
 
 color_sky= 11
 color_sea= 1
+color_boat= 4
+color_sub= 6
 
 sealevel= 7
 boatlevel= sealevel - 1
@@ -24,22 +26,41 @@ minysub= sealevel + 1
 maxbomb= 5
 dim xbomb (maxbomb), ybomb (maxbomb), counter (maxbomb)
 nbomb= 0
-inicount= 15
+inicount= 2
 
-maxboat= 6
-dim xboat (maxboat), incboat (maxboat), countboat (maxboat)
+maxboat= 7
+dim xboat (maxboat), incboat (maxboat)
 nboat= 0
-inicountboat= 10
 
 maxglub= 20
 dim xglub (maxglub), countglub (maxglub)
-inicountglub= 104
+inicountglub= 18
 
-maxcharge= 30
-dim xcharge (maxcharge), ycharge (maxcharge), countcharge (maxcharge)
-inicountcharge= 10
+maxcharge= 40
+dim xcharge (maxcharge), ycharge (maxcharge)
+for i= 1 to maxcharge - 1
+	ycharge (i)= i + 1
+next
+ycharge (maxcharge)= 0
+freecharge= 1
+
+probboat!= 0.15
+probcharge!=0.25
 
 mode 5
+set_title "Deep Sea"
+
+skywin= 1
+window #skywin, 1, 40, 1, boatlevel
+paper #skywin, color_sky
+
+seawin= 2
+window #seawin, 1, 40, sealevel, 24
+paper #seawin, color_sea
+
+boatwin= 3
+window #boatwin, 1, 40, boatlevel, boatlevel
+paper #boatwin, color_sky
 
 synchronize 1
 
@@ -62,7 +83,7 @@ pause 750
 
 xsub= 20: ysub= 20
 
-pen 6: paper color_sea
+pen color_sub: paper color_sea
 locate ysub, xsub: print sub$;
 synchronize
 
@@ -70,30 +91,36 @@ pause 500
 
 gosub clearscreen
 
-pen 6: paper color_sea
+pen color_sub: paper color_sea
 
 gosub printpoints
 
+quit= 0
 repeat
 	locate ysub, xsub: print sub$;
 	synchronize
-	pause 10
+	pause 200
 
-	a$= upper$ (inkey$)
-	if a$ = "P" then get a$: a$= upper$ (a$)
-	oxsub= xsub: oysub= ysub
-	if a$ = "LEFT" then xsub= xsub - 1
-	if a$ = "RIGHT" then xsub= xsub + 1
-	if a$ = "UP" then ysub= ysub - 1
-	if a$ = "DOWN" then ysub= ysub + 1
+	fire= 0
+	for i= 1 to 2
+		a$= upper$ (inkey$)
+		if a$ = "P" then get a$: a$= upper$ (a$)
+		oxsub= xsub: oysub= ysub
+		if a$ = "LEFT" then xsub= xsub - 1
+		if a$ = "RIGHT" then xsub= xsub + 1
+		if a$ = "UP" then ysub= ysub - 1
+		if a$ = "DOWN" then ysub= ysub + 1
+		if a$ = " " then fire= 1
+		if a$ = "Q" then quit= 1
+	next
+
 	xsub= max (min (xsub, 38), 1)
 	ysub= max (min (ysub, 24), minysub)
 
-	locate oysub, oxsub: print clearsub$;
 	gosub moveall
-	if a$ = " " then gosub firebomb
+	if fire then gosub firebomb
 
-until a$ = "Q"
+until quit
 
 end
 
@@ -103,15 +130,9 @@ gosub moveboats
 
 gosub showglubs
 
-pen 6, 0: paper color_sea
+pen color_sub, 0: paper color_sea
 
-for i= 1 to maxbomb
-	if xbomb (i) <> 0 then locate ybomb (i), xbomb (i): print " ";
-next
-
-for i= 1 to maxcharge
-	if xcharge (i) <> 0 then locate ycharge (i), xcharge (i): print " ";
-next
+cls #seawin
 
 pen , 1
 
@@ -176,11 +197,8 @@ killed= 0
 
 for i= 1 to maxcharge
 	if xcharge (i) = 0 then goto nextcharge
-	countcharge (i)= countcharge (i) - 1
-	if countcharge (i) > 0 then goto nomovecharge
-	countcharge (i)= inicountcharge
 	ycharge (i)= ycharge (i) + 1
-	if ycharge (i) >= 25 then xcharge (i)= 0 : goto nextcharge
+	if ycharge (i) >= 25 then xcharge (i)= 0 : ycharge (i)= freecharge: freecharge= i: goto nextcharge
 
 	label nomovecharge
 
@@ -200,17 +218,15 @@ label firecharge
 
 if xfire < 1 or xfire > 40 then return
 
-x= 0
-for i= 1 to maxcharge
-	if xcharge (i) = 0 then x= i: i= maxcharge
-next
-if x = 0 then return
+if freecharge = 0 then return
+x= freecharge
+freecharge= ycharge (x)
 
 xcharge (x)= xfire
 ycharge (x)= sealevel
-countcharge (x)= inicountcharge
-pen 6: paper color_sea
+pen color_sub: paper color_sea
 locate ycharge (x), xcharge (x): print charge$;
+pen color_boat
 
 return
 
@@ -220,7 +236,7 @@ for i= 1 to maxglub
 	if xglub (i) = 0 then goto nextglub
 	countglub (i)= countglub (i) - 1
 	if countglub (i) = 0 then xglub (i)= 0: goto nextglub
-	g= countglub (i) / 15
+	g= int (countglub (i) / 3)
 	locate boatlevel, xglub (i) : print glub$ (g);
 
 	label nextglub
@@ -230,36 +246,33 @@ return
 
 label moveboats
 
-pen 4, 0: paper color_sky
+pen color_boat, 0: paper color_sky
 
-locate boatlevel, 1: print spc (40);
+cls #boatwin
 
 pen , 1
 
-for i= 1 to maxboat
-	if xboat (i) = 0 then goto nextboat
-	countboat (i)= countboat (i) - 1
-	if countboat (i) > 0 then goto printboat
-
-	countboat (i)= inicountboat
-	xboat (i)= xboat (i) + incboat (i)
-	if (incboat (i) < 0 and xboat (i) < 1) or (incboat (i) > 0 and xboat (i) > 37) then xboat (i)= 0: nboat= nboat - 1: goto nextboat
+for iboat= 1 to maxboat
+	if xboat (iboat) = 0 then goto nextboat
+	xboat (iboat)= xboat (iboat) + incboat (iboat)
+	if (incboat (iboat) < 0 and xboat (iboat) < 1) or (incboat (iboat) > 0 and xboat (iboat) > 37) then xboat (iboat)= 0: nboat= nboat - 1: goto nextboat
 
 	label printboat
 
-	locate boatlevel, xboat (i): print boat$;
+	locate boatlevel, xboat (iboat)
+	if incboat (iboat) > 0 then print boat$; else print boat2$;
 
 	label fireboat
 
-	if rnd > 0.015 then goto nextboat
-	xfire= xboat (i)
-	if incboat (i) > 0 then xfire= xfire + 4: else xfire= xfire - 2
+	if rnd > probcharge! then goto nextboat
+	xfire= xboat (iboat)
+	if incboat (iboat) > 0 then xfire= xfire + 4: else xfire= xfire - 2
 	gosub firecharge
 
 	label nextboat
 next
 
-if nboat >= maxboat or rnd > 0.015 then goto endmoveboats
+if nboat >= maxboat or rnd > probboat! then goto endmoveboats
 
 posboat= 0
 for i= 1 to maxboat
@@ -282,8 +295,6 @@ xboat (posboat)= 37
 incboat (posboat)= -1
 
 label finishboat
-
-coutboat (posboat)= inicountboat
 
 locate boatlevel, xboat (posboat): print boat$;
 
@@ -363,56 +374,60 @@ label clearscreen
 paper color_sea
 cls
 
-paper color_sky
-print space$ (40 * (sealevel - 1) )
+cls #skywin
 
 return
 
 label defchars
 
-symbol after 233
+symbol after 230
 
-symbol 255, 0, 0, 0, 31, 127, 255, 127, 31
+symbol 255,   0,   0,   0,  31, 127, 255, 127,  31
 symbol 254, 248, 248, 248, 255, 255, 255, 255, 255
-symbol 253, 0, 0, 0, 248, 254, 255, 254, 248
+symbol 253,   0,   0,   0, 248, 254, 255, 254, 248
 sub$= chr$ (255) + chr$ (254) + chr$ (253)
 clearsub$= space$ (len (sub$) )
 
-symbol 252, 0, 0, 0, 0, 255, 255, 127, 63
-symbol 251, 4, 4, 255, 255, 255, 255, 255, 255
-symbol 250, 0, 0, 0, 0, 255, 252, 240, 192
+symbol 252,   0,   0,   0,   0, 255, 255, 127,  63
+symbol 251,   4,   4, 255, 255, 255, 255, 255, 255
+symbol 250,   0,   0,   0,   0, 255, 252, 240, 192
 boat$= chr$ (252) + chr$ (251) + chr$ (250)
 clearboat$= space$ (len (boat$) )
 
-symbol 249, 16, 56, 56, 56, 56, 56, 124, 214
+symbol 232,   0,   0,   0,   0, 255, 255, 254, 248
+symbol 231,  32,  32, 255, 255, 255, 255, 255, 255
+symbol 230,   0,   0,   0,   0, 255,  63,  15,   3
+boat2$= chr$ (230) + chr$ (231) + chr$ (232)
+
+symbol 249,  16,  56,  56,  56,  56,  56, 124, 214
 bomb$= chr$ (249)
 
-symbol 248, 16, 56, 124, 254, 127, 62, 28, 8
+symbol 248,  16,  56, 124, 254, 127,  62,  28,   8
 charge$= chr$ (248)
 
 symbol 247, 255, 255, 255, 255, 255, 255, 255, 255
 black$= chr$ (247)
 
-symbol 246, 0, 224, 124, 127, 63, 63, 31, 31
-symbol 245, 0, 0, 0, 128, 240, 254, 255, 255
-symbol 244, 0, 0, 0, 0, 0, 0, 192, 248
+symbol 246,   0, 224, 124, 127,  63,  63,  31,  31
+symbol 245,   0,   0,   0, 128, 240, 254, 255, 255
+symbol 244,   0,   0,   0,   0,   0,   0, 192, 248
 
-symbol 243, 0, 0, 224, 124, 127, 63, 63, 31
-symbol 242, 0, 0, 0, 0, 128, 240, 254, 255
-symbol 241, 0, 0, 0, 0, 0, 0, 0, 192
+symbol 243,   0,   0, 224, 124, 127,  63,  63,  31
+symbol 242,   0,   0,   0,   0, 128, 240, 254, 255
+symbol 241,   0,   0,   0,   0,   0,   0,   0, 192
 
-symbol 240, 0, 0, 0, 224, 124, 127, 63, 63
-symbol 239, 0, 0, 0, 0, 0, 128, 240, 254
+symbol 240,   0,   0,   0, 224, 124, 127,  63,  63
+symbol 239,   0,   0,   0,   0,   0, 128, 240, 254
 
-symbol 238, 0, 0, 0, 0, 224, 124, 127, 63
-symbol 237, 0, 0, 0, 0, 0, 0, 128, 240
+symbol 238,   0,   0,   0,   0, 224, 124, 127,  63
+symbol 237,   0,   0,   0,   0,   0,   0, 128, 240
 
-symbol 236, 0, 0, 0, 0, 0, 224, 124, 127
-symbol 235, 0, 0, 0, 0, 0, 0, 0, 128
+symbol 236,   0,   0,   0,   0,   0, 224, 124, 127
+symbol 235,   0,   0,   0,   0,   0,   0,   0, 128
 
-symbol 234, 0, 0, 0, 0, 0, 0, 224, 124
+symbol 234,   0,   0,   0,   0,   0,   0, 224, 124
 
-symbol 233, 0, 0, 0, 0, 0, 0, 0, 224
+symbol 233,   0,   0,   0,   0,   0,   0,   0, 224
 
 dim glub$ (6)
 glub$ (6)= chr$ (246) + chr$ (245) + chr$ (244)

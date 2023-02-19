@@ -1,5 +1,23 @@
 # Blassic :: Change Log
 
+* 2003-0609: 0.5.7 (Julián Albo)
+	+ cursor.cpp not compiled under gcc 2.95, corrected.
+	+ Bug MODE segfaulting in console, corrected.
+	+ Some READ improvement.
+	+ STRERR$ function.
+	+ CLEAR INK instruction.
+	+ DEC$ function.
+	+ PRINT USING improved, now with scientific notation and currency sign for dollar, pound and euro.
+	+ Bug editing chars with code > 127 ignored, corrected.
+	+ POS and VPOS functions.
+	+ Line editing in INPUT and LINE INPUT now also works in text mode in unix.
+	+ TAB now works correctly in text mode.
+	+ Speed improvement in text output in graphics mode.
+	+ INPUT corrected, LINE INPUT improved.
+	+ CLEAR INPUT instruction.
+	+ Better handling of multiline FN functions.
+	+ GOTO (and others) to a line number that not exist now is an error.
+	+ SET_TITLE instruction.
 * 2003-0528: 0.5.6 (Julián Albo)
 	+ Instructions BEEP, DEFINT, DEFSTR, DEFREAL, DEFSNG and DEFDBL.
 	+ RESUME without error is an error even with line number.

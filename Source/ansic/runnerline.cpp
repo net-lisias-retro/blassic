@@ -1,5 +1,5 @@
 // runnerline.cpp
-// Revision 26-may-2003
+// Revision 5-jun-2003
 
 #include "runnerline.h"
 
@@ -12,6 +12,7 @@
 #include "function.h"
 #include "edit.h"
 #include "util.h"
+#include "using.h"
 
 #include <sstream>
 #include <iomanip>
@@ -238,6 +239,7 @@ RunnerLine::mapfunc_t RunnerLine::initmapfunc ()
 	m [keyDEFSNG]=       & RunnerLine::do_defint;
 	m [keyDEFDBL]=       & RunnerLine::do_defint;
 	m [keyINK]=          & RunnerLine::do_ink;
+	m [keySET_TITLE]=    & RunnerLine::do_set_title;
 	return m;
 }
 
@@ -326,7 +328,7 @@ inline std::string RunnerLine::expectstring ()
 	return evalstring ();
 }
 
-inline VarPointer RunnerLine::evalvalpointer ()
+inline VarPointer RunnerLine::evalvarpointer ()
 {
 	requiretoken (keyIDENTIFIER);
 	std::string varname= token.str;
@@ -363,9 +365,21 @@ inline VarPointer RunnerLine::evalvalpointer ()
 	return vp;
 }
 
+void RunnerLine::evalmultivarpointer (ListVarPointer & lvp)
+{
+	for (;;)
+	{
+		VarPointer vp= evalvarpointer ();
+		lvp.push_back (vp);
+		if (token.code != ',')
+			break;
+		gettoken ();
+	}
+}
+
 inline VarPointer RunnerLine::eval_let ()
 {
-	VarPointer vp= evalvalpointer ();
+	VarPointer vp= evalvarpointer ();
 	requiretoken ('=');
 	BlResult result;
 	expect (result);
@@ -409,6 +423,16 @@ void RunnerLine::getparenarg (BlResult & result, BlResult & result2)
 	expect (result2);
 	requiretoken (')');
 	gettoken ();
+}
+
+BlFile & RunnerLine::getparenfile ()
+{
+	expecttoken ('(');
+	expecttoken ('#');
+	BlChannel c= expectchannel ();
+	requiretoken (')');
+	gettoken ();
+	return getfile (c);
 }
 
 namespace {
@@ -1007,6 +1031,16 @@ void RunnerLine::valtest (BlResult & result, bool relative)
 	result= graphics::test (x, y, relative);
 }
 
+void RunnerLine::valpos (BlResult & result)
+{
+	result= getparenfile ().pos () + 1;
+}
+
+void RunnerLine::valvpos (BlResult & result)
+{
+	result= getparenfile ().vpos () + 1;
+}
+
 void RunnerLine::valmid_s (BlResult & result)
 {
 	expecttoken ('(');
@@ -1383,12 +1417,42 @@ void RunnerLine::valtrim (BlResult & result)
 
 void RunnerLine::valcopychr_s (BlResult & result)
 {
+	#if 0
 	expecttoken ('(');
 	expecttoken ('#');
 	BlChannel c= expectchannel ();
 	requiretoken (')');
 	BlFile & window= getfile (c);
+	#else
+	BlFile & window= getparenfile ();
+	#endif
 	result= window.copychr ();
+	//gettoken ();
+}
+
+void RunnerLine::valstrerr_s (BlResult & result)
+{
+	getparenarg (result);
+	result= ErrStr (static_cast <BlErrNo> (result.integer () ) );
+}
+
+void RunnerLine::valdec_s (BlResult & result)
+{
+	expecttoken ('(');
+	BlNumber n= expectnum ();
+	requiretoken (',');
+	std::string format= expectstring ();
+	VectorUsing usingf;
+	parseusing (format, usingf);
+	if (usingf.size () != 1)
+		throw ErrFunctionCall;
+	UsingNumeric * pun= dynamic_cast <UsingNumeric *> (usingf [0] );
+	if (pun == NULL)
+		throw ErrFunctionCall;
+	BlFileOutString fos;
+	pun->putnumeric (fos, n);
+	result= fos.str ();
+	requiretoken (')');
 	gettoken ();
 }
 
@@ -1460,7 +1524,8 @@ void RunnerLine::valfn (BlResult & result)
 	case Function::DefMulti:
 		{
 			ll.addlocal (fname);
-			Runner fnrun (program);
+			//Runner fnrun (program);
+			Runner fnrun (runner);
 			// We reuse the break position
 			// to jump to the fn definition.
 			fnrun.set_break (f.getpos () );
@@ -1655,6 +1720,12 @@ void RunnerLine::valbase (BlResult & result)
 	case keyCOPYCHR_S:
 		valcopychr_s (result);
 		break;
+	case keySTRERR_S:
+		valstrerr_s (result);
+		break;
+	case keyDEC_S:
+		valdec_s (result);
+		break;
 	case keyASC:
 		valasc (result);
 		break;
@@ -1835,6 +1906,12 @@ void RunnerLine::valbase (BlResult & result)
 		break;
 	case keyTESTR:
 		valtest (result, true);
+		break;
+	case keyPOS:
+		valpos (result);
+		break;
+	case keyVPOS:
+		valvpos (result);
 		break;
         case keyFN:
                 valfn (result);
@@ -2419,184 +2496,16 @@ bool RunnerLine::do_run ()
 	return true;
 }
 
-namespace {
-
-class usingformat {
-public:
-	virtual ~usingformat () { }
-	virtual bool isliteral () { return false; }
-	virtual void putliteral (BlFile & out) { throw ErrBlassicInternal; }
-	virtual void putnumeric (BlFile & out, BlNumber n)
-	{ throw ErrBlassicInternal; }
-	virtual void putstring (BlFile & out, const std::string & str)
-	{ throw ErrBlassicInternal; }
-};
-
-class usingliteral : public usingformat {
-public:
-	usingliteral (const std::string & str) :
-		str (str)
-	{ }
-	bool isliteral () { return true; }
-	void putliteral (BlFile & out)
-	{ out << str; }
-private:
-	std::string str;
-};
-
-class usingnumeric : public usingformat {
-public:
-	usingnumeric (size_t digit, size_t decimal) :
-		digit (digit), decimal (decimal)
-	{ }
-	void putnumeric (BlFile & out, BlNumber n)
-	{
-		int numdig= 0;
-                if (n != 0)
-                        numdig= int (std::log10 (std::fabs (n) * 10) );
-		if (numdig < 0) numdig= 0;
-		size_t w= numdig;
-		if (digit > w) w= digit;
-		if (decimal > 0)
-			w+= decimal + 1;
-		std::ostringstream oss;
-		if (decimal > 0)
-			oss.setf (std::ios::showpoint);
-		oss << std::setw (w) <<
-			std::setprecision (decimal + numdig) <<
-			n;
-		out << oss.str ();
-	}
-private:
-	size_t digit, decimal;
-};
-
-class usingstring : public usingformat {
-public:
-	usingstring (size_t n) :
-		n (n)
-	{ }
-	void putstring (BlFile & out, const std::string & str)
-	{
-		if (n > 0)
-			out << str.substr (0, n);
-		else
-			out << str;
-	}
-private:
-	size_t n;
-};
-
-// Someone will call this "abuse of inheritance", but...
-
-class vectorusing : public std::vector <usingformat *>
-{
-	static void delete_it (const usingformat * uf) { delete uf; }
-public:
-	vectorusing () { }
-	~vectorusing ()
-	{
-		std::for_each (begin (), end (), delete_it);
-	}
-private:
-	vectorusing (const vectorusing &); // Forbidden
-	vectorusing & operator = (const vectorusing &); // Forbidden
-};
-
-bool ischarformat (char c)
-{
-	return c == '#' || c == '\\' || c == '&' || c == '!'; // De momento
-}
-
-void getusingformat (const std::string & str, vectorusing & f)
-{
-	const std::string::size_type l= str.size ();
-	std::string::size_type i= 0;
-	std::string lit;
-	for (;;)
-	{
-		while (i < l && ! ischarformat (str [i]) )
-		{
-			lit+= str [i];
-			++i;
-		}
-		if (! lit.empty () || l == 0)
-		{
-			auto_ptr <usingliteral> pul (new usingliteral (lit) );
-			f.push_back (& * pul);
-			pul.release ();
-			lit.erase ();
-		}
-		if (i == l)
-			break;
-		switch (str [i] )
-		{
-		case '#':
-			{
-				size_t digit= 1, decimal= 0;
-				while (++i < l && str [i] == '#')
-					++digit;
-				if (i < l && str [i] == '.')
-					while (++i < l && str [i] == '#')
-						++decimal;
-				// We use auto_ptr to avoid memory leak
-				// if push_back fail.
-				auto_ptr <usingnumeric>
-					pun (new usingnumeric
-						(digit, decimal) );
-				f.push_back (& * pun);
-				pun.release ();
-			}
-			break;
-		case '\\':
-			{
-				size_t n= 1;
-				while (++i < l && str [i] == ' ')
-					++n;
-				if (i < l && str [i] == '\\')
-					{ ++n; ++i; }
-				auto_ptr <usingstring>
-					pus (new usingstring (n) );
-				f.push_back (& * pus);
-				pus.release ();
-			}
-			break;
-		case '&':
-			{
-				++i;
-				auto_ptr <usingstring>
-					pus (new usingstring (0) );
-				f.push_back (& * pus);
-				pus.release ();
-			}
-			break;
-		case '!':
-			{
-				++i;
-				auto_ptr <usingstring>
-					pus (new usingstring (1) );
-				f.push_back (& * pus);
-				pus.release ();
-			}
-			break;
-		default:
-			throw ErrBlassicInternal;
-		}
-	}
-}
-
-} // namespace
-
 void RunnerLine::print_using (BlFile & out)
 {
 	std::string format= expectstring ();
-	vectorusing usingf;
-	getusingformat (format, usingf);
+	VectorUsing usingf;
+	parseusing (format, usingf);
 	if (token.code == ',' || token.code == ';')
 		gettoken ();
 	const size_t l= usingf.size ();
 	size_t ind= 0;
-        usingformat * pf= usingf [ind];
+        Using * pf= usingf [ind];
 	for (;;)
 	{
 		if (ind == 0 && pf->isliteral () )
@@ -2702,7 +2611,7 @@ bool RunnerLine::do_print ()
 			// Not required to improve Sinclair ZX compatibility.
 			expect (result);
                         n= result.integer ();
-			out.tab (n);
+			out.tab (n - 1);
                         break;
                 case keySPC:
                         getparenarg (result);
@@ -3038,9 +2947,25 @@ bool RunnerLine::do_cont ()
 
 bool RunnerLine::do_clear ()
 {
-	errorifparam ();
-	//clearvars ();
-	make_clear ();
+	gettoken ();
+	switch (token.code)
+	{
+	case keyINK:
+		gettoken ();
+		require_endsentence ();
+		graphics::clearink ();
+		break;
+	case keyINPUT:
+		gettoken ();
+		require_endsentence ();
+		clean_input ();
+		break;
+	default:
+		if (! endsentence () )
+			throw ErrSyntax;
+		make_clear ();
+		break;
+	}
 	return false;
 }
 
@@ -3076,6 +3001,15 @@ bool RunnerLine::do_poke ()
 
 bool RunnerLine::do_read ()
 {
+	ListVarPointer lvp;
+	gettoken ();
+	evalmultivarpointer (lvp);
+	require_endsentence ();
+	if (lvp.empty () )
+		throw ErrSyntax;
+	ListVarPointer::iterator itvp= lvp.begin ();
+	const ListVarPointer::iterator itvpend= lvp.end ();
+
 	BlLineNumber & datanumline= runner.getdatanumline ();
 	BlChunk & datachunk= runner.getdatachunk ();
 	unsigned short & dataelem= runner.getdataelem ();
@@ -3173,75 +3107,40 @@ otra3:
 	datanumline= dataline.number ();
         datachunk= dataline.chunk ();
 	dataelem= (unsigned short) (elem + 1);
-	gettoken ();
-	if (token.code != keyIDENTIFIER)
-		throw ErrSyntax;
-	std::string varname (token.str);
-	gettoken ();
-	if (token.code == '(')
+
+	switch (itvp->type)
 	{
-		Dimension dims= expectdims ();
-		switch (typeofvar (varname) )
+	case VarNumber:
+		* itvp->pnumber= datatok.number ();
+		break;
+	case VarInteger:
+		* itvp->pinteger=
+			static_cast <BlInteger> (datatok.number () );
+		break;
+	case VarString:
+		switch (datatok.code)
 		{
-		case VarNumber:
-			assigndimnumber (varname, dims, datatok.number () );
+		case keySTRING:
+			* itvp->pstring= datatok.str;
 			break;
-		case VarInteger:
-			assigndiminteger (varname, dims,
-				BlInteger (datatok.number () ) );
+		case keyINTEGER:
+			* itvp->pstring= util::to_string (datatok.valueint);
 			break;
-		case VarString:
-			switch (datatok.code)
-			{
-			case keySTRING:
-				assigndimstring (varname, dims, datatok.str);
-				break;
-			case keyINTEGER:
-				assigndimstring (varname, dims,
-					util::to_string (datatok.valueint) );
-				break;
-			default:
-				throw ErrBlassicInternal;
-			}
+		case keyENDLINE:
+			* itvp->pstring= std::string ();
 			break;
 		default:
-			cerr << "Unexpected array type in READ" << endl;
+			cerr << "Unexpected token in DATA" << endl;
 			throw ErrBlassicInternal;
 		}
+		break;
+	default:
+		cerr << "Unexpected var type in READ" << endl;
+		throw ErrBlassicInternal;
 	}
-	else
-	{
-		switch (typeofvar (varname) )
-		{
-		case VarNumber:
-			assignvarnumber (varname, datatok.number () );
-			break;
-		case VarInteger:
-			assignvarinteger (varname,
-				BlInteger (datatok.number () ) );
-			break;
-		case VarString:
-			switch (datatok.code)
-			{
-			case keySTRING:
-				assignvarstring (varname, datatok.str);
-				break;
-			case keyINTEGER:
-				assignvarstring (varname,
-					util::to_string (datatok.valueint) );
-				break;
-			default:
-				throw ErrBlassicInternal;
-			}
-			break;
-		default:
-			cerr << "Unexpected var type in READ" << endl;
-			throw ErrBlassicInternal;
-		}
-	}
-        if (token.code == ',')
-                goto otra3;
-	require_endsentence ();
+	if (++itvp != itvpend)
+		goto otra3;
+
 	return false;
 }
 
@@ -3268,36 +3167,6 @@ bool RunnerLine::do_restore ()
 
 namespace {
 
-#if 0
-struct VarPointer {
-	VarType type;
-	union {
-		BlNumber * pnumber;
-		BlInteger * pinteger;
-		std::string * pstring;
-	};
-	int clearvar () const
-        // returns an int because Borland can't use mem_fun_ref
-        // with a void function.
-	{
-		switch (type)
-                {
-		case VarNumber:
-			* pnumber= 0;
-			break;
-		case VarInteger:
-			* pinteger= 0;
-			break;
-		case VarString:
-			pstring->erase ();
-			break;
-		default:
-			throw ErrBlassicInternal;
-		}
-                return 0;
-	}
-};
-#else
 struct clearvar {
 	void operator () (VarPointer & vt) const
 	{
@@ -3317,7 +3186,6 @@ struct clearvar {
 		}
 	}
 };
-#endif
 
 bool isdelimdiscardingwhite (std::istream & is, char delim)
 {
@@ -3351,6 +3219,11 @@ bool RunnerLine::do_input ()
 		gettoken ();
 	}
         std::string prompt;
+	if (token.code == ';')
+	{
+		// Needs implementation.
+		gettoken ();
+	}
 	switch (token.code)
 	{
 	case keySTRING:
@@ -3358,10 +3231,11 @@ bool RunnerLine::do_input ()
 		gettoken ();
 		switch (token.code)
                 {
+                // This was reversed, corected on 3-jun-2003
 		case ';':
+			prompt+= "? ";
 			break;
 		case ',':
-                        prompt+= "? ";
 			break;
 		default:
 			throw ErrSyntax;
@@ -3375,68 +3249,11 @@ bool RunnerLine::do_input ()
 
 	// Parse the list of variables.
 
-        #define WORKAROUND_SYNTERR 1
-        // To avoid an strange error on Borland Builder.
-        #if WORKAROUND_SYNTERR
-        bool synterr= false;
-        #endif
-	std::vector <VarPointer> inputvars;
-	for (;;)
-	{
-		#if 0
-		requiretoken (keyIDENTIFIER);
-		std::string varname= token.str;
-		gettoken ();
-		Dimension d;
-		bool isarray= false;
-		if (token.code == '(')
-		{
-			d= expectdims ();
-			isarray= true;
-		}
-		VarPointer vp;
-		vp.type= typeofvar (varname);
-		switch (vp.type)
-		{
-		case VarNumber:
-			vp.pnumber= isarray ?
-				addrdimnumber (varname, d) :
-				addrvarnumber (varname);
-			break;
-		case VarInteger:
-			vp.pinteger= isarray ?
-				addrdiminteger (varname, d) :
-				addrvarinteger (varname);
-			break;
-		case VarString:
-			vp.pstring= isarray ?
-				addrdimstring (varname, d) :
-				addrvarstring (varname);
-			break;
-		default:
-			throw ErrBlassicInternal;
-		}
-		#else
-		VarPointer vp= evalvalpointer ();
-		#endif
-		inputvars.push_back (vp);
-		if (endsentence () )
-			break;
-                #if WORKAROUND_SYNTERR
-                if (token.code != ',')
-                {
-                        synterr= true;
-                        break;
-                }
-                #else
-		requiretoken (',');
-                #endif
-		gettoken ();
-	}
-        #if WORKAROUND_SYNTERR
-        if (synterr)
-                throw ErrSyntax;
-        #endif
+	ListVarPointer inputvars;
+	evalmultivarpointer (inputvars);
+	require_endsentence ();
+	if (inputvars.empty () )
+		throw ErrSyntax;
 
 	// Prepare input channel
 
@@ -3452,16 +3269,19 @@ bool RunnerLine::do_input ()
 		if (channel == 0)
 		{
 			clean_input ();
-			cursorvisible ();
+			//cursorvisible ();
 		}
 		if (! prompt.empty () )
 		{
 			if (channel == 0 || in.istextwindow () )
+			{
 				in << prompt;
+				in.flush ();
+			}
 		}
 		in.getline (input);
-		if (channel == 0)
-			cursorinvisible ();
+		//if (channel == 0)
+		//	cursorinvisible ();
 
 		if (fInterrupted)
         	{
@@ -3487,13 +3307,13 @@ bool RunnerLine::do_input ()
 	// We must take into account that an whitespace can be a delimiter
 	// (tipically a tab).
 
-	const size_t l= inputvars.size ();
-	size_t i;
 	std::istringstream iss (input);
 	iss.unsetf (std::ios::skipws);
-	for (i= 0; i < l; ++i)
+	ListVarPointer::iterator itvp;
+	const ListVarPointer::iterator itvpend= inputvars.end ();
+	for (itvp= inputvars.begin (); itvp != itvpend; ++itvp)
         {
-		const VarPointer & vp= inputvars [i];
+		const VarPointer & vp= * itvp;
 		switch (vp.type)
                 {
 		case VarNumber:
@@ -3587,7 +3407,8 @@ bool RunnerLine::do_input ()
 		{
 			if (iss.eof () )
 			{
-				++i;
+				//++i;
+				++itvp;
 				break;
 			}
 			else
@@ -3599,19 +3420,15 @@ bool RunnerLine::do_input ()
 
 	// If not enough data entered, clear remaining vars.
 
-	#if 0
-	std::for_each (inputvars.begin () + i, inputvars.end (),
-		std::mem_fun_ref (& VarPointer::clearvar) );
-	#else
-	std::for_each (inputvars.begin () + i, inputvars.end (),
-		clearvar () );
-	#endif
+	std::for_each (itvp, itvpend, clearvar () );
 
 	return false;
 }
 
 void RunnerLine::do_line_input ()
 {
+	#if 0
+
 	gettoken ();
 	BlChannel channel= 0;
 	if (token.code == '#')
@@ -3620,6 +3437,48 @@ void RunnerLine::do_line_input ()
 		requiretoken (',');
 		gettoken ();
 	}
+
+	#else
+
+	gettoken ();
+	BlChannel channel= 0;
+	if (token.code == '#')
+	{
+		channel= expectchannel ();
+		requiretoken (',');
+		gettoken ();
+	}
+        std::string prompt;
+	if (token.code == ';')
+	{
+		// Needs implementation.
+		gettoken ();
+	}
+	switch (token.code)
+	{
+	case keySTRING:
+                prompt= token.str;
+		gettoken ();
+		switch (token.code)
+                {
+                // This was reversed, corected on 3-jun-2003
+		case ';':
+			prompt+= "? ";
+			break;
+		case ',':
+			break;
+		default:
+			throw ErrSyntax;
+		}
+		std::cout << std::flush;
+		gettoken ();
+		break;
+	default:
+                prompt= "? ";
+	}
+
+	#endif
+
 	requiretoken (keyIDENTIFIER);
 	std::string varname= token.str;
 	gettoken ();
@@ -3632,11 +3491,19 @@ void RunnerLine::do_line_input ()
 	if (channel == 0)
 	{
 		clean_input ();
-		cursorvisible ();
+		//cursorvisible ();
 	}
 
 	for (;;)
 	{
+		if (! prompt.empty () )
+		{
+			if (channel == 0 || in.istextwindow () )
+			{
+				in << prompt;
+				in.flush ();
+			}
+		}
 		in.getline (value);
 		if (fInterrupted)
         	{
@@ -3653,8 +3520,8 @@ void RunnerLine::do_line_input ()
 		break;
 	}
 
-	if (channel == 0)
-		cursorinvisible ();
+	//if (channel == 0)
+	//	cursorinvisible ();
 
 	assignvarstring (varname, value);
 }
@@ -4488,6 +4355,7 @@ bool RunnerLine::do_resume ()
 	if (posresume.getnum () == 0)
 		throw ErrCannotResume;
         gettoken ();
+        bool withline= false;
         if (token.code == keyNEXT)
 	{
 		posresume.nextchunk ();
@@ -4497,11 +4365,16 @@ bool RunnerLine::do_resume ()
 	{
 		BlLineNumber l= evallinenumber ();
 		posresume= l;
+		withline= true;
 	}
         require_endsentence ();
 	//if (posresume.getnum () == 0)
         //        throw ErrCannotResume;
-        runner.jump_to (posresume);
+        //runner.jump_to (posresume);
+	if (withline)
+		runner.goto_to (posresume);
+	else
+		runner.jump_to (posresume);
 	runner.clearerror ();
         return true;
 }
@@ -5289,16 +5162,24 @@ bool RunnerLine::do_pause ()
 	BlNumber bln= expectnum ();
 	require_endsentence ();
 	unsigned long n= static_cast <unsigned long> (bln);
+	// Allow pending writes in graphic window before the pause.
+	graphics::idle ();
+
 	#ifdef __WIN32__
+
 	Sleep (static_cast <DWORD> (n) );
+
 	#else
+
 	n*= 1000;
 	unsigned int sec= n / 1000000;
 	n%= 1000000;
 	if (sec != 0)
 		sleep (sec);
 	usleep (n);
+
 	#endif
+
 	return false;
 }
 
@@ -5759,6 +5640,14 @@ bool RunnerLine::do_ink ()
 	int b= expectinteger ();
 	require_endsentence ();
 	graphics::ink (inknum, r, g, b);
+	return false;
+}
+
+bool RunnerLine::do_set_title ()
+{
+	std::string str= expectstring ();
+	require_endsentence ();
+	set_title (str);
 	return false;
 }
 

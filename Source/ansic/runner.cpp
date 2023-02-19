@@ -1,5 +1,5 @@
 // runner.cpp
-// Revision 25-may-2003
+// Revision 9-jun-2003
 
 #include "runner.h"
 #include "keyword.h"
@@ -32,11 +32,145 @@ using std::for_each;
 #pragma warn -8091
 #endif
 
+//************************************************
+//		Auxiliar
+//************************************************
+
+namespace {
+
+const std::string strbreak ("**BREAK**");
+
+void deletefile (GlobalRunner::ChanFile::value_type & chf)
+{
+        delete chf.second;
+}
+
+void deletefileifnotzero (GlobalRunner::ChanFile::value_type & chf)
+{
+	if (chf.first != BlChannel (0) )
+		delete chf.second;
+}
+
 inline bool iscomp (BlCode code)
 {
 	return code == '=' || code == keyDISTINCT ||
 		code == '<' || code == keyMINOREQUAL ||
 		code == '>' || code == keyGREATEREQUAL;
+}
+
+} // namespace
+
+//************************************************
+//		GlobalRunner
+//************************************************
+
+GlobalRunner::GlobalRunner (Program & prog) :
+	program (prog),
+	fTron (false),
+	datanumline (0),
+	datachunk (0),
+	dataelem (0),
+	blnErrorGoto (0)
+{
+	chanfile [0]= new BlFileConsole (std::cin, std::cout);
+}
+
+GlobalRunner::~GlobalRunner ()
+{
+	std::for_each (chanfile.begin (), chanfile.end (), deletefile);
+}
+
+BlFile & GlobalRunner::getfile (BlChannel channel)
+{
+        ChanFile::iterator it= chanfile.find (channel);
+        if (it == chanfile.end () )
+                throw ErrFileNumber;
+        return * it->second;
+}
+
+void GlobalRunner::setfile (BlChannel channel, BlFile * npfile)
+{
+        ChanFile::iterator it= chanfile.find (channel);
+        if (it != chanfile.end () )
+                delete it->second;
+        chanfile [channel]= npfile;
+}
+
+void GlobalRunner::close_all ()
+{
+	#if 0
+	std::for_each (chanfile.begin (), chanfile.end (), deletefile);
+	chanfile.clear ();
+	chanfile [0]= new BlFileConsole (std::cin, std::cout);
+	#else
+	BlFile * bfsave= chanfile [0];
+	std::for_each (chanfile.begin (), chanfile.end (),
+		deletefileifnotzero);
+	chanfile.clear ();
+	chanfile [0]= bfsave;
+	#endif
+}
+
+void GlobalRunner::destroy_windows ()
+{
+	TraceFunc tr ("GlobalRunner::destroy_windows");
+
+	std::vector <BlChannel> w;
+	for (ChanFile::iterator it= chanfile.begin ();
+		it != chanfile.end (); ++it)
+	{
+		BlFile * f= it->second;
+		if (typeid (* f) == typeid (BlFileWindow) )
+		{
+			delete f;
+			w.push_back (it->first);
+		}
+	}
+	for (size_t i= 0, l= w.size (); i < l; ++i)
+	{
+		#ifndef NDEBUG
+		{
+			std::ostringstream oss;
+			oss << "Destroyed window " << w [i];
+			tr.message (oss.str () );
+		}
+		#endif
+		size_t d= chanfile.erase (w [i] );
+		ASSERT (d == 1);
+	}
+}
+
+void GlobalRunner::closechannel (BlChannel channel)
+{
+        ChanFile::iterator it= chanfile.find (channel);
+        if (it != chanfile.end () )
+        {
+                delete it->second;
+                chanfile.erase (it);
+        }
+}
+
+void GlobalRunner::windowswap (BlChannel ch1, BlChannel ch2)
+{
+	ChanFile::iterator it1= chanfile.find (ch1);
+	ChanFile::iterator it2= chanfile.find (ch2);
+	if (it2 == chanfile.end () || it1 == chanfile.end () )
+		throw ErrFileNumber;
+	if (typeid (* it1->second) != typeid (BlFileWindow) )
+		throw ErrFileMode;
+	if (typeid (* it2->second) != typeid (BlFileWindow) )
+		throw ErrFileMode;
+	std::swap (it1->second, it2->second);
+}
+
+void GlobalRunner::tronline (BlLineNumber n)
+{
+	BlFile & file= getfile (blcTron);
+	if (fTronLine)
+		program.list (n, n, file);
+	else
+		file << '[' << BlNumber (n) << ']';
+	file.flush ();
 }
 
 //************************************************
@@ -178,41 +312,44 @@ void LocalLevel::addlocal (const std::string & name)
 //		class Runner
 //************************************************
 
-namespace {
-
-const std::string strbreak ("**BREAK**");
-
-void deletefile (Runner::ChanFile::value_type & chf)
-{
-        delete chf.second;
-}
-
-void deletefileifnotzero (Runner::ChanFile::value_type & chf)
-{
-	if (chf.first != BlChannel (0) )
-		delete chf.second;
-}
-
-} // namespace
-
-Runner::Runner (Program & prog) :
-	program (prog),
+//Runner::Runner (Program & prog) :
+Runner::Runner (GlobalRunner & gr) :
+	globalrunner (gr),
+	//program (prog),
+	program (gr.getprogram () ),
 	status (ProgramEnded),
-	fTron (false),
+	//fTron (false),
 	fInElse (false),
 	fInWend (false),
 	runnerline (* this, line, program),
-	blnErrorGoto (0),
+	//blnErrorGoto (0),
 	breakstate (BreakStop),
 	blnAuto (0)
 {
-	setreadline (0);
-        chanfile [0]= new BlFileConsole (std::cin, std::cout);
+	//setreadline (0);
+        //chanfile [0]= new BlFileConsole (std::cin, std::cout);
+}
+
+Runner::Runner (const Runner & runner) :
+	globalrunner (runner.globalrunner),
+	program (runner.program),
+	status (ProgramEnded),
+	//fTron (runner.fTron),
+	//fTronLine (runner.fTronLine),
+	//blcTron (runner.blcTron),
+	fInElse (false),
+	fInWend (false),
+	runnerline (* this, line, program),
+	//blnErrorGoto (runner.blnErrorGoto),
+	breakstate (runner.breakstate),
+	blnAuto (0)
+{
+        //chanfile [0]= new BlFileConsole (std::cin, std::cout);
 }
 
 Runner::~Runner ()
 {
-        std::for_each (chanfile.begin (), chanfile.end (), deletefile);
+        //std::for_each (chanfile.begin (), chanfile.end (), deletefile);
 }
 
 void Runner::clear ()
@@ -227,6 +364,7 @@ void Runner::clear ()
 		whilestack.pop ();
 }
 
+#if 0
 BlFile & Runner::getfile (BlChannel channel)
 {
         ChanFile::iterator it= chanfile.find (channel);
@@ -309,23 +447,28 @@ void Runner::windowswap (BlChannel ch1, BlChannel ch2)
 		throw ErrFileMode;
 	std::swap (it1->second, it2->second);
 }
+#endif
 
+#if 0
 void Runner::setreadline (BlLineNumber bln)
 {
 	datanumline= bln;
 	datachunk= 0;
 	dataelem= 0;
 }
+#endif
 
 void Runner::goto_line (BlLineNumber dest)
 {
-	posgoto= dest;
-        status= ProgramReadyToRun;
+	//posgoto= dest;
+        //status= ProgramReadyToRun;
+	goto_to (dest);
 }
 
 void Runner::gosub_line (BlLineNumber dest, ProgramPos posgosub)
 {
-        run_to (dest);
+        //run_to (dest);
+	goto_to (dest);
 	gosubstack.push (posgosub);
 }
 
@@ -346,6 +489,7 @@ void Runner::run ()
 	runline (code);
 }
 
+#if 0
 void Runner::tronline (BlLineNumber n)
 {
 	BlFile & file= getfile (blcTron);
@@ -355,30 +499,35 @@ void Runner::tronline (BlLineNumber n)
 		file << '[' << BlNumber (n) << ']';
 	file.flush ();
 }
+#endif
 
 inline bool Runner::checkstatus (CodeLine & line, const CodeLine & line0)
 {
-        switch (status)
-        {
-        case ProgramReadyToRun:
-                //if (gotoline == 0)
-		if (posgoto.getnum () == 0)
-                        line= program.getfirstline ();
-                else
-                        //line= program.getline (gotoline);
-			//line= program.getline (posgoto.getnum () );
-			//program.getline (posgoto.getnum (), line);
-			program.getline (posgoto, line);
-                if (line.number () == 0)
-                        status= ProgramEnded;
-                else
-                {
-                        status= ProgramRunning;
-                        //line.gotochunk (gotochunk);
-			//line.gotochunk (posgoto.getchunk () );
-			return true;
-                }
-                break;
+	switch (status)
+	{
+	case ProgramReadyToRun:
+		{
+			BlLineNumber gline= posgoto.getnum ();
+			if (gline == 0)
+				line= program.getfirstline ();
+                
+			else
+			{
+				CodeLine aux;
+				program.getline (posgoto, aux);
+				if (aux.number () != gline)
+					throw ErrLineNotExist;
+				line= aux;
+			}
+			if (line.number () == 0)
+				status= ProgramEnded;
+			else
+			{
+				status= ProgramRunning;
+				return true;
+			}
+		}
+		break;
 	case ProgramJump:
 		{
 			const BlLineNumber gotoline= posgoto.getnum ();
@@ -388,9 +537,11 @@ inline bool Runner::checkstatus (CodeLine & line, const CodeLine & line0)
 				//if (posactual.getnum () != gotoline)
 				//if (getposactual().getnum () != gotoline)
 				if (runnerline.number () != gotoline)
+				{
 					//line= program.getline (gotoline);
 					//program.getline (gotoline, line);
 					program.getline (posgoto, line);
+				}
 				else
 					line.gotochunk (posgoto.getchunk () );
 			}
@@ -404,6 +555,25 @@ inline bool Runner::checkstatus (CodeLine & line, const CodeLine & line0)
 		status= ProgramRunning;
 		//line.gotochunk (gotochunk);
 		//line.gotochunk (posgoto.getchunk () );
+		return true;
+	case ProgramGoto:
+		{
+			const BlLineNumber gotoline= posgoto.getnum ();
+			if (gotoline == 0)
+				throw ErrLineNotExist;
+			if (runnerline.number () != gotoline)
+			{
+				CodeLine aux;
+				program.getline (posgoto, aux);
+				BlLineNumber l= aux.number ();
+				if (l != gotoline)
+					throw ErrLineNotExist;
+				line= aux;
+			}
+			else
+				line.gotochunk (posgoto.getchunk () );
+		}
+		status= ProgramRunning;
 		return true;
         case ProgramRunning:
                 if (line.number () != 0)
@@ -432,8 +602,11 @@ void Runner::runline (CodeLine & codeline)
 			{
 				do {
 					runnerline.setline (line);
-			        	if (fTron && line.number () != 0)
+					if (globalrunner.istron () &&
+						line.number () != 0)
+					{
 						tronline (line.number () );
+					}
 					runnerline.execute ();
 				} while (checkstatus (line, line0) );
 			}
@@ -453,9 +626,18 @@ void Runner::runline (CodeLine & codeline)
 		catch (BlError & berr)
 		{
 			seterror (berr);
-			if (geterrorgoto () == 0)
+			BlLineNumber errorgoto= geterrorgoto ();
+			if (errorgoto == 0)
 				throw;
-			jump_to (geterrorgoto () );
+			CodeLine aux;
+			program.getline (errorgoto, aux);
+			if (aux.number () != errorgoto)
+			{
+				BlError newerr (berr, ErrLineNotExist);
+				seterror (newerr);
+				throw newerr;
+			}
+			jump_to (errorgoto);
 		}
 		catch (BlBreak &)
 		{
@@ -549,6 +731,7 @@ void Runner::interactive ()
 	using std::cout;
 	using std::flush;
 
+	set_title ("blassic");
 	{
 		std::ostringstream oss;
 		oss << "\nBlassic " <<
@@ -609,6 +792,7 @@ void Runner::interactive ()
 		catch (BlError & be)
 		{
 			getfile (0) << util::to_string (be);
+			setstatus (ProgramStopped);
 		}
 	} // for
 }

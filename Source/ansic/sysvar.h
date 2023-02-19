@@ -1,5 +1,5 @@
 // sysvar.h
-// Revision 21-may-2003
+// Revision 4-jun-2003
 
 #ifndef SYSVAR_H_
 #define SYSVAR_H_
@@ -34,7 +34,9 @@ const size_t
 	TypeOfDimCheck= 27,	// 0: cannot dim already dimensioned
 				// 1: Silently redim
 	MaxHistory= 28,	// Max size of history buffer.
-	EndSysVar= 30;
+	// 30: 2 bytes reserved.
+	MaxFnLevel= 32, // Max level o FN calls.
+	EndSysVar= 36;
 
 } // namespace sysvar
 

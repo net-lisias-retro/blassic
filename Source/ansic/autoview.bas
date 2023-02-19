@@ -44,7 +44,7 @@
    9500 REM
    9510 REM Carga la tabla de codigos
    9520 REM
-   9530 numcod= 206
+   9530 numcod= 211
    9540 dim name$ (numcod), cod (numcod)
    9550 for i= 1 to numcod
    9560     read name$ (i), cod (i)
@@ -56,9 +56,12 @@
   10010 REM Obtiene el token correspondiente al codigo
   10020 REM
   10022 res= 0
-  10025 for busca= 1 to numcod
-  10030         if cod (busca) = code then res= busca : busca= numcod
-  10035 next
+  10025 b1= 1: if cod (b1) = code then res= 1: goto 10040
+  10030 b2= numcod: if cod (b2) = code then res= b1: goto 10040
+  10035 bm= int ( (b1 + b2) / 2)
+  10037 if cod (bm) = code then res= bm: goto 10040
+  10038 if cod (bm) < code then b1= bm else b2= bm
+  10039 if b2 > b1 + 1 then goto 10035
   10040 if res = 0 then token$= "???" else token$= name$ (res)
   10050 return
   10100 RESTORE 11000
@@ -181,6 +184,7 @@
   11118 DATA "DEFSNG", 365
   11119 DATA "DEFDBL", 366
   11120 DATA "INK", 367
+  11130 DATA "SET_TITLE", 368
   12000 REM Funciones de cadena
   12001 DATA "MID$",513
   12002 DATA "LEFT$",514
@@ -212,6 +216,8 @@
   12028 DATA "FINDFIRST$", 540
   12029 DATA "FINDNEXT$", 541
   12030 DATA "COPYCHR$", 542
+  12031 DATA "STRERR$", 543
+  12032 DATA "DEC$", 544
   13000 REM Funciones numericas
   13001 DATA "ASC", 769
   13002 DATA "LEN", 770
@@ -269,6 +275,8 @@
   13054 DATA "ATAN2", 822
   13055 DATA "TEST", 823
   13056 DATA "TESTR", 824
+  13057 DATA "POS", 825
+  13058 DATA "VPOS", 826
   14000 REM Operadores
   14001 DATA "NOT",1025
   14002 DATA "OR",1026

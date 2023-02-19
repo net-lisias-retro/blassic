@@ -1,5 +1,5 @@
 // graphics.h
-// Revision 26-may-2003
+// Revision 9-jun-2003
 
 #ifndef GRAPHICS_H_
 #define GRAPHICS_H_
@@ -19,6 +19,7 @@ void uninitialize ();
 
 void ink (int inknum, int cpccolor);
 void ink (int inknum, int r, int g, int b);
+void clearink ();
 
 void idle ();
 void cls ();
@@ -96,12 +97,20 @@ int ymouse ();
 int xpos ();
 int xpos (BlChannel ch);
 int ypos ();
+int ypos (BlChannel ch);
 
 void showcursor ();
 void hidecursor ();
 
 void showcursor (BlChannel ch);
 void hidecursor (BlChannel ch);
+
+void clean_input ();
+
+void ring ();
+
+void set_title (const std::string & title);
+void set_default_title (const std::string & title);
 
 } // namespace graphics
 

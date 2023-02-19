@@ -1,5 +1,5 @@
 // runnerline.h
-// Revision 26-may-2003
+// Revision 9-jun-2003
 
 #ifndef RUNNERLINE_H_
 
@@ -12,6 +12,7 @@
 #include "file.h"
 #include "directory.h"
 
+#include <list>
 #include <map>
 
 class Runner;
@@ -72,6 +73,7 @@ private:
 	void parenarg (BlResult & result);
 	void getparenarg (BlResult & result);
 	void getparenarg (BlResult & result, BlResult & result2);
+	BlFile & getparenfile ();
 
 	void valnumericfunc (double (* f) (double), BlResult & result);
 	void valnumericfunc2 (double (* f) (double, double),
@@ -98,6 +100,8 @@ private:
         void valmin (BlResult & result);
         void valmax (BlResult & result);
 	void valtest (BlResult & result, bool relative);
+	void valpos (BlResult & result);
+	void valvpos (BlResult & result);
 
 	void valmid_s (BlResult & result);
 	void valleft_s (BlResult & result);
@@ -125,6 +129,8 @@ private:
         void valmkl_s (BlResult & result);
         void valtrim (BlResult & result);
 	void valcopychr_s (BlResult & result);
+	void valstrerr_s (BlResult & result);
+	void valdec_s (BlResult & result);
 
         void valfn (BlResult & result);
 
@@ -150,7 +156,9 @@ private:
 	inline BlChannel expectchannel ();
 	inline std::string evalstring ();
 	inline std::string expectstring ();
-	inline VarPointer evalvalpointer ();
+	inline VarPointer evalvarpointer ();
+	typedef std::list <VarPointer> ListVarPointer;
+	void evalmultivarpointer (ListVarPointer & lvp);
 	inline VarPointer eval_let ();
 	BlLineNumber evallinenumber ();
 	void evallinerange (BlLineNumber & blnBeg, BlLineNumber & blnEnd);
@@ -271,6 +279,7 @@ private:
 	bool do_beep ();
 	bool do_defint ();
 	bool do_ink ();
+	bool do_set_title ();
 };
 
 #endif

@@ -51,7 +51,7 @@ label matherr
 
 rem Trap errors: division by zero, domain and range.
 
-if err <> 7 and err <> 43 and err <> 44 then mode 0: print "Error "; err; " on line "; erl: exit
+if err <> 7 and err <> 43 and err <> 44 then mode 0: print strerr$ (err); " on line "; erl: exit
 
 y= 0
 defined= 0
@@ -99,9 +99,9 @@ rem ********
 rem * Axis *
 rem ********
 
-if x1 * x2 < 0 then xx= fn calculxx (0): plot xx, 0 : draw xx, yy2
+if x1 < 0 and x2 > 0 then xx= fn calculxx (0): plot xx, 0 : draw xx, yy2
 
-if y1 * y2 < 0 then yy= fn calculyy (0): plot 0, yy : draw xx2, yy
+if y1 < 0 and y2 > 0 then yy= fn calculyy (0): plot 0, yy : draw xx2, yy
 
 rem *****************
 rem * Draw Function *

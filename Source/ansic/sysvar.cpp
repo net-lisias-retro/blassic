@@ -1,5 +1,5 @@
 // sysvar.cpp
-// Revision 21-may-2003
+// Revision 4-jun-2003
 
 #include "blassic.h"
 #include "sysvar.h"
@@ -27,8 +27,8 @@ void sysvar::init ()
 	set (TypeOfVal, 0); // Expression evaluation.
 	set (TypeOfNextCheck, 0); // Strict next check
 	set (TypeOfDimCheck, 0); // Need erase before dim already dimensioned
-	//set16 (MaxHistory, 100);
-	set16 (MaxHistory, 10); // For testing.
+	set16 (MaxHistory, 100);
+	set32 (MaxFnLevel, 100);
 }
 
 size_t sysvar::address ()

@@ -7,7 +7,7 @@
 90 rem ************************************
 94 rem Original para Amstrad CPC publicado en
 96 rem El Ordenador Personal num. 56, febrero 1987
-98 rem Adaptado a Blassic por Julian Albo.
+98 rem Adaptado a Blassic y animado por Julian Albo.
 100 rem
 110 rem on error goto 1080
 170 dim x (60), y (60), z (60), n (100)
@@ -33,7 +33,7 @@
 370 rem -------- Intro. angulos y distancias
 380 rem
 390 input "Distancia observador: "; r
-400 if r = 0 then goto 390
+400 if r = 0 then end
 410 input "Theta: "; t
 420 if t >= 361 then goto 390
 425 t= t * 2 * pi / 360
@@ -45,6 +45,9 @@
 470 rem
 480 rem -------- Algoritmo 3-D
 490 rem
+495 inc= pi / 180
+497 mode "cpc2"
+498 synchronize 1
 500 c1= cos (f): c2= cos (t): s1= sin (f): s2= sin (t)
 510 for i= 1 to js
 520 u (i)= -x (i) * s2 + y (i) * c2
@@ -54,7 +57,7 @@
 560 rem
 570 rem -------- Trazado del objeto
 580 rem
-585 mode "cpc2"
+585 cls
 590 l= 1: for i= 1 to ee
 600 plot orgx + a * u (n (l) ) / w (n (l) ), orgy + a * v (n (l) ) / w (n (l) )
 610 for j= l + 1 to l + mm (i) - 1
@@ -63,7 +66,17 @@
 640 draw orgx + a * u (n (l) ) / w (n (l) ), orgy + a * v (n (l) ) / w (n (l) )
 650 l= l + mm (i)
 660 next i
-670 get tecla$: mode 0: goto 340
+665 synchronize
+670 get tecla$: if tecla$ = " " then mode 0: goto 340
+671 if tecla$ = "LEFT" then t= t + inc: goto 500
+672 if tecla$ = "RIGHT" then t= t - inc: goto 500
+673 if tecla$ = "UP" then f= f - inc: goto 500
+674 if tecla$ = "DOWN" then f= f + inc: goto 500
+675 if upper$ (tecla$) = "A" then a= a + 5: goto 500
+676 if upper$ (tecla$) = "Z" then a= a - 5: a= max (a, 10): goto 500
+677 if upper$ (tecla$) = "S" then r= r + 5: goto 500
+678 if upper$ (tecla$) = "X" then r= r - 5: r= max (r, 10): goto 500
+679 goto 670
 680 rem
 690 rem -------- Datos
 700 rem

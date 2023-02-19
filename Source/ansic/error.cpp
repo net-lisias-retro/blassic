@@ -1,5 +1,5 @@
 // error.cpp
-// Revision 17-may-2003
+// Revision 4-jun-2003
 
 #include "error.h"
 
@@ -64,6 +64,7 @@ errcode table []= {
         errcode (ErrImproperArgument,   "Improper argument"),
         errcode (ErrDomain,             "Domain error"),
         errcode (ErrRange,              "Result out of range"),
+	errcode (ErrLineNotExist,       "Line does not exist"),
 };
 
 errcode * table_end= table + sizeof (table);

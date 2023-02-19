@@ -61,6 +61,8 @@ blassic_SOURCES = \
 	token.h \
 	trace.cpp \
 	trace.h \
+	using.cpp \
+	using.h \
 	util.h \
 	var.cpp \
 	var.h \

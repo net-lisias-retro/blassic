@@ -92,7 +92,7 @@ REM Carga la tabla de codigos
 
 LABEL loadtable
 
-numcod= 206
+numcod= 211
 dim name$ (numcod), cod (numcod)
 for i= 1 to numcod
 	read name$ (i), cod (i)
@@ -107,10 +107,19 @@ REM Obtiene el token correspondiente al codigo
 LABEL gettoken
 
 res= 0
-for busca= 1 to numcod
-	if cod (busca) = code then res= busca : busca= numcod
-next
-if res = 0 then token$= "???" else token$= name$ (res)
+b1=1
+if cod (b1) = code then res= b1: goto tokenfound
+b2= numcod
+if cod (b2) = code then res= b2: goto tokenfound
+
+label othertoken
+bm= int ((b1 + b2) / 2)
+if cod (bm) = code then res= bm: goto tokenfound
+if cod (bm) < code then b1= bm else b2= bm
+if b2 > b1 + 1 then goto othertoken
+
+label tokenfound
+if res = 0 then token$= "??" + str$ (code) + "??" else token$= name$ (res)
 return
 
 REM Comandos
@@ -226,6 +235,7 @@ DATA "DEFREAL", 364
 DATA "DEFSNG", 365
 DATA "DEFDBL", 366
 DATA "INK", 367
+DATA "SET_TITLE", 368
 
 REM Funciones de cadena
 
@@ -259,6 +269,8 @@ DATA "OSNAME$", 539
 DATA "FINDFIRST$", 540
 DATA "FINDNEXT$", 541
 DATA "COPYCHR$", 542
+DATA "STRERR$", 543
+DATA "DEC$", 544
 
 REM Funciones numericas
 
@@ -318,6 +330,8 @@ DATA "ATANH", 821
 DATA "ATAN2", 822
 DATA "TEST", 823
 DATA "TESTR", 824
+DATA "POS", 825
+DATA "VPOS", 826
 REM Operadores
 
 DATA "NOT", 1025

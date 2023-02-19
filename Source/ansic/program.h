@@ -1,4 +1,5 @@
 //	program.h
+// Revision 4-jun-2003
 
 #ifndef PROGRAM_H_
 #define PROGRAM_H_
@@ -12,7 +13,8 @@ enum StatusProgram {
 	ProgramReadyToRun,
 	ProgramRunning,
 	ProgramStopped,
-	ProgramJump
+	ProgramJump,
+	ProgramGoto
 };
 
 class Program {
