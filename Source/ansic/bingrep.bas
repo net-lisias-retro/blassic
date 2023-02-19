@@ -18,12 +18,14 @@ while programarg$ (param) <> ""
 	filename$= programarg$ (param)
 	load filename$, file$
 
-	pos= instr (file$, find$)
+	rem pos= instr (file$, find$)
+	pos= 0
 
-	while pos > 0
+	rem while pos > 0
+	while (let pos= instr (pos + 1, file$, find$) ) > 0
 		found= 1
 		print filename$; " AT "; pos 
-		pos= instr (pos + 1, file$, find$)
+		rem pos= instr (pos + 1, file$, find$)
 	wend
 
 	label nextfile

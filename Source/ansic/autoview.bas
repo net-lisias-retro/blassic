@@ -44,7 +44,7 @@
    9500 REM
    9510 REM Carga la tabla de codigos
    9520 REM
-   9530 numcod= 180
+   9530 numcod= 186
    9540 dim name$ (numcod), cod (numcod)
    9550 for i= 1 to numcod
    9560     read name$ (i), cod (i)
@@ -172,6 +172,7 @@
   11110 DATA "MASK", 357
   11111 DATA "WINDOW", 358
   11112 DATA "GRAPHICS", 359
+  11113 DATA "AFTER", 360
   12000 REM Funciones de cadena
   12001 DATA "MID$",513
   12002 DATA "LEFT$",514
@@ -243,6 +244,11 @@
   13040 DATA "YPOS", 808
   13041 DATA "PEEK16", 809
   13042 DATA "PEEK32", 810
+  13043 DATA "RINSTR", 811
+  13044 DATA "FIND_FIRST_OF", 812
+  13045 DATA "FIND_LAST_OF", 813
+  13046 DATA "FIND_FIRST_NOT_OF", 814
+  13047 DATA "FIND_LAST_NOT_OF", 815
   14000 REM Operadores
   14001 DATA "NOT",1025
   14002 DATA "OR",1026

@@ -9,10 +9,12 @@
 #include <iostream>
 using std::cerr;
 using std::endl;
+using std::ostream;
 #include <fstream>
 using std::ofstream;
 #include <string>
 using std::string;
+#include <string.h>
 
 #include <cstdlib>
 using std::getenv;
@@ -23,12 +25,26 @@ namespace {
 
 #ifndef NDEBUG
 
-ofstream * pof= 0;
+ostream * pout= 0;
 bool flag= true;
 size_t indent= 0;
 
 TraceFunc * initial= NULL;
 TraceFunc * * lastpos= & initial;
+
+ostream * opentracefile (const char * str)
+{
+	std::ofstream * pof=
+		new ofstream (str, std::ios::ate | std::ios::out);
+	if (! pof->is_open () )
+	{
+		cerr << "Error al abrir " << str << endl;
+		delete pof;
+		pof= 0;
+	}
+	pof->clear ();
+	return pof;
+}
 
 #endif
 
@@ -46,14 +62,10 @@ TraceFunc::TraceFunc (const char * strFuncName) :
 		char * aux= getenv ("TRACEFUNC");
 		if (aux)
 		{
-			pof= new ofstream (aux, std::ios::ate | std::ios::out);
-			if (! pof->is_open () )
-			{
-				cerr << "Error al abrir " << aux << endl;
-				delete pof;
-				pof= 0;
-			}
-			pof->clear ();
+			if (strcmp (aux, "-") == 0)
+				pout= & std::cerr;
+			else
+				pout= opentracefile (aux);
 		}
 	}
 
@@ -62,20 +74,20 @@ TraceFunc::TraceFunc (const char * strFuncName) :
 	* lastpos= this;
 	lastpos= & next;
 
-	if (pof)
-		* pof << string (indent, ' ') << "Entra " << strfunc << endl;
+	if (pout)
+		* pout << string (indent, ' ') << "Entra " << strfunc << endl;
 	++indent;
 }
 
 TraceFunc::~TraceFunc ()
 {
 	--indent;
-	if (pof)
+	if (pout)
 	{
-		* pof << string (indent, ' ') << "Sale ";
+		* pout << string (indent, ' ') << "Sale ";
 		if (std::uncaught_exception () )
-			* pof << "(throwing) ";
-		* pof << strfunc << endl;
+			* pout << "(throwing) ";
+		* pout << strfunc << endl;
 	}
 	if (lastpos != & next)
 		throw std::logic_error ("Bad use of TraceFunc");
@@ -85,9 +97,9 @@ TraceFunc::~TraceFunc ()
 
 void TraceFunc::message (const std::string & strMes)
 {
-	if (pof)
+	if (pout)
 	{
-		* pof << string (indent, ' ') << strfunc <<
+		* pout << string (indent, ' ') << strfunc <<
 			": " << strMes << endl;
 	}
 }

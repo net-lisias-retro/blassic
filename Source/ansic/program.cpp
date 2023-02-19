@@ -25,6 +25,7 @@ using std::flush;
 #include "program.h"
 #include "error.h"
 #include "sysvar.h"
+#include "trace.h"
 
 #ifndef USE_HASH_MAP
 
@@ -527,6 +528,106 @@ inline void checkread (std::istream & is, size_t readed)
 
 const unsigned long endian_mark= 0x12345678;
 
+class TextLoader {
+public:
+	TextLoader (Program::Internal & program) :
+		program (program),
+		nextnumline (sysvar::get32 (sysvar::AutoInit) ),
+		incnumline (sysvar::get32 (sysvar::AutoInc) ),
+		maxnumline (BlMaxLineNumber - incnumline)
+	{ }
+	bool directive (std::string str);
+	void load (std::istream & is);
+private:
+	Program::Internal & program;
+	BlLineNumber nextnumline;
+	BlLineNumber incnumline;
+	BlLineNumber maxnumline;
+};
+
+bool TextLoader::directive (std::string str)
+{
+	TraceFunc tr ("TextLoader::directive");
+
+	static std::string include ("include");
+	static const std::string::size_type linc= include.size ();
+	if (str.substr (1, linc) == include)
+	{
+		str.erase (0, linc + 1);
+		std::string::size_type l= str.find_first_not_of (" \t");
+		if (l > 0)
+			str.erase (0, l);
+		if (str.empty () )
+			return false;
+		if (str [0] == '"')
+		{
+			l= str.find ('"',  1);
+			str= str.substr (1, l - 1);
+		}
+		else if (str [0] == '<')
+		{
+			l= str.find ('>',  1);
+			str= str.substr (1, l - 1);
+		}
+		else
+		{
+			l= str.find_first_of (" \t");
+			if (l != std::string::npos)
+				str.erase (l);
+		}
+		tr.message (str);
+		std::ifstream is;
+		openblassicprogram (is, str);
+		load (is);
+		return true;
+	}
+	return false;
+}
+
+void TextLoader::load (std::istream & is)
+{
+	TraceFunc tr ("TextLoader::load");
+
+	std::string str;
+	std::getline (is, str);
+	if (!str.empty () && str [0] == '#')
+	{
+		str.erase ();
+		std::getline (is, str);
+	}
+	CodeLine code;
+	bool fExhausted= false;
+	for ( ; is; std::getline (is, str) )
+	{
+		if (! str.empty () && str [str.size () - 1] == '\r')
+			str.erase (str.size () - 1);
+
+		// Quick & dirty implemantation of #include
+		if (! str.empty () && str [0] == '#' && directive (str) )
+			continue;
+
+		code.scan (str);
+		if (code.number () == 0)
+		{
+			if (fExhausted)
+			{
+				tr.message ("Line exhausted");
+				throw ErrLineExhausted;
+			}
+			code.setnumber (nextnumline);
+			fExhausted= nextnumline > maxnumline;
+			nextnumline+= incnumline;
+		}
+		else
+		{
+			fExhausted= code.number () > maxnumline;
+			nextnumline= code.number () + incnumline;
+		}
+		if (code.length () > 0)
+			program.insert (code);
+	}
+}
+
 } // namespace
 
 void Program::Internal::save (const std::string & name) const
@@ -547,41 +648,12 @@ void Program::Internal::save (const std::string & name) const
 
 void Program::Internal::loadtext (std::istream & is)
 {
+	TraceFunc tr ("Program::Internal::loadtext");
+
 	is.clear ();
 	is.seekg (0);
-	std::string str;
-	std::getline (is, str);
-	if (str [0] == '#')
-	{
-		str.erase ();
-		std::getline (is, str);
-	}
-	CodeLine code;
-	BlLineNumber nextnumline= sysvar::get32 (sysvar::AutoInit);
-	BlLineNumber incnumline= sysvar::get32 (sysvar::AutoInc);
-	BlLineNumber maxnumline= BlMaxLineNumber - incnumline;
-	bool fExhausted= false;
-	do {
-		if (!str.empty () && str [str.size () - 1] == '\r')
-			str.erase (str.size () - 1);
-		code.scan (str);
-		if (code.number () == 0)
-		{
-			if (fExhausted)
-				throw ErrLineExhausted;
-			code.setnumber (nextnumline);
-			fExhausted= nextnumline > maxnumline;
-			nextnumline+= incnumline;
-		}
-		else
-		{
-			fExhausted= code.number () > maxnumline;
-			nextnumline= code.number () + incnumline;
-		}
-		if (code.length () > 0)
-			insert (code);
-		std::getline (is, str);
-	} while (is);
+	TextLoader loader (* this);
+	loader.load (is);
 }
 
 void Program::Internal::loadbinary (std::istream & is)

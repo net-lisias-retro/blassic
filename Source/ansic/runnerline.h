@@ -1,4 +1,5 @@
 // runnerline.h
+// Revision 14-may-2003
 
 #ifndef RUNNERLINE_H_
 
@@ -78,7 +79,8 @@ private:
 	void valprogramptr (BlResult & result);
 	void valrnd (BlResult & result);
 	void valint (BlResult & result);
-	void valinstr (BlResult & result);
+	void valinstr (BlResult & result, bool reverse);
+	void valfindfirstlast (BlResult & result, bool first, bool yesno);
 	void valusr (BlResult & result);
         void valval (BlResult & result);
 	void valeof (BlResult & result);
@@ -141,6 +143,8 @@ private:
 	inline BlChannel expectchannel ();
 	inline std::string evalstring ();
 	inline std::string expectstring ();
+	inline VarPointer evalvalpointer ();
+	inline VarPointer eval_let ();
 	BlLineNumber evallinenumber ();
 	void evallinerange (BlLineNumber & blnBeg, BlLineNumber & blnEnd);
         Dimension expectdims ();

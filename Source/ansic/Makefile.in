@@ -174,7 +174,7 @@ EXAMPLE_PROGS = \
 	randomw.bas raqueta.bas repeat.bas repg.bas salvo1.bas \
 	shellsort.bas slowprint.bas snoopy.bas telefono.bas testdl.bas \
 	testfn.bas testlocal.bas testrect.bas textcolor.bas \
-	textpaper.bas trim.bas viewpass.bas while.bas
+	textpaper.bas trim.bas viewpass.bas while.bas window.bas
 
 
 @INSTALL_EXAMPLE_PROGS_TRUE@examplesdir = $(datadir)/@PACKAGE@/examples

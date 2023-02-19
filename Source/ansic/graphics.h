@@ -1,4 +1,5 @@
 // graphics.h
+// Revision 16-may-2003
 
 #ifndef GRAPHICS_H_
 #define GRAPHICS_H_
@@ -76,6 +77,7 @@ void movecharup (BlChannel ch, size_t n);
 void movechardown (size_t n);
 void movechardown (BlChannel ch, size_t n);
 
+void symbolafter (int symbol);
 void definesymbol (int symbol, const unsigned char (& byte) [8] );
 void synchronize (bool mode);
 void synchronize ();

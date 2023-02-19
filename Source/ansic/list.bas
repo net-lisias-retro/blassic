@@ -92,7 +92,7 @@ REM Carga la tabla de codigos
 
 LABEL loadtable
 
-numcod= 180
+numcod= 186
 dim name$ (numcod), cod (numcod)
 for i= 1 to numcod
 	read name$ (i), cod (i)
@@ -217,6 +217,7 @@ DATA "CIRCLE", 356
 DATA "MASK", 357
 DATA "WINDOW", 358
 DATA "GRAPHICS", 359
+DATA "AFTER", 360
 
 REM Funciones de cadena
 
@@ -291,6 +292,11 @@ DATA "XPOS", 807
 DATA "YPOS", 808
 DATA "PEEK16", 809
 DATA "PEEK32", 810
+DATA "RINSTR", 811
+DATA "FIND_FIRST_OF", 812
+DATA "FIND_LAST_OF", 813
+DATA "FIND_FIRST_NOT_OF", 814
+DATA "FIND_LAST_NOT_OF", 815
 
 REM Operadores
 

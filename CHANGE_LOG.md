@@ -1,5 +1,11 @@
 # Blassic :: Change Log
 
+* 2003-0516: 0.5.4 (Julián Albo)
+	+ Command line option -x to exclude keywords.
+	+ #include directive in text programs.
+	+ Functions RINSTR, FIND_FIRST_OF, FIND_LAST_OF, FIND_FIRST_NOT_OF and FIND_LAST_NOT_OF.
+	+ LET as operator.
+	+ SYMBOL AFTER instruction.
 * 2003-0322: 0.5.3 (Julián Albo)
 	+ Bugs in ellipses and arcs of ellipses with high eccentricity, corrected.
 	+ INPUT & LINE INPUT now works in graphics mode.

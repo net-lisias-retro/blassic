@@ -1,4 +1,5 @@
 // gencharset.cpp
+// Revision 16-may-2003
 
 #include <iostream>
 #include <fstream>
@@ -167,7 +168,7 @@ void writecharset (ostream & out)
 "\n"
 "#include \"charset.h\"\n"
 "\n"
-"charset::chardata charset::data [] = {\n"
+"const charset::chardata charset::default_data [] = {\n"
 	;
 
 	for (int i= 0; i < 256; ++i)

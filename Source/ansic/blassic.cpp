@@ -281,6 +281,13 @@ int blassic (int argc, char * * argv)
 					graphics::setmode (mode);
 			++n;
 		}
+		else if (strcmp (argv [n], "-x") == 0)
+		{
+			if (++n == argc)
+				throw "Option x needs argument";
+			excludekeyword (argv [n] );
+			++n;
+		}
 		else
 		{
 			try

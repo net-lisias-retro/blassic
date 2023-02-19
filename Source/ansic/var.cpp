@@ -435,7 +435,7 @@ inline ArrayVar<std::string>::map &
 template <class C>
 inline void dimvar (const std::string & name, const Dimension & d)
 {
-	ArrayVar <C>::iterator it= arrayvar <C> ().find (name),
+	typename ArrayVar <C>::iterator it= arrayvar <C> ().find (name),
 		end= arrayvar <C> ().end ();
 	//if (arrayvar <C> ().find (name) != arrayvar <C> ().end () )
 	//	throw ErrAlreadyDim;

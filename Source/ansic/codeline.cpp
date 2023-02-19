@@ -1,4 +1,5 @@
 //	codeline.cpp
+// Revision 14-may-2003
 
 //#include "codeline.h"
 #include "program.h"
@@ -265,6 +266,9 @@ CodeLine::Token CodeLine::getdata ()
 				++pos;
 			}
 		}
+		std::string::size_type l= r.str.find_last_not_of (" ");
+		if (l != std::string::npos)
+			r.str.erase (l + 1);
 	}
         r.code= keySTRING;
         return r;
@@ -279,7 +283,8 @@ bool inittables ()
 {
 	std::fill_n (& validident [0], 256, 0);
 	std::fill_n (& validinitident [0], 256, 0);
-	validident ['_']= '_';
+	// cast to avoid a warning.
+	validident [static_cast <unsigned char> ('_')]= '_';
 	for (BlChar i= '0'; i <= '9'; ++i)
 		validident [i]= i;
 	for (BlChar i= 'A'; i <= 'Z'; ++i)

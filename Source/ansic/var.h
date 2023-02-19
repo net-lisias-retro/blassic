@@ -1,4 +1,5 @@
 // var.h
+// Revision 14-may-2003
 
 #ifndef VAR_H_
 #define VAR_H_
@@ -7,6 +8,15 @@
 #include "dim.h"
 
 enum VarType { VarUndef, VarNumber, VarString, VarInteger };
+
+struct VarPointer {
+	VarType type;
+	union {
+		BlNumber * pnumber;
+		BlInteger * pinteger;
+		std::string * pstring;
+	};
+};
 
 VarType typeofvar (const std::string & name);
 

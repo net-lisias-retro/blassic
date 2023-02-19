@@ -1,4 +1,5 @@
 // runnerline.cpp
+// Revision 16-may-2003
 
 #include "runnerline.h"
 
@@ -293,6 +294,66 @@ inline std::string RunnerLine::expectstring ()
 	return evalstring ();
 }
 
+inline VarPointer RunnerLine::evalvalpointer ()
+{
+	requiretoken (keyIDENTIFIER);
+	std::string varname= token.str;
+	gettoken ();
+	Dimension d;
+	bool isarray= false;
+	if (token.code == '(')
+	{
+		d= expectdims ();
+		isarray= true;
+	}
+	VarPointer vp;
+	vp.type= typeofvar (varname);
+	switch (vp.type)
+	{
+	case VarNumber:
+		vp.pnumber= isarray ?
+			addrdimnumber (varname, d) :
+			addrvarnumber (varname);
+		break;
+	case VarInteger:
+		vp.pinteger= isarray ?
+			addrdiminteger (varname, d) :
+			addrvarinteger (varname);
+		break;
+	case VarString:
+		vp.pstring= isarray ?
+			addrdimstring (varname, d) :
+			addrvarstring (varname);
+		break;
+	default:
+		throw ErrBlassicInternal;
+	}
+	return vp;
+}
+
+inline VarPointer RunnerLine::eval_let ()
+{
+	VarPointer vp= evalvalpointer ();
+	requiretoken ('=');
+	BlResult result;
+	expect (result);
+	switch (vp.type)
+	{
+	case VarNumber:
+		* vp.pnumber= result.number ();
+		break;
+	case VarInteger:
+		* vp.pinteger= result.integer ();
+		break;
+	case VarString:
+		* vp.pstring= result.str ();
+		break;
+	default:
+		throw ErrBlassicInternal;
+	}
+	return vp;
+}
+
 void RunnerLine::parenarg (BlResult & result)
 {
 	expect (result);
@@ -418,11 +479,21 @@ void RunnerLine::valrnd (BlResult & result)
 	previous= r;
 }
 
-void RunnerLine::valinstr (BlResult & result)
+namespace
+{
+	const bool instr_direct= false;
+	const bool instr_reverse= true;
+	const bool find_first= true;
+	const bool find_last= false;
+	const bool find_yes= true;
+	const bool find_not= false;
+}
+
+void RunnerLine::valinstr (BlResult & result, bool reverse)
 {
 	expecttoken ('(');
 	std::string str;
-	size_t init= 0;
+	std::string::size_type init= reverse ? std::string::npos : 0;
 	
 	expect (result);
 	switch (result.type () )
@@ -431,7 +502,7 @@ void RunnerLine::valinstr (BlResult & result)
 		str= result.str ();
 		break;
 	case VarNumber:
-		init= size_t (result.number () );
+		init= std::string::size_type (result.number () );
 		if (init > 0)
 			--init;
                 requiretoken (',');
@@ -451,7 +522,7 @@ void RunnerLine::valinstr (BlResult & result)
 	std::string tofind= expectstring ();
 	requiretoken (')');
 	gettoken ();
-	size_t pos;
+	std::string::size_type pos;
 	if (tofind.empty () )
 	{
 		if (str.empty () )
@@ -464,7 +535,68 @@ void RunnerLine::valinstr (BlResult & result)
 	}
 	else
 	{
-		pos= str.find (tofind, init);
+		pos= reverse ?
+			str.rfind (tofind, init) :
+			str.find (tofind, init);
+		if (pos == std::string::npos)
+			pos= 0;
+		else ++pos;
+	}
+	result= BlInteger (pos);
+}
+
+void RunnerLine::valfindfirstlast (BlResult & result, bool first, bool yesno)
+{
+	expecttoken ('(');
+	std::string str;
+	std::string::size_type init= first ? 0 : std::string::npos;
+
+	expect (result);
+	switch (result.type () )
+	{
+	case VarString:
+		str= result.str ();
+		break;
+	case VarNumber:
+		init= std::string::size_type (result.number () );
+		if (init > 0)
+			--init;
+                requiretoken (',');
+		str= expectstring ();
+		break;
+	case VarInteger:
+		init= result.integer ();
+		if (init > 0)
+			--init;
+		requiretoken (',');
+		str= expectstring ();
+		break;
+	default:
+		throw ErrBlassicInternal;
+	}
+	requiretoken (',');
+	std::string tofind= expectstring ();
+	requiretoken (')');
+	gettoken ();
+	std::string::size_type pos;
+	if (tofind.empty () )
+	{
+		if (str.empty () )
+			pos= 0;
+		else
+			if (init < str.size () )
+				pos= init + 1;
+			else
+				pos= 0;
+	}
+	else
+	{
+		pos= first ?
+			( yesno ? str.find_first_of (tofind, init) :
+			str.find_first_not_of (tofind, init) )
+			:
+			(yesno ? str.find_last_of (tofind, init) :
+			str.find_last_not_of (tofind, init) );
 		if (pos == std::string::npos)
 			pos= 0;
 		else ++pos;
@@ -1251,6 +1383,26 @@ void RunnerLine::valbase (BlResult & result)
 {
 	switch (token.code)
 	{
+	case keyLET: // LET as operator
+		{
+			gettoken ();
+			VarPointer vp= eval_let ();
+			switch (vp.type)
+			{
+			case VarNumber:
+				result= * vp.pnumber;
+				break;
+			case VarInteger:
+				result= * vp.pinteger;
+				break;
+			case VarString:
+				result= * vp.pstring;
+				break;
+			default:
+				throw ErrBlassicInternal;
+			}
+		}
+		break;
 	case keyIDENTIFIER:
 		{
 			std::string varname (token.str);
@@ -1408,7 +1560,7 @@ void RunnerLine::valbase (BlResult & result)
 		valnumericfunc (std::acos, result);
 		break;
 	case keyINSTR:
-		valinstr (result);
+		valinstr (result, instr_direct);
 		break;
 	case keyATAN:
 		valnumericfunc (std::atan, result);
@@ -1501,6 +1653,21 @@ void RunnerLine::valbase (BlResult & result)
 		break;
 	case keyPEEK32:
 		valpeek32 (result);
+		break;
+	case keyRINSTR:
+		valinstr (result, instr_reverse);
+		break;
+	case keyFIND_FIRST_OF:
+		valfindfirstlast (result, find_first, find_yes);
+		break;
+	case keyFIND_LAST_OF:
+		valfindfirstlast (result, find_last, find_yes);
+		break;
+	case keyFIND_FIRST_NOT_OF:
+		valfindfirstlast (result, find_first, find_not);
+		break;
+	case keyFIND_LAST_NOT_OF:
+		valfindfirstlast (result, find_last, find_not);
 		break;
         case keyFN:
                 valfn (result);
@@ -2616,6 +2783,7 @@ bool RunnerLine::do_let ()
 {
 	if (token.code == keyLET)
 		gettoken ();
+	#if 0
 	requiretoken (keyIDENTIFIER);
 	std::string varname= token.str;
 	gettoken ();
@@ -2647,6 +2815,10 @@ bool RunnerLine::do_let ()
 	default:
 		throw ErrBlassicInternal;
 	}
+	#else
+	eval_let ();
+	require_endsentence ();
+	#endif
 	return false;
 }
 
@@ -2914,6 +3086,7 @@ bool RunnerLine::do_restore ()
 
 namespace {
 
+#if 0
 struct VarPointer {
 	VarType type;
 	union {
@@ -2942,6 +3115,27 @@ struct VarPointer {
                 return 0;
 	}
 };
+#else
+struct clearvar {
+	void operator () (VarPointer & vt) const
+	{
+		switch (vt.type)
+		{
+		case VarNumber:
+			* vt.pnumber= 0;
+			break;
+		case VarInteger:
+			* vt.pinteger= 0;
+			break;
+		case VarString:
+			vt.pstring->erase ();
+			break;
+		default:
+			throw ErrBlassicInternal;
+		}
+	}
+};
+#endif
 
 bool isdelimdiscardingwhite (std::istream & is, char delim)
 {
@@ -3007,6 +3201,7 @@ bool RunnerLine::do_input ()
 	std::vector <VarPointer> inputvars;
 	for (;;)
 	{
+		#if 0
 		requiretoken (keyIDENTIFIER);
 		std::string varname= token.str;
 		gettoken ();
@@ -3039,6 +3234,9 @@ bool RunnerLine::do_input ()
 		default:
 			throw ErrBlassicInternal;
 		}
+		#else
+		VarPointer vp= evalvalpointer ();
+		#endif
 		inputvars.push_back (vp);
 		if (endsentence () )
 			break;
@@ -3219,8 +3417,13 @@ bool RunnerLine::do_input ()
 
 	// If not enough data entered, clear remaining vars.
 
+	#if 0
 	std::for_each (inputvars.begin () + i, inputvars.end (),
 		std::mem_fun_ref (& VarPointer::clearvar) );
+	#else
+	std::for_each (inputvars.begin () + i, inputvars.end (),
+		clearvar () );
+	#endif
 
 	return false;
 }
@@ -4606,7 +4809,15 @@ bool RunnerLine::do_swap ()
 
 bool RunnerLine::do_symbol ()
 {
-	BlNumber bnSymbol= expectnum ();
+	gettoken ();
+	if (token.code == keyAFTER)
+	{
+		BlInteger n= expectinteger ();
+		require_endsentence ();
+		graphics::symbolafter (static_cast <int> (n) );
+		return false;
+	}
+	BlNumber bnSymbol= evalnum ();
 
 	unsigned char byte [8];
 	for (int i= 0; i < 8; ++i)

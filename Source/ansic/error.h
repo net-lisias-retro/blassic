@@ -1,4 +1,5 @@
 // error.h
+// Revision 16-may-2003
 
 #ifndef ERROR_H_
 #define ERROR_H_
@@ -50,7 +51,8 @@ const BlErrNo
         ErrRenameFile=         38,
 	ErrOperatingSystem=    39,
 	ErrPastEof=            40,
-	ErrNoGraphics=         41;
+	ErrNoGraphics=         41,
+	ErrImproperArgument=   42;
 
 class BlError {
 public:

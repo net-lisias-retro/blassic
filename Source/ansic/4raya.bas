@@ -4,7 +4,7 @@
 4999 rem st (i, j, k)
 5000 for i1= 0 to 5: for i2= 4 to 7: for i3= 0 to 5: st (i1, i2, i3)= 10000: next: next: next
 5020 for i= 1 to 5: for j= 1 to 5: st (i, 3, j)= 800: next: next
-5040 for i= 1 to 5: st (0, 3, i)= 500: st (i, 3, 0)= 500; next
+5040 for i= 1 to 5: st (0, 3, i)= 500: st (i, 3, 0)= 500: next
 5060 for i= 2 to 5: st (i, 2, 1)= 200: st (1, 2, i)= 200: next
 5080 for i= 2 to 5: for j= 2 to 5: st (i, 2, j)= 300: next: next
 5120 for i= 2 to 5: st (0, 2, i)= 120: st (i, 2, 0)= 120: next: st (1, 2, 1)= 100

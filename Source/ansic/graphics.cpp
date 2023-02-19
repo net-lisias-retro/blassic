@@ -1,4 +1,5 @@
 // graphics.cpp
+// Revision 16-may-2003
 
 #ifdef __BORLANDC__
 #pragma warn -8027
@@ -10,6 +11,7 @@
 #include "var.h"
 //#include "cursor.h"
 #include "key.h"
+#include "charset.h"
 #include "util.h"
 #include "trace.h"
 
@@ -90,6 +92,10 @@ pcolor pforeground, pbackground,
 
 #include <string>
 #include <algorithm>
+
+// Character set
+
+charset::chardata charset::data [256];
 
 namespace {
 
@@ -709,6 +715,9 @@ void init_xcolors ()
 void graphics::initialize (const char * progname)
 {
 	TraceFunc tr ("graphics::initialize");
+
+	// Default symbol after and charset initialization:
+	symbolafter (240);
 
 	#ifdef BLASSIC_USE_SVGALIB
 	if (geteuid () == 0) {
@@ -3098,10 +3107,27 @@ void graphics::movechardown (BlChannel ch, size_t n)
 	mapwindow [ch]->movechardown (n);
 }
 
+namespace {
+
+int symbol_after_is;
+
+}
+
+void graphics::symbolafter (int symbol)
+{
+	if (symbol < 0 || symbol > 256)
+		throw ErrFunctionCall;
+	memcpy (charset::data, charset::default_data,
+		sizeof (charset::data) );
+	symbol_after_is= symbol;
+}
+
 void graphics::definesymbol (int symbol, const unsigned char (& byte) [8] )
 {
 	if (symbol < 0 || symbol > 255)
 		throw ErrFunctionCall;
+	if (symbol < symbol_after_is)
+		throw ErrImproperArgument;
 	memcpy (charset::data + symbol, byte, sizeof (byte) );
 }
 

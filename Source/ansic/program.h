@@ -38,10 +38,12 @@ public:
 	void renew ();
 	void renum (BlLineNumber blnNew, BlLineNumber blnOld,
 		BlLineNumber blnInc);
+	class Internal;
+	// Public because is used by TextLoader.
 private:
 	Program (const Program &); // Prohibido
 	Program & operator= (const Program &); // Prohibido
-	class Internal;
+	//class Internal;
 	Internal * pin;
 };
 

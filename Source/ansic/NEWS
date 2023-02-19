@@ -1,3 +1,16 @@
+Version 0.5.4
+
+	Command line option -x to exclude keywords.
+
+	#include directive in text programs.
+
+	Functions RINSTR, FIND_FIRST_OF, FIND_LAST_OF,
+	FIND_FIRST_NOT_OF and FIND_LAST_NOT_OF.
+
+	LET as operator.
+
+	SYMBOL AFTER instruction.
+
 Version 0.5.3
 
 	Bugs in ellipses and arcs of ellipses with high

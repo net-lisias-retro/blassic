@@ -10,6 +10,8 @@
 
 using util::to_string;
 
+#include <sstream>
+
 #if 0
 
 #if defined __linux__ || defined __unix__
@@ -358,7 +360,7 @@ bool editline (BlFile & bf, std::string & str, size_t npos, size_t inicol)
 {
 	TraceFunc tr ("editline");
 	{
-		ostringstream oss;
+		std::ostringstream oss;
 		oss << "Inicol: " << inicol;
 		tr.message (oss.str () );
 	}

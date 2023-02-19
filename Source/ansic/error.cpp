@@ -1,4 +1,5 @@
 // error.cpp
+// Revision 16-may-2003
 
 #include "error.h"
 
@@ -60,6 +61,7 @@ errcode table []= {
         errcode (ErrOperatingSystem,    "Operating system error"),
         errcode (ErrPastEof,            "Input past EOF"),
         errcode (ErrNoGraphics,         "Graphics mode required"),
+        errcode (ErrImproperArgument,   "Improper argument"),
 };
 
 errcode * table_end= table + sizeof (table);
