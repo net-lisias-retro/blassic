@@ -1,5 +1,7 @@
 # Blassic :: Change Log
 
+* 2003-0128: 0.5.2 (Julián Albo)
+	+ CIRCLE extended to ellipses.
 * 2003-0126: 0.5.1 (Julián Albo)
 	+ Bug in CLS in graphics mode corrected.
 	+ Cleaner circles.

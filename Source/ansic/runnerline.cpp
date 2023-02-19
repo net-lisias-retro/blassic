@@ -5137,8 +5137,10 @@ bool RunnerLine::do_circle ()
 	expecttoken (',');
 	expect (r);
 	BlInteger radius= r.integer ();
-	BlNumber arcbeg= 0, arcend= 2 * M_PI;
+	BlNumber arcbeg= 0, arcend= 0;
 	bool fArc= false;
+	bool fElliptic= false;
+	BlNumber elliptic= 0; // initialized to avoid a warning.
 	if (endsentence () )
 		goto do_it;
 	requiretoken (',');
@@ -5161,17 +5163,44 @@ bool RunnerLine::do_circle ()
 		requiretoken (',');
 	}
 	gettoken ();
-	if (! endsentence () )
+	if (token.code != ',')
 	{
 		arcend= evalnum ();
 		fArc= true;
-		require_endsentence ();
+		if (endsentence () )
+			goto do_it;
+		requiretoken (',');
 	}
+	gettoken ();
+	elliptic= evalnum ();
+	fElliptic= true;
+	require_endsentence ();
 do_it:
-	if (! fArc)
-		graphics::circle (x, y, radius);
+	if (! fElliptic)
+	{
+		if (! fArc)
+			graphics::circle (x, y, radius);
+		else
+			graphics::arccircle (x, y, radius, arcbeg, arcend);
+	}
 	else
-		graphics::arccircle (x, y, radius, arcbeg, arcend);
+	{
+		int rx, ry;
+		if (elliptic > 1)
+		{
+			rx= static_cast <int> (radius / elliptic);
+			ry= radius;
+		}
+		else
+		{
+			rx= radius;
+			ry= static_cast <int> (radius * elliptic);
+		}
+		if (! fArc)
+			graphics::ellipse (x, y, rx, ry);
+		else
+			graphics::arcellipse (x, y, rx, ry, arcbeg, arcend);
+	}
 	return false;
 }
 

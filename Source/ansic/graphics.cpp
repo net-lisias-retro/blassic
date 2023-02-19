@@ -1925,6 +1925,8 @@ void graphics::arccircle (int x, int y, int radius,
 		arcbeg << ", " << arcend << endl;
 	#endif
 
+	lastx= x + radius;
+	lasty= y;
 	transform_y (y);
 
 	int px, py; // Current position and auxiliary.
@@ -2032,6 +2034,231 @@ void graphics::arccircle (int x, int y, int radius,
 	}
 	if (px != sx || py != sy || sq == qe)
 		impl_plot_mask (x + px, y - py);
+}
+
+void graphics::ellipse (int ox, int oy, int rx, int ry)
+{
+	//#define DEBUG_ELLIPSE
+
+	#ifdef DEBUG_ELLIPSE
+	cerr << "Ellipse: " << rx << ", " << ry << endl;
+	#endif
+
+	requiregraphics ();
+	activecolor (pforeground);
+	lastx= ox+ rx;
+	lasty= oy;
+
+	transform_y (oy);
+
+	const int ry2= ry * ry;
+	const int rx2= rx * rx;
+	const int ry2_2= ry2 * 2;
+	const int rx2_2= rx2 * 2;
+	const int dimy= int (ry2 / sqrt (ry2 + rx2) + 0.5);
+	//const int dimy= int (rx2 / sqrt (rx2 + ry2) + 0.5);
+	util::auto_buffer <int> py (dimy);
+	#if 1
+	int xchange= ry2 * (1 - 2 * rx);
+	int ychange= rx2;
+	int ellipseerror= 0;
+	for (int y= 0, x= rx; y < dimy; ++y)
+	{
+		py [y]= x;
+		ellipseerror+= ychange;
+		ychange+= rx2_2;
+		if (2 * ellipseerror + xchange > 0)
+		{
+			--x;
+			ellipseerror+= xchange;
+			xchange+= ry2_2;
+		}
+	}
+	#else
+	for (int y= 0; y < dimy; ++y)
+		py [y]= int (rx * sqrt (ry * ry - y * y) / ry + 0.5);
+	#endif
+
+	int aux= py [dimy - 1];
+	const int dimx= aux < 0 ? 0 : aux;
+	util::auto_buffer <int> px (dimx);
+	#if 1
+	xchange= ry2;
+	ychange= rx2 * (1 - 2 * ry);
+	ellipseerror= 0;
+	for (int x= 0, y= ry; x < dimx; ++x)
+	{
+		px [x]= y;
+		ellipseerror+= xchange;
+		xchange+= ry2_2;
+		if (2 * ellipseerror + ychange > 0)
+		{
+			--y;
+			ellipseerror+= ychange;
+			ychange+= rx2_2;
+		}
+	}
+	#else
+	for (int x= 0; x < dimx; ++x)
+		px [x]= int (ry * sqrt (rx * rx - x * x) / rx + 0.5);
+	#endif
+
+	for (int y= 1; y < dimy; ++y)
+		impl_plot_mask (ox + py [y], oy - y);
+	for (int x= dimx - 1; x > 0; --x)
+		impl_plot_mask (ox + x, oy - px [x] );
+	impl_plot_mask (ox, oy - ry);
+	for (int x= 1; x < dimx; ++x)
+		impl_plot_mask (ox - x, oy - px [x] );
+	for (int y= dimy - 1; y > 0; --y)
+		impl_plot_mask (ox - py [y], oy - y);
+	impl_plot_mask (ox - rx, oy);
+	for (int y= 1; y < dimy; ++y)
+		impl_plot_mask (ox - py [y], oy + y);
+	for (int x= dimx - 1; x > 0; --x)
+		impl_plot_mask (ox - x, oy + px [x] );
+	impl_plot_mask (ox, oy + ry);
+	for (int x= 1; x < dimx; ++x)
+		impl_plot_mask (ox + x, oy + px [x] );
+	for (int y= dimy - 1; y > 0; --y)
+		impl_plot_mask (ox + py [y], oy + y);
+	impl_plot_mask (ox + rx, oy);
+}
+
+namespace {
+
+inline void get_point_on_arc (int rx, int ry, BlNumber a,
+	int & out_x, int & out_y)
+{
+	BlNumber s= sin (a) * ry, c= cos (a) * rx;
+	out_x= static_cast <int> (c < 0 ? c - .5 : c + .5);
+	out_y= static_cast <int> (s < 0 ? s - .5 : s + .5);
+}
+
+}
+
+void graphics::arcellipse (int ox, int oy, int rx, int ry,
+	BlNumber arcbeg, BlNumber arcend)
+{
+	/*
+		Adapted from the arccircle algorithm,
+		not optimal but works.
+	*/
+	//#define DEBUG_ARCELLIPSE
+
+	requiregraphics ();
+	activecolor (pforeground);
+	lastx= ox+ rx;
+	lasty= oy;
+
+	transform_y (oy);
+
+	int px, py; // Current position and auxiliary
+	get_point_on_arc (rx, ry, arcend, px, py);
+	const int ex= px, ey= py; // End position
+	get_point_on_arc (rx, ry, arcbeg, px, py);
+	const int sx= px, sy= py; // Start position
+	
+	const int sq= get_quadrant (sx, sy); // Start quadrant.
+	// Calculate end quadrant, considering that end point
+	// must be after start point.
+	int q= get_quadrant (ex, ey);
+	if (sq > q)
+		// Quadrant end must be greater or equal.
+		q+= 4;
+	else if (sq == q && arcbeg > arcend)
+		// If equal, consider the angle.
+		q+= 4;
+	const int qe= q;
+	q= sq; // Current cuadrant.
+	#ifdef DEBUG_ARCELLIPSE
+	cerr << "Arc llipse from: " << arcbeg << " to " << arcend << endl;
+	cerr << "Quadrant from " << sq << " to " << qe << endl;
+	#endif
+
+	// Direction of movement.
+	int dy = ( ( (q + 1) & 2) == 0) ? 1 : -1;
+	int dx= ( (q & 2) == 0) ? -1 : 1;
+
+	const int rx2= rx * rx;
+	const int ry2= ry * ry;
+	const int rxy2= rx2 * ry2;
+
+	while (true)
+	{
+		// Change quadrant when needed, adjusting directions.
+		if ( (q & 1) == 0)
+		{
+			if (px == 0)
+			{
+				if (qe == q)
+					break;
+				++q;
+				dy= -dy;
+			}
+		}
+		else
+		{
+			if (py == 0)
+			{
+				if (qe == q)
+					break;
+				++q;
+				dx= -dx;
+			}
+		}
+		// If we are in the end quadrant, check if at the end position.
+		if (qe == q)
+		{
+			int det= 0;
+			if (dy > 0)
+			{
+				if (py >= ey)
+					++det;
+			}
+			else
+			{
+				if (py <= ey)
+					++det;
+			}
+			if (dx > 0)
+			{
+				if (px >= ex)
+					++det;
+			}
+			else
+			{
+				if (px <= ex)
+					++det;
+			}
+			if (det == 2)
+				break;
+		}
+
+		impl_plot_mask (ox + px, oy - py);
+
+		int rr1= ry2 * (px + dx) * (px + dx) +
+			rx2 * py * py - rxy2;
+		int rr2= ry2 * (px + dx) * (px + dx) +
+			rx2 * (py + dy) * (py + dy) - rxy2;
+		int rr3= ry2 * px * px +
+			rx2 * (py + dy) * (py + dy) - rxy2;
+		if (rr1 < 0) rr1= -rr1;
+		if (rr2 < 0) rr2= -rr2;
+		if (rr3 < 0) rr3= -rr3;
+		if (rr3 >= std::min (rr1, rr2) )
+		{
+			px+= dx;
+			//xx= xx_new;
+		}
+		if (rr1 > std::min (rr2, rr3) )
+		{
+			py+= dy;
+			//yy= yy_new;
+		}
+	}
+	if (px != sx || py != sy || sq == qe)
+		impl_plot_mask (ox + px, oy - py);
 }
 
 void graphics::mask (int m)

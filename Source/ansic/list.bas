@@ -92,7 +92,7 @@ REM Carga la tabla de codigos
 
 LABEL loadtable
 
-numcod= 178
+numcod= 180
 dim name$ (numcod), cod (numcod)
 for i= 1 to numcod
 	read name$ (i), cod (i)
@@ -215,6 +215,8 @@ DATA "POKE32", 354
 DATA "RENUM", 355
 DATA "CIRCLE", 356
 DATA "MASK", 357
+DATA "WINDOW", 358
+DATA "GRAPHICS", 359
 
 REM Funciones de cadena
 

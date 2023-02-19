@@ -37,8 +37,14 @@ void mover (int x, int y);
 void plot (int x, int y);
 void plotr (int x, int y);
 void plot (std::vector <Point> & points);
+
 void circle (int x, int y, int radius);
-void arccircle (int x, int y, int radius, BlNumber arcbeg, BlNumber arcend);
+void arccircle (int x, int y, int radius,
+	BlNumber arcbeg, BlNumber arcend);
+void ellipse (int x, int y, int rx, int ry);
+void arcellipse (int x, int y, int rx, int ry,
+	BlNumber arcbeg, BlNumber arcend);
+
 void mask (int m);
 void maskdrawfirstpoint (bool f);
 void draw (const std::string & str);
