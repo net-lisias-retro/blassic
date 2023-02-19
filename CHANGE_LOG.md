@@ -1,5 +1,10 @@
 # Blassic :: Change Log
 
+* 2003-0126: 0.5.1 (Julián Albo)
+	+ Bug in CLS in graphics mode corrected.
+	+ Cleaner circles.
+	+ The syntax of the CIRCLE instruction has been changed and completed for compatibility with Gwbasic.
+	+ Bug DRAW string debug output not cleaned, corrected.
 * 2003-0114: 0.5.0 (Julián Albo)
 	+ Speed improvement.
 	+ "PRINT , , 1" now is valid syntax. Same in WRITE.

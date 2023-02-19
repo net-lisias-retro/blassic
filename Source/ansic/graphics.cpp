@@ -573,6 +573,8 @@ void init_wincolors ()
         typedef const assign_color const_assign_color;
         #endif
         static const_assign_color table_colors []= {
+		#if 0
+
 	        { &xcBlack,        0, 0, 0 },
         	{ &xcBlue,         0, 0, 42 * 4 },
 	        { &xcGreen,        0, 42 * 4, 0 },
@@ -590,6 +592,28 @@ void init_wincolors ()
         	{ &xcLightMagenta, 255, 21 * 4, 255 },
 	        { &xcYellow,       255, 255, 21 * 4 },
         	{ &xcWhite,        255, 255, 255 }
+
+		#else
+
+		{ &xcBlack,           0,    0,    0 },
+		{ &xcBlue,            0,    0, 0xA8 },
+		{ &xcGreen,           0, 0xA8,    0 },
+		{ &xcCyan,            0, 0xA8, 0xA8 },
+		{ &xcRed,          0xA8,    0,    0 },
+		{ &xcMagenta,      0xA8,    0, 0xA8 },
+		{ &xcBrown,        0xA8, 0x54,    0 },
+		{ &xcLightGrey,    0xA8, 0xA8, 0xA8 },
+
+		{ &xcDarkGrey,     0x54, 0x54, 0x54 },
+		{ &xcLightBlue,    0x54, 0x54, 0xFF },
+		{ &xcLightGreen,   0x54, 0xFF, 0x54 },
+		{ &xcLightCyan,    0x54, 0xFF, 0xFF },
+		{ &xcLightRed,     0xFF, 0x54, 0x54 },
+		{ &xcLightMagenta, 0xFF, 0x54, 0xFF },
+		{ &xcYellow,       0xFF, 0xFF, 0x54 },
+		{ &xcWhite,        0xFF, 0xFF, 0xFF }
+
+		#endif
 	};
 	std::for_each (table_colors,
 		table_colors + util::dim_array (table_colors),
@@ -621,6 +645,9 @@ private:
 void init_xcolors ()
 {
 	static const assign_color table_colors []= {
+
+		#if 0
+
 		//{ &xcBlack,        "black" },
 		{ &xcBlack,        "#000000" },
 		{ &xcBlue,         "darkblue" },
@@ -644,6 +671,29 @@ void init_xcolors ()
 		{ &xcYellow,       "yellow" },
 		//{ &xcWhite,        "white" }
 		{ &xcWhite,        "#FFFFFF" }
+
+		#else
+
+		{ &xcBlack,        "rgb:00/00/00" },
+		{ &xcBlue,         "rgb:00/00/A8" },
+		{ &xcGreen,        "rgb:00/A8/00" },
+		{ &xcCyan,         "rgb:00/A8/A8" },
+		{ &xcRed,          "rgb:A8/00/00" },
+		{ &xcMagenta,      "rgb:A8/00/A8" },
+		{ &xcBrown,        "rgb:A8/54/00" },
+		{ &xcLightGrey,    "rgb:A8/A8/A8" },
+
+		{ &xcDarkGrey,     "rgb:54/54/54" },
+		{ &xcLightBlue,    "rgb:54/54/FF" },
+		{ &xcLightGreen,   "rgb:54/FF/54" },
+		{ &xcLightCyan,    "rgb:54/FF/FF" },
+		{ &xcLightRed,     "rgb:FF/54/54" },
+		{ &xcLightMagenta, "rgb:FF/54/FF" },
+		{ &xcYellow,       "rgb:FF/FF/54" },
+		{ &xcWhite,        "rgb:FF/FF/FF" }
+
+		#endif
+
 	};
 	Colormap cm= DefaultColormap (display, screen);
 	std::for_each (table_colors,
@@ -968,6 +1018,7 @@ void textscroll ()
 
 #ifdef BLASSIC_USE_WINDOWS
 
+#if 0
 inline void do_plot_win (HDC hdc, int x, int y)
 {
 	if (! fSynchro)
@@ -978,6 +1029,7 @@ inline void do_plot_win (HDC hdc, int x, int y)
 	MoveToEx (hdcPixmap, x, y, 0);
 	LineTo (hdcPixmap, x + 1, y);
 }
+#endif
 
 #endif
 
@@ -1003,15 +1055,15 @@ inline void do_plot (int x, int y)
 
         #ifdef BLASSIC_USE_WINDOWS
 
-        //HDC hdc= GetDC (window);
-        //SetROP2 (hdc, drawmode);
-        //MoveToEx (hdc, x, y, 0);
-        //LineTo (hdc, x + 1, y);
-        //SetROP2 (hdcPixmap, drawmode);
-        //MoveToEx (hdcPixmap, x, y, 0);
-        //LineTo (hdcPixmap, x + 1, y);
-        do_plot_win (hdc, x, y);
-        //ReleaseDC (window, hdc);
+        //do_plot_win (hdc, x, y);
+
+	if (! fSynchro)
+	{
+		MoveToEx (hdc, x, y, 0);
+		LineTo (hdc, x + 1, y);
+	}
+	MoveToEx (hdcPixmap, x, y, 0);
+	LineTo (hdcPixmap, x + 1, y);
 
         #endif
 }
@@ -1037,11 +1089,11 @@ void print (int col, int row, unsigned char c)
 			{
 				pcolor pc= f ? pforeground : pbackground;
 				activecolor (pc);
-                                #ifdef BLASSIC_USE_WINDOWS
-                                do_plot_win (hdc, xj, yi);
-                                #else
+                                //#ifdef BLASSIC_USE_WINDOWS
+                                //do_plot_win (hdc, xj, yi);
+                                //#else
 				do_plot (xj, yi);
-                                #endif
+                                //#endif
 			}
 		}
 	}
@@ -1440,6 +1492,18 @@ bool maskdrawfirst= true;
 unsigned maskpos= 0;
 unsigned char auxmask []= { 1, 2, 4, 8, 16, 32, 64, 128 };
 
+inline void impl_plot_mask (int x, int y)
+{
+	if (maskvalue == maskvaluedefault)
+		do_plot (x, y);
+	else
+	{
+		if (maskvalue & auxmask [maskpos] )
+			do_plot (x, y);
+		if (++maskpos == 8) maskpos= 0;
+	}
+}
+
 void do_line_mask (int x, int y)
 {
 	int prevx= lastx, prevy= lasty;
@@ -1469,9 +1533,10 @@ void do_line_mask (int x, int y)
 	{
 		if (i != 0 || maskdrawfirst)
 		{
-			if (maskvalue & auxmask [maskpos] )
-				do_plot (prevx, prevy);
-			if (++maskpos == 8) maskpos= 0;
+			//if (maskvalue & auxmask [maskpos] )
+			//	do_plot (prevx, prevy);
+			//if (++maskpos == 8) maskpos= 0;
+			impl_plot_mask (prevx, prevy);
 		}
 		s+= n;
 		if (s >= m)
@@ -1658,21 +1723,315 @@ void graphics::plot (std::vector <Point> & points)
 	std::for_each (points.begin () + 1, points.end (), line_to_point);
 }
 
+//#define DEBUG_CIRCLE
+
+#ifdef DEBUG_CIRCLE
+
+#include <unistd.h>
+
+namespace { inline void pausec () { usleep (100000); } }
+
+#else
+
+namespace { inline void pausec () { } }
+
+#endif
+
 void graphics::circle (int x, int y, int radius)
 {
 	requiregraphics ();
-	//transform_y (y);
+	activecolor (pforeground);
 
-	// Simple test
-	const double angle= M_PI * 2 / (radius * 12.0);
 	lastx= x + radius;
 	lasty= y;
-	for (double r= 0.0; r < 2 * M_PI; r += angle)
+
+	transform_y (y);
+
+	if (radius == 0)
 	{
-		do_line (x + int (radius * cos (r) + 0.5),
-			y + int (radius * sin (r) + 0.5) );
+		impl_plot_mask (x, y);
+		return;
 	}
-	do_line (x + radius, y);
+
+	// sq2_2 is sin (pi/4)
+	#ifdef M_SQRT2
+	static const double sq2_2= M_SQRT2 / 2.0;
+	#else
+	static const double sq2_2= sqrt (2.0) / 2.0;
+	#endif
+	//int r= int (radius * sq2_2 + .5) + 1;
+	int r= int (radius * sq2_2 + 1.0);
+	int rr= int (sqrt (radius * radius - r * r) + .5);
+	int dim= r;
+	if (rr >= r) ++dim;
+
+	#ifdef DEBUG_CIRCLE
+	cerr << "Circle: " << radius << ", " << r << endl;
+	#endif
+
+	util::auto_buffer <int> p (dim);
+
+	// Bresenham algorithm.
+	for (int i= 0, j= radius, d= 1 - radius; i < dim; ++i)
+	{
+		p [i]= j;
+		if (d < 0)
+			d+= 2 * i + 3;
+		else
+		{
+			d+= 2 * (i - j) + 5;
+			--j;
+		}
+	}
+
+	rr= p [r - 1] - 1;
+	ASSERT (rr <= dim - 1);
+
+	// The first point in each quadrant is plotted independently.
+	// In the first quadrant is omitted, we plot it at the end.
+	#ifdef DEBUG_CIRCLE
+	graphics::setcolor (4);
+	#endif
+	for (int j= 1; j < r; ++j)
+	{
+		//do_line (x + p [j], y - j);
+		impl_plot_mask (x + p [j], y - j);
+		pausec ();
+	}
+	#ifdef DEBUG_CIRCLE
+	graphics::setcolor (0);
+	#endif
+	for (int i= rr; i > 0; --i)
+	{
+		//do_line (x + i, y - p [i] );
+		impl_plot_mask (x + i, y - p [i] );
+		pausec ();
+	}
+
+	//do_line (x, y - radius);
+	#ifdef DEBUG_CIRCLE
+	graphics::setcolor (4);
+	#endif
+	impl_plot_mask (x, y - radius);
+	for (int i= 1; i < r; ++i)
+	{
+		//do_line (x - i, y - p [i] );
+		impl_plot_mask (x - i, y - p [i] );
+		pausec ();
+	}
+	#ifdef DEBUG_CIRCLE
+	graphics::setcolor (0);
+	#endif
+	for (int j= rr; j > 0; --j)
+	{
+		//do_line (x - p [j], y - j);
+		impl_plot_mask (x - p [j], y - j);
+		pausec ();
+	}
+
+	//do_line (x - radius, y);
+	#ifdef DEBUG_CIRCLE
+	graphics::setcolor (4);
+	#endif
+	impl_plot_mask (x - radius, y);
+	for (int j= 1; j < r; ++j)
+	{
+		//do_line (x - p [j], y + j);
+		impl_plot_mask (x - p [j], y + j);
+		pausec ();
+	}
+	#ifdef DEBUG_CIRCLE
+	graphics::setcolor (0);
+	#endif
+	for (int i= rr; i > 0; --i)
+	{
+		//do_line (x - i, y + p [i] );
+		impl_plot_mask (x - i, y + p [i] );
+		pausec ();
+	}
+
+	//do_line (x, y + radius);
+	impl_plot_mask (x, y + radius);
+	#ifdef DEBUG_CIRCLE
+	graphics::setcolor (4);
+	#endif
+	for (int i= 1; i < r; ++i)
+	{
+		//do_line (x + i, y + p [i] );
+		impl_plot_mask (x + i, y + p [i] );
+		pausec ();
+	}
+	#ifdef DEBUG_CIRCLE
+	graphics::setcolor (0);
+	#endif
+	for (int j= rr; j > 0; --j)
+	{
+		//do_line (x + p [j], y + j);
+		impl_plot_mask (x + p [j], y + j);
+		pausec ();
+	}
+	//do_line (x + radius, y);
+	#ifdef DEBUG_CIRCLE
+	graphics::setcolor (4);
+	#endif
+	impl_plot_mask (x + radius, y);
+}
+
+namespace {
+
+inline void get_point_on_arc (int r, BlNumber a, int & out_x, int & out_y)
+{
+	BlNumber s= sin (a) * r, c= cos (a) * r;
+	out_x= static_cast <int> (c < 0 ? c - .5 : c + .5);
+	out_y= static_cast <int> (s < 0 ? s - .5 : s + .5);
+}
+
+inline int get_quadrant (int x, int y)
+{
+	if (x >= 0)
+	{
+		if (y >= 0)
+			return 0;
+		else
+			return 3;
+	}
+	else
+	{
+		if (y > 0)
+			return 1;
+		else
+			return 2;
+	}
+}
+
+}
+
+void graphics::arccircle (int x, int y, int radius,
+	BlNumber arcbeg, BlNumber arcend)
+{
+	/*
+		The code for this function and his auxiliarys
+		is taken from the Allegro library.
+		Many thanks.
+	*/
+
+	requiregraphics ();
+	activecolor (pforeground);
+
+	//#define DEBUG_ARCCIRCLE
+
+	#ifdef DEBUG_ARCCIRCLE
+	cerr << "arccircle: " << x << ", " << y << ", " << radius << ", " <<
+		arcbeg << ", " << arcend << endl;
+	#endif
+
+	transform_y (y);
+
+	int px, py; // Current position and auxiliary.
+	get_point_on_arc (radius, arcend, px, py);
+	const int ex= px, ey= py; // End position.
+	get_point_on_arc (radius, arcbeg, px, py);
+	const int sx= px, sy= py; // Start position.
+	// Current position start at start position.
+
+	const int sq= get_quadrant (sx, sy); // Start quadrant.
+	// Calculate end quadrant, considering that end point
+	// must be after start point.
+	int q= get_quadrant (ex, ey);
+	if (sq > q)
+		// Quadrant end must be greater or equal.
+		q+= 4;
+	else if (sq == q && arcbeg > arcend)
+		// If equal, consider the angle.
+		q+= 4;
+	const int qe= q;
+	q= sq; // Current cuadrant.
+	#ifdef DEBUG_ARCCIRCLE
+	cerr << "Quadrant from " << sq << " to " << qe << endl;
+	#endif
+
+	// Direction of movement.
+	int dy = ( ( (q + 1) & 2) == 0) ? 1 : -1;
+	int dx= ( (q & 2) == 0) ? -1 : 1;
+
+	const int rr= radius * radius;
+	int xx= px * px;
+	int yy= py * py - rr;
+
+	while (true)
+	{
+		// Change quadrant when needed, adjusting directions.
+		if ( (q & 1) == 0)
+		{
+			if (px == 0)
+			{
+				if (qe == q)
+					break;
+				++q;
+				dy= -dy;
+			}
+		}
+		else
+		{
+			if (py == 0)
+			{
+				if (qe == q)
+					break;
+				++q;
+				dx= -dx;
+			}
+		}
+		// If we are in the end quadrant, check if at the end position.
+		if (qe == q)
+		{
+			int det= 0;
+			if (dy > 0)
+			{
+				if (py >= ey)
+					++det;
+			}
+			else
+			{
+				if (py <= ey)
+					++det;
+			}
+			if (dx > 0)
+			{
+				if (px >= ex)
+					++det;
+			}
+			else
+			{
+				if (px <= ex)
+					++det;
+			}
+			if (det == 2)
+				break;
+		}
+
+		impl_plot_mask (x + px, y - py);
+
+		int xx_new= (px + dx) * (px + dx);
+		int yy_new= (py + dy) * (py + dy) - rr;
+		int rr1= xx_new + yy;
+		int rr2= xx_new + yy_new;
+		int rr3= xx + yy_new;
+		if (rr1 < 0) rr1= -rr1;
+		if (rr2 < 0) rr2= -rr2;
+		if (rr3 < 0) rr3= -rr3;
+		if (rr3 >= std::min (rr1, rr2) )
+		{
+			px+= dx;
+			xx= xx_new;
+		}
+		if (rr1 > std::min (rr2, rr3) )
+		{
+			py+= dy;
+			yy= yy_new;
+		}
+	}
+	if (px != sx || py != sy || sq == qe)
+		impl_plot_mask (x + px, y - py);
 }
 
 void graphics::mask (int m)
@@ -1706,12 +2065,11 @@ int getnum (const char * & s)
 		throw ErrSyntax;
 	while ( isdigit (c= * s) )
 	{
-		//cerr << c;
 		r*= 10;
 		r+= c - '0';
 		++s;
 	}
-	cerr << r;
+	//cerr << r;
 	return r;
 }
 
@@ -1724,13 +2082,13 @@ TypeMove gettypemove (const char * & s)
 	switch (c)
 	{
 	case '+':
-		cerr << '+';
+		//cerr << '+';
 		tm= MovePos;
 		++s;
 		skipblank (s);
 		break;
 	case '-':
-		cerr << '-';
+		//cerr << '-';
 		tm= MoveNeg;
 		++s;
 		skipblank (s);
@@ -1764,13 +2122,13 @@ void graphics::draw (const std::string & str)
 	int i;
 	while ( (c= skipblank (s) ) != '\0')
 	{
-		cerr << c;
+		//cerr << c;
 		++s;
 		bool nopaint= false;
 		if (c == 'B')
 		{
 			c= skipblank (s);
-			cerr << c;
+			//cerr << c;
 			++s;
 			nopaint= true;
 		}
@@ -1784,7 +2142,7 @@ void graphics::draw (const std::string & str)
 				c= skipblank (s);
 				if (c != ',')
 					throw ErrSyntax;
-				cerr << ',';
+				//cerr << ',';
 				++s;
 				TypeMove my= gettypemove (s);
 				int y= getnum (s);
@@ -1889,7 +2247,7 @@ void graphics::draw (const std::string & str)
 			throw ErrSyntax;
 		}
 	}
-	cerr << endl;
+	//cerr << endl;
 }
 
 graphics::Point graphics::getlast ()
@@ -2034,7 +2392,7 @@ public:
 		activecolor (background);
 		XSetFunction (display, gcp, drawmode_copy);
 		XFillRectangle (display, pixmap, gcp,
-			x1, y1, x2 - 1, y2 - 1);
+			x1, y1, x2, y2);
 		XSetFunction (display, gcp, drawmode);
 		if (! fSynchro)
 		{

@@ -5125,17 +5125,53 @@ bool RunnerLine::do_renum ()
 
 bool RunnerLine::do_circle ()
 {
+	gettoken ();
+	requiretoken ('(');
 	BlResult r;
 	expect (r);
 	BlInteger x= r.integer ();
 	requiretoken (',');
 	expect (r);
 	BlInteger y= r.integer ();
-	requiretoken (',');
+	requiretoken (')');
+	expecttoken (',');
 	expect (r);
 	BlInteger radius= r.integer ();
-	require_endsentence ();
-	graphics::circle (x, y, radius);
+	BlNumber arcbeg= 0, arcend= 2 * M_PI;
+	bool fArc= false;
+	if (endsentence () )
+		goto do_it;
+	requiretoken (',');
+	gettoken ();
+	if (token.code != ',')
+	{
+		BlInteger color= evalinteger ();
+		graphics::setcolor (color);
+		if (endsentence () )
+			goto do_it;
+		requiretoken (',');
+	}
+	gettoken ();
+	if (token.code != ',')
+	{
+		arcbeg= evalnum ();
+		fArc= true;
+		if (endsentence () )
+			goto do_it;
+		requiretoken (',');
+	}
+	gettoken ();
+	if (! endsentence () )
+	{
+		arcend= evalnum ();
+		fArc= true;
+		require_endsentence ();
+	}
+do_it:
+	if (! fArc)
+		graphics::circle (x, y, radius);
+	else
+		graphics::arccircle (x, y, radius, arcbeg, arcend);
 	return false;
 }
 

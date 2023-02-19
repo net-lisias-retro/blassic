@@ -68,7 +68,7 @@
 570 if ym * my <= 0 then plot 6, -my * 148 / (ym-my) + 16: drawr 245, 0
 580 if ym - my = 0 then mode 0: print at 10, 8; "Poca informacion!": stop
 590 for i= 1 to n
-600 let x= x(i): let y= y(i): gosub 20: circle j, k, 2
+600 let x= x(i): let y= y(i): gosub 20: circle (j, k), 2
 610 next i
 700 for i= x(1) to x(n) step (x(n)-x(1)) / 60
 710 let x= i: let y= fn b(i)

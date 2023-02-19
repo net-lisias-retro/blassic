@@ -1,3 +1,14 @@
+Version 0.5.1
+
+	Bug in CLS in graphics mode corrected.
+
+	Cleaner circles.
+
+	The syntax of the CIRCLE instruction has been changed and
+	completed for compatibility with Gwbasic.
+
+	Bug DRAW string debug output not cleaned, corrected.
+
 Version 0.5.0
 
 	Speed improvement.

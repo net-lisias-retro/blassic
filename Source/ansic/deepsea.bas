@@ -14,6 +14,9 @@ def int a-z
 
 randomize time
 
+color_sky= 11
+color_sea= 1
+
 sealevel= 7
 boatlevel= sealevel - 1
 minysub= sealevel + 1
@@ -59,7 +62,7 @@ pause 750
 
 xsub= 20: ysub= 20
 
-pen 6: paper 1
+pen 6: paper color_sea
 locate ysub, xsub: print sub$;
 synchronize
 
@@ -67,7 +70,7 @@ pause 500
 
 gosub clearscreen
 
-pen 6: paper 1
+pen 6: paper color_sea
 
 gosub printpoints
 
@@ -100,7 +103,7 @@ gosub moveboats
 
 gosub showglubs
 
-pen 6, 0: paper 1
+pen 6, 0: paper color_sea
 
 for i= 1 to maxbomb
 	if xbomb (i) <> 0 then locate ybomb (i), xbomb (i): print " ";
@@ -184,7 +187,7 @@ for i= 1 to maxcharge
 	locate ycharge (i), xcharge (i): print charge$;
 
 	dist= xcharge (i) - xsub
-	if ycharge (i) = ysub and dist >= 0 and dist < 3 then killed= 1
+	if ycharge (i) = ysub and dist >= 0 and dist < 3 then killed= 1: locate ycharge (i), xcharge (i) - 2: print "(( ))";
 
 	label nextcharge
 next
@@ -206,7 +209,7 @@ if x = 0 then return
 xcharge (x)= xfire
 ycharge (x)= sealevel
 countcharge (x)= inicountcharge
-pen 6: paper 1
+pen 6: paper color_sea
 locate ycharge (x), xcharge (x): print charge$;
 
 return
@@ -227,7 +230,7 @@ return
 
 label moveboats
 
-pen 4, 0: paper 3
+pen 4, 0: paper color_sky
 
 locate boatlevel, 1: print spc (40);
 
@@ -314,8 +317,9 @@ return
 
 label gameover
 
-d= sysvarptr
-charset= peek (d+20) + 256 * (peek (d+21) + 256 * (peek (d+22) + 256 * peek (d+23) ) )
+synchronize
+
+pause 1000
 
 posx= 5
 g$= "GAME": posy= sealevel + 2: gosub rotulo
@@ -356,10 +360,10 @@ end
 
 label clearscreen
 
-paper 1
+paper color_sea
 cls
 
-paper 3
+paper color_sky
 print space$ (40 * (sealevel - 1) )
 
 return
