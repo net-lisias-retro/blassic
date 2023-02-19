@@ -1,0 +1,574 @@
+// var.cpp
+
+//#define KEEP_IT_SIMPLE
+
+
+#include "var.h"
+#include "error.h"
+#include "util.h"
+
+#include <vector>
+#include <algorithm>
+#include <stdexcept>
+
+#include <cctype>
+using std::toupper;
+
+#include <iostream>
+using std::cerr;
+using std::endl;
+
+#ifdef __BORLANDC__
+#pragma warn -inl
+#if __BORLANDC__ >= 0x0560
+#pragma warn -8091
+#endif
+#endif
+
+#ifndef USE_HASH_MAP
+
+#include <map>
+#define MAP std::map
+
+#else
+
+#include <hash_map>
+#define MAP std::hash_map
+
+template <> struct hash <std::string>
+{
+	hash () : hashstr (hash <const char *> () ) { }
+	size_t operator () (const std::string & str) const
+	{ return hashstr (str.c_str () ); }
+private:
+	hash <const char *> hashstr;
+};
+
+#endif
+
+namespace {
+
+VarType tabletype [27];
+
+bool inittabletype ()
+{
+	std::fill_n (tabletype, util::dim_array (tabletype), VarNumber);
+	return true;
+}
+
+bool table_inited= inittabletype ();
+
+}
+
+VarType typeofvar (const std::string & name)
+{
+	// Simplificado por ahora.
+	switch (name [name.size () - 1] )
+	{
+	case '!':
+		return VarNumber;
+	case '%':
+		return VarInteger;
+	case '$':
+		return VarString;
+	default:
+		return tabletype [toupper (name [0]) - 'A'];
+	}
+}
+
+void definevar (VarType type, char c)
+{
+	tabletype [toupper (c) - 'A']= type;
+}
+
+void definevar (VarType type, char cfrom, char cto)
+{
+	size_t from= toupper (cfrom) - 'A';
+	size_t to= toupper (cto) - 'A';
+	std::fill (tabletype + from, tabletype + to + 1, type);
+}
+
+namespace {
+
+template <char c>
+inline std::string stripvar (const std::string n)
+{
+	const std::string::size_type l= n.size () - 1;
+	if (n [l] == c)
+		return n.substr (0, l);
+	return n;
+}
+
+inline std::string stripvarnumber (const std::string & n)
+{
+	return stripvar <'!'> (n);
+}
+
+inline std::string stripvarinteger (const std::string & n)
+{
+	return stripvar <'%'> (n);
+}
+
+inline std::string stripvarstring (const std::string & n)
+{
+	return stripvar <'$'> (n);
+}
+
+template <class C>
+inline void initnewvar (C &)
+{ }
+
+template <>
+inline void initnewvar (BlNumber & n)
+{ n= BlNumber (); }
+template <>
+inline void initnewvar (BlInteger & n)
+{ n= BlInteger (); }
+
+#ifndef KEEP_IT_SIMPLE
+
+template <class C>
+class Table {
+	static const size_t chunk_size= 512;
+	std::vector <C *> vc;
+	size_t n;
+	static void clearchunk (C * pc)
+	{ delete [] pc; }
+public:
+	Table () : n (0)
+	{ }
+	~Table ()
+	{ clear (); }
+	void clear ()
+	{
+		std::for_each (vc.begin (), vc.end (), clearchunk);
+		vc.clear ();
+		n= 0;
+	}
+	C * newvar ()
+	{
+		size_t nelem= n % chunk_size;
+		if (nelem == 0)
+		{
+			C * pnc= new C [chunk_size];
+			vc.push_back (pnc);
+		}
+		size_t nchunk= n / chunk_size;
+		++n;
+		return & vc [nchunk] [nelem];
+	}
+};
+
+Table <BlNumber> tablenumber;
+Table <BlInteger> tableinteger;
+Table <std::string> tablestring;
+
+template <class C>
+inline Table <C> & table ();
+
+template <>
+inline Table <BlNumber> & table <BlNumber> ()
+{ return tablenumber; }
+template <>
+inline Table <BlInteger> & table <BlInteger> ()
+{ return tableinteger; }
+template <>
+inline Table <std::string> & table <std::string> ()
+{ return tablestring; }
+
+MAP <std::string, BlNumber *> numvar;
+MAP <std::string, BlInteger *> integervar;
+MAP <std::string, std::string *> stringvar;
+
+template <class C>
+inline MAP <std::string, C *> & mapvar ();
+
+template <>
+inline MAP <std::string, BlNumber *> & mapvar <BlNumber> ()
+{ return numvar; }
+template <>
+inline MAP <std::string, BlInteger *> & mapvar <BlInteger> ()
+{ return integervar; }
+template <>
+inline MAP <std::string, std::string *> & mapvar <std::string> ()
+{ return stringvar; }
+
+template <class C>
+inline C * getaddr (const std::string name)
+{
+	C * addr= mapvar <C> () [name];
+	if (! addr)
+	{
+		addr= table <C> ().newvar ();
+		mapvar <C> () [name]= addr;
+		initnewvar (* addr);
+	}
+	return addr;
+}
+
+template <class C>
+inline void assignvar (const std::string & n, const C & value)
+{
+	C * pc= getaddr <C> (n);
+	* pc= value;
+}
+
+template <class C>
+inline C evaluatevar (const std::string & n)
+{
+	C * pc= getaddr <C> (n);
+	return * pc;
+}
+
+#else
+// Keep it Simple.
+
+MAP <std::string, BlNumber> varnumber;
+MAP <std::string, BlInteger> varinteger;
+MAP <std::string, std::string> varstring;
+
+#endif
+
+
+} // namespace
+
+void assignvarnumber (const std::string & name, BlNumber value)
+{
+	#ifndef KEEP_IT_SIMPLE
+	assignvar (name, value);
+	#else
+	varnumber [stripvarnumber (name) ]= value;
+	#endif
+}
+
+void assignvarinteger (const std::string & name, BlInteger value)
+{
+	#ifndef KEEP_IT_SIMPLE
+	assignvar (stripvarinteger (name), value);
+	#else
+	varinteger [stripvarinteger (name) ]= value;
+	#endif
+}
+
+void assignvarstring (const std::string & name, const std::string & value)
+{
+	#ifndef KEEP_IT_SIMPLE
+	assignvar (stripvarstring (name), value);
+	#else
+	varstring [stripvarstring (name) ]= value;
+	#endif
+}
+
+BlNumber evaluatevarnumber (const std::string & name)
+{
+	#ifndef KEEP_IT_SIMPLE
+	return evaluatevar <BlNumber> (name);
+	#else
+	return varnumber [stripvarnumber (name) ];
+	#endif
+}
+
+BlInteger evaluatevarinteger (const std::string & name)
+{
+	#ifndef KEEP_IT_SIMPLE
+	return evaluatevar <BlInteger> (stripvarinteger (name) );
+	#else
+	return varinteger [stripvarinteger (name) ];
+	#endif
+}
+
+std::string evaluatevarstring (const std::string & name)
+{
+	#ifndef KEEP_IT_SIMPLE
+	return evaluatevar <std::string> (stripvarstring (name) );
+	#else
+	return varstring [stripvarstring (name) ];
+	#endif
+}
+
+BlNumber * addrvarnumber (const std::string & name)
+{
+	#ifndef KEEP_IT_SIMPLE
+	return getaddr <BlNumber> (name);
+	#else
+	return & varnumber [stripvarnumber (name) ];
+	#endif
+}
+
+BlInteger * addrvarinteger (const std::string & name)
+{
+	#ifndef KEEP_IT_SIMPLE
+	return getaddr <BlInteger> (stripvarinteger (name) );
+	#else
+	return & varinteger [stripvarinteger (name) ];
+	#endif
+}
+
+std::string * addrvarstring (const std::string & name)
+{
+	#ifndef KEEP_IT_SIMPLE
+	return getaddr <std::string> (stripvarstring (name) );
+	#else
+	return & varstring [stripvarstring (name) ];
+	#endif
+}
+
+//*********************************************************
+//                    ARRAYS
+//*********************************************************
+
+namespace {
+
+template <class C>
+struct Array {
+	Dimension d;
+	C * value;
+	Array (const Dimension & nd, C * nvalue) :
+		d (nd), value (nvalue)
+	{ }
+	Array () :
+		value (0)
+	{ }
+};
+
+template <class C>
+inline Array <C> makeArray (const Dimension & nd, C * nvalue)
+{
+	return Array <C> (nd, nvalue);
+}
+
+template <class C>
+struct ArrayVar {
+	typedef MAP <std::string, Array <C> > map;
+	typedef typename map::iterator iterator;
+	typedef typename map::const_iterator const_iterator;
+	typedef typename map::value_type value_type;
+};
+
+MAP <std::string, Array <BlNumber> > arrayvarnumber;
+MAP <std::string, Array <BlInteger> > arrayvarinteger;
+MAP <std::string, Array <std::string> > arrayvarstring;
+
+template <class C>
+inline typename ArrayVar <C>::map & arrayvar ();
+// Se necesita como plantilla para usarlo en otras plantillas.
+// Lo definimos solamente para los tipos usados.
+
+template <>
+inline ArrayVar <BlNumber>::map &
+	arrayvar <BlNumber> ()
+{ return arrayvarnumber; }
+template <>
+inline ArrayVar <BlInteger>::map &
+	arrayvar <BlInteger> ()
+{ return arrayvarinteger; }
+template <>
+inline ArrayVar<std::string>::map &
+	arrayvar <std::string> ()
+{ return arrayvarstring; }
+
+template <class C>
+inline void dimvar (const std::string & name, const Dimension & d)
+{
+	if (arrayvar <C> ().find (name) != arrayvar <C> ().end () )
+		throw ErrAlreadyDim;
+	size_t n= d.elements ();
+	util::auto_buffer <C> value (n);
+	arrayvar <C> () [name]= makeArray (d, value.data () );
+	std::for_each (value.begin (), value.end (), initnewvar <C> );
+	value.release ();
+}
+
+template <class C>
+inline void erasevar (const std::string & name)
+{
+	typename ArrayVar <C>::const_iterator it=
+		arrayvar <C> ().find (name);
+	if (it == arrayvar <C> ().end () )
+		throw ErrFunctionCall;
+	arrayvar <C> ().erase (name);
+	//arrayvar <C> ().erase (* it);
+}
+
+Dimension defaultdimension (const Dimension & d)
+{
+        Dimension n;
+        for (size_t i= 0, l= d.size (); i < l; ++i)
+                n.add (10);
+        return n;
+}
+
+template <class C>
+void createdefault (const std::string & name, const Dimension & d)
+{
+	Dimension n= defaultdimension (d);
+	dimvar<C> (name, n);
+}
+
+template <class C>
+inline C * addrdim (const std::string & name, const Dimension & d)
+{
+	typename ArrayVar <C>::iterator it=
+		arrayvar <C> ().find (name);
+	if (it == arrayvar <C> ().end () )
+	{
+		createdefault <C> (name, d);
+		it= arrayvar <C> ().find (name);
+		if (it == arrayvar <C> ().end () )
+		{
+			cerr << "Default creation of array failed" << endl;
+			throw ErrBlassicInternal;
+		}
+	}
+	size_t n= it->second.d.evalpos (d);
+	return it->second.value + n;
+}
+
+template <class C>
+inline C valuedim (const std::string & name, const Dimension & d)
+{
+	return * addrdim <C> (name, d);
+}
+
+template <class C>
+inline void assigndim (const std::string & name,
+	const Dimension & d, const C & result)
+{
+	* addrdim <C> (name, d)= result;
+}
+
+} // namespace
+
+void dimvarnumber (const std::string & name, const Dimension & d)
+{
+	dimvar <BlNumber> (stripvarnumber (name), d);
+}
+
+void dimvarinteger (const std::string & name, const Dimension & d)
+{
+	dimvar <BlInteger> (stripvarinteger (name), d);
+}
+
+void dimvarstring (const std::string & name, const Dimension & d)
+{
+	dimvar <std::string> (stripvarstring (name), d);
+}
+
+void erasevarnumber (const std::string & name)
+{
+        erasevar <BlNumber> (stripvarnumber (name) );
+}
+
+void erasevarinteger (const std::string & name)
+{
+	erasevar <BlInteger> (stripvarinteger (name) );
+}
+
+void erasevarstring (const std::string & name)
+{
+        erasevar <std::string> (stripvarstring (name) );
+}
+
+BlNumber valuedimnumber (const std::string & name, const Dimension & d)
+{
+	return valuedim <BlNumber> (stripvarnumber (name), d);
+}
+
+BlInteger valuediminteger (const std::string & name, const Dimension & d)
+{
+	return valuedim <BlInteger> (stripvarinteger (name), d);
+}
+
+std::string valuedimstring (const std::string & name, const Dimension & d)
+{
+	return valuedim <std::string> (stripvarstring (name), d);
+}
+
+void assigndimnumber (const std::string & name, const Dimension & d,
+	BlNumber result)
+{
+	assigndim (stripvarnumber (name), d, result);
+}
+
+void assigndiminteger (const std::string & name, const Dimension & d,
+	BlInteger result)
+{
+	assigndim (stripvarinteger (name), d, result);
+}
+
+void assigndimstring (const std::string & name, const Dimension & d,
+	const std::string & result)
+{
+	assigndim (stripvarstring (name), d, result);
+}
+
+BlNumber * addrdimnumber (const std::string & name, const Dimension & d)
+{
+	return addrdim <BlNumber> (stripvarnumber (name), d);
+}
+
+BlInteger * addrdiminteger (const std::string & name, const Dimension & d)
+{
+	return addrdim <BlInteger> (stripvarinteger (name), d);
+}
+
+std::string * addrdimstring (const std::string & name, const Dimension & d)
+{
+	return addrdim <std::string> (stripvarstring (name), d);
+}
+
+//**********************************************************
+//		Borrado de variables
+//**********************************************************
+
+namespace {
+
+template <class C>
+class FreeArray {
+public:
+	void operator ()
+		(const typename ArrayVar <C>::value_type & var)
+	{
+		delete [] var.second.value;
+	}
+};
+
+template <class C>
+inline void cleararray ()
+{
+	std::for_each (arrayvar <C> ().begin (), arrayvar <C> ().end (),
+		FreeArray<C> () );
+	arrayvar <C> ().clear ();
+}
+
+#ifndef KEEP_IT_SIMPLE
+
+template <class C>
+void clear ()
+{
+	table <C> ().clear ();
+	mapvar <C> ().clear ();
+}
+
+#endif
+
+} // namespace
+
+void clearvars ()
+{
+	#ifndef KEEP_IT_SIMPLE
+	clear <BlNumber> ();
+	clear <BlInteger> ();
+	clear <std::string> ();
+	#else
+	varnumber.clear ();
+	varinteger.clear ();
+	varstring.clear ();
+	#endif
+
+	cleararray <BlNumber> ();
+	cleararray <BlInteger> ();
+	cleararray <std::string> ();
+}
+
+// Fin de var.cpp

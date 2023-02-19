@@ -1,5 +1,8 @@
 # Blassic :: Change Log
 
+* 2002-1215: 0.4.5 (Julián Albo)
+	+ EDIT command. Line editing in AUTO and in prompt.
+	+ Prompt "Ok" instead of "]" (sorry, Apple ]['s nostalgics).
 * 0000-0000: 0.4.4 (Julián Albo) - Release date is unknown.
 	+ Bug DATA terminated with comma, corrected.
 	+ Mouse secondary button and button release.
