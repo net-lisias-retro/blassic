@@ -1,5 +1,5 @@
 // file.h
-// Revision 13-aug-2003
+// Revision 18-aug-2003
 
 #ifndef INCLUDE_FILE_H_
 #define INCLUDE_FILE_H_
@@ -13,10 +13,13 @@
 #include <string>
 #include <vector>
 
-#ifndef _Windows
+//#ifndef _Windows
+#ifndef BLASSIC_USE_WINDOWS
 #include <stdio.h> // FILE needed
 #else
 #include <windows.h> // HANDLE needed
+#undef max
+#undef min
 #endif
 
 #include "blassic.h"
@@ -271,7 +274,8 @@ private:
         size_t bufpos, bufread;
         void readbuffer ();
         char getcharfrombuffer ();
-        #ifdef _Windows
+        //#ifdef _Windows
+	#ifdef BLASSIC_USE_WINDOWS
         HANDLE hpipe;
         #else
 	FILE * hpipe;

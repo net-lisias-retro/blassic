@@ -92,7 +92,7 @@ REM Carga la tabla de codigos
 
 LABEL loadtable
 
-numcod= 216
+numcod= 218
 dim name$ (numcod), cod (numcod)
 for i= 1 to numcod
 	read name$ (i), cod (i)
@@ -241,6 +241,8 @@ DATA "TAGOFF", 370
 DATA "ORIGIN", 371
 DATA "DEG", 372
 DATA "RAD", 373
+DATA "INVERSE", 374
+DATA "IF_DEBUG", 375
 
 REM Funciones de cadena
 

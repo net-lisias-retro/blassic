@@ -1,5 +1,5 @@
 // runnerline.cpp
-// Revision 14-aug-2003
+// Revision 22-aug-2003
 
 #include "runnerline.h"
 
@@ -272,6 +272,7 @@ RunnerLine::mapfunc_t RunnerLine::initmapfunc ()
 	m [keyDEG]=          & RunnerLine::do_deg_rad;
 	m [keyRAD]=          & RunnerLine::do_deg_rad;
 	m [keyINVERSE]=      & RunnerLine::do_inverse;
+	m [keyIF_DEBUG]=     & RunnerLine::do_if_debug;
 	return m;
 }
 
@@ -3341,6 +3342,8 @@ bool RunnerLine::do_data ()
 
 bool RunnerLine::do_restore ()
 {
+	TraceFunc tr ("RunnerLine::do_restore");
+
 	gettoken ();
 	BlLineNumber bln= 0;
 	if (! endsentence () )
@@ -3348,6 +3351,7 @@ bool RunnerLine::do_restore ()
 		bln= evallinenumber ();
 		require_endsentence ();
 	}
+	tr.message (std::string ("Restoring to ") + util::to_string (bln) );
 	runner.setreadline (bln);
 	return false;
 }
@@ -6005,6 +6009,15 @@ bool RunnerLine::do_inverse ()
 	BlInteger inv= evalinteger ();
 	runner.getfile (ch).inverse (inv % 2);
 	return false;
+}
+
+bool RunnerLine::do_if_debug ()
+{
+	BlInteger n= expectinteger ();
+	require_endsentence ();
+	// If the parameter is lower than the current debug level,
+	// ignore the rest of the line.
+	return n > sysvar::get16 (sysvar::DebugLevel);
 }
 
 void RunnerLine::execute ()

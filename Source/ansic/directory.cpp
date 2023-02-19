@@ -1,8 +1,10 @@
 // directory.cpp
-// Revision 13-ago-2003
+// Revision 18-aug-2003
 
 #include "directory.h"
 #include "error.h"
+
+#include <errno.h>
 
 // We use the unix style even on windows under cygwin.
 #if defined __unix__ || defined __linux__ || defined __NetBSD__
@@ -10,7 +12,6 @@
 #endif
 
 #ifdef USE_UNIX
-#include <errno.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>

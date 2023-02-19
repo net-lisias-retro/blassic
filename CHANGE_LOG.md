@@ -1,6 +1,13 @@
 # Blassic :: Change Log
 
-* 2003-0914: 0.6.0 (Julián Albo)
+* 2003-0822: 0.6.1 (Julián Albo)
+	+ MODE 0 when graphics not available now is not an error.
+	+ Added underline mode to console emulation in graphics mode.
+	+ Bug RESTORE always set line 0 corrected.
+	+ Bug ' after DATA corrected.
+	+ Bug vars whith suffix ! corrected.
+	+ IF_DEBUG instruction, DebugLevel system var, --debug commandline option.
+* 2003-0814: 0.6.0 (Julián Albo)
 	+ Corrected an obscure bug in windows.
 	+ FILES now gives error when file not found and has an optionalchannel parameter.
 	+ Problem with popen as direct command in windows solved inwindows 98, but now does not work on XP. Compiling withMinGW the problem dissapears. Borland's fault?

@@ -1,5 +1,5 @@
 // runner.h
-// Revision 13-ago-2003
+// Revision 17-ago-2003
 
 #ifndef RUNNER_H_
 #define RUNNER_H_
@@ -62,7 +62,9 @@ public:
 	unsigned short & getdataelem () { return dataelem; }
 	void setreadline (BlLineNumber bln)
 	{
-		datanumline= 0;
+		// HORROR!
+		//datanumline= 0;
+		datanumline= bln;
 		datachunk= 0;
 		dataelem= 0;
 	}

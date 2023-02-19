@@ -1,5 +1,5 @@
 // sysvar.cpp
-// Revision 17-jul-2003
+// Revision 22-aug-2003
 
 #include "blassic.h"
 #include "sysvar.h"
@@ -30,6 +30,7 @@ void sysvar::init ()
 	set16 (MaxHistory, 100);
 	set (Flags1, 0); // LOCATE style Microsoft (row, col).
 	set32 (MaxFnLevel, 1000); // Seems a good limit.
+	set16 (DebugLevel, 0);
 }
 
 size_t sysvar::address ()

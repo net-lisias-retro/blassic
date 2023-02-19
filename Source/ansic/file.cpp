@@ -1,5 +1,5 @@
 // file.cpp
-// Revision 14-aug-2003
+// Revision 18-aug-2003
 
 #include "blassic.h"
 #include "file.h"
@@ -25,7 +25,8 @@ using std::endl;
 #include <cassert>
 #define ASSERT assert
 
-#ifndef _Windows
+//#ifndef _Windows
+#ifndef BLASSIC_USE_WINDOWS
 #include <unistd.h> // read, write
 #else
 #include <io.h> // isatty
@@ -296,7 +297,8 @@ BlFileConsole::BlFileConsole (std::istream & nin, std::ostream & nout) :
         out (nout),
         ttyin (isatty (0) ),
         ttyout (isatty (1) )
-        #ifndef _Windows
+        //#ifndef _Windows
+        #ifndef BLASSIC_USE_WINDOWS
         , xpos (0)
         #endif
 {
@@ -512,7 +514,8 @@ void BlFileConsole::outchar (char c)
 	else
 		out << c;
 
-	#ifndef _Windows
+	//#ifndef _Windows
+        #ifndef BLASSIC_USE_WINDOWS
 	updateposchar (xpos).operator () (c);
 	#endif
 
@@ -546,7 +549,8 @@ void BlFileConsole::outinteger (BlInteger n)
 void BlFileConsole::gotoxy (int x, int y)
 {
 	::gotoxy (x, y);
-	#ifndef _Windows
+	//#ifndef _Windows
+	#ifndef BLASSIC_USE_WINDOWS
 	xpos= x;
 	#endif
 }
@@ -564,14 +568,16 @@ void BlFileConsole::setbackground (int color)
 void BlFileConsole::cls ()
 {
 	::cls ();
-	#ifndef _Windows
+	//#ifndef _Windows
+	#ifndef BLASSIC_USE_WINDOWS
 	xpos= 0;
 	#endif
 }
 
 int BlFileConsole::pos ()
 {
-	#ifdef _Windows
+	//#ifdef _Windows
+	#ifndef BLASSIC_USE_WINDOWS
 	return getcursorx ();
 	#else
 	return xpos;
@@ -1092,7 +1098,8 @@ BlFilePopen::BlFilePopen (const std::string & str, OpenMode nmode) :
 {
         TraceFunc tr ("BlFilePopen::BlFilePopen");
 
-        #ifdef _Windows
+        //#ifdef _Windows
+	#ifdef BLASSIC_USE_WINDOWS
 
         std::string command;
         {
@@ -1194,7 +1201,8 @@ BlFilePopen::~BlFilePopen ()
 {
         TraceFunc tr ("BlFilePopen:~BlFilePopen");
 
-	#ifdef _Windows
+	//#ifdef _Windows
+	#ifdef BLASSIC_USE_WINDOWS
 
         CloseHandle (hpipe);
 
@@ -1209,7 +1217,8 @@ void BlFilePopen::readbuffer ()
 {
         TraceFunc tr ("BlFilePopen::readbuffer");
 
-	#ifdef _Windows
+	//#ifdef _Windows
+	#ifdef BLASSIC_USE_WINDOWS
 
         DWORD bytesread= 0;
         ReadFile (hpipe, buffer, bufsize, & bytesread, NULL);
@@ -1261,7 +1270,8 @@ void BlFilePopen::getline (std::string & str)
         while ( (c= getcharfrombuffer () ) != '\r' && c != '\n' && c != '\0')
                 str+= c;
 
-        #ifdef _Windows
+        //#ifdef _Windows
+	#ifdef BLASSIC_USE_WINDOWS
 
         if (c == '\r')
                 getcharfrombuffer ();
@@ -1285,7 +1295,8 @@ void BlFilePopen::outstring (const std::string & str)
 	const char * to= str.data ();
         std::string::size_type l= str.size ();
 
-        #ifdef _Windows
+        //#ifdef _Windows
+	#ifdef BLASSIC_USE_WINDOWS
 
         DWORD written;
         WriteFile (hpipe, to, l, & written, NULL);
@@ -1299,7 +1310,8 @@ void BlFilePopen::outstring (const std::string & str)
 
 void BlFilePopen::outchar (char c)
 {
-        #ifdef _Windows
+        //#ifdef _Windows
+	#ifdef BLASSIC_USE_WINDOWS
 
         DWORD written;
         WriteFile (hpipe, & c, 1, & written, NULL);

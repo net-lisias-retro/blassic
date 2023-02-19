@@ -2,7 +2,8 @@ rem bubble.bas
 
 rem def int a, i-j, n
 
-n= 500
+n= val (programarg$ (1) )
+if n = 0 then n= 500
 dim a (n)
 
 for i= 1 to n

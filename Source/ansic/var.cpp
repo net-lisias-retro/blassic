@@ -1,4 +1,5 @@
 // var.cpp
+// Revision 21-aug-2003
 
 //#define KEEP_IT_SIMPLE
 
@@ -240,7 +241,9 @@ MAP <std::string, std::string> varstring;
 void assignvarnumber (const std::string & name, BlNumber value)
 {
 	#ifndef KEEP_IT_SIMPLE
-	assignvar (name, value);
+	//assignvar (name, value);
+	// Ops, I forget to strip here.
+	assignvar (stripvarnumber (name), value);
 	#else
 	varnumber [stripvarnumber (name) ]= value;
 	#endif
@@ -267,7 +270,9 @@ void assignvarstring (const std::string & name, const std::string & value)
 BlNumber evaluatevarnumber (const std::string & name)
 {
 	#ifndef KEEP_IT_SIMPLE
-	return evaluatevar <BlNumber> (name);
+	//return evaluatevar <BlNumber> (name);
+	// Ops, I forget to strip here.
+	return evaluatevar <BlNumber> (stripvarnumber (name) );
 	#else
 	return varnumber [stripvarnumber (name) ];
 	#endif
@@ -294,7 +299,9 @@ std::string evaluatevarstring (const std::string & name)
 BlNumber * addrvarnumber (const std::string & name)
 {
 	#ifndef KEEP_IT_SIMPLE
-	return getaddr <BlNumber> (name);
+	//return getaddr <BlNumber> (name);
+	// Ops, I forget to strip here.
+	return getaddr <BlNumber> (stripvarnumber (name) );
 	#else
 	return & varnumber [stripvarnumber (name) ];
 	#endif

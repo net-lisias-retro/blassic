@@ -66,7 +66,12 @@ label init
 
 esc$= chr$ (27)
 
-mode 10
+m= val (programarg$ (1) )
+if m = 0 then mode 10: goto mode_done
+w= val (programarg$ (2) )
+if w = 0 then mode m: goto mode_done
+mode m, w
+label mode_done
 
 x1= -pi: x2= pi
 y1= -2 : y2= 2
@@ -165,7 +170,7 @@ if a$ = "Q" or a$ = esc$ then goto endprogram
 
 if a$ = "R" then goto redraw
 
-if a$ = "V" then locate 1, 1: print "X1= "; x1; " X2= "; x2; " Y1= "; y1; " Y2= "; y2 : goto tecla
+if a$ = "V" then color 0: locate 1, 1: print "X1= "; x1; " X2= "; x2; " Y1= "; y1; " Y2= "; y2 : goto tecla
 
 if a$ = "CLICK" then gosub mousedraw: goto tecla
 
@@ -177,7 +182,7 @@ xs2= fn calculx (inix + width)
 ys1= fn calculy (yy2 - (iniy + height) )
 ys2= fn calculy (yy2 - iniy)
 
-if xs1 >= xs2 or ys1 >= ys2 then locate 1, 1: print "**TOO CLOSE**" : goto tecla
+if xs1 >= xs2 or ys1 >= ys2 then color 0: locate 1, 1: print "**TOO CLOSE**" : goto tecla
 
 x1= xs1: x2= xs2: y1= ys1: y2= ys2
 x21= x2 - x1

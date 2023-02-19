@@ -1,3 +1,18 @@
+Version 0.6.1
+
+	MODE 0 when graphics not available now is not an error.
+
+	Added underline mode to console emulation in graphics mode.
+
+	Bug RESTORE always set line 0 corrected.
+
+	Bug ' after DATA corrected.
+
+	Bug vars whith suffix ! corrected.
+
+	IF_DEBUG instruction, DebugLevel system var, --debug command
+	line option.
+
 Version 0.6.0
 
 	Corrected an obscure bug in windows.

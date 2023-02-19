@@ -1,5 +1,5 @@
 // codeline.cpp
-// Revision 29-may-2003
+// Revision 17-aug-2003
 
 //#include "codeline.h"
 #include "program.h"
@@ -254,7 +254,8 @@ CodeLine::Token CodeLine::getdata ()
         }
         else
 	{
-		while (pos < len && (c= strcontent [pos]) != ',' && c != ':')
+		while (pos < len &&
+			(c= strcontent [pos]) != ',' && c != ':' && c != '\'')
 		{
 			if (c == INTEGER_PREFIX)
 			{

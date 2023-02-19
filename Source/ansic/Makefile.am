@@ -14,7 +14,7 @@ gencharset_SOURCES = gencharset.cpp
 
 gencharset_CXXFLAGS = \
 	@SVGALIB_CFLAGS@ \
-	-Wall -pedantic -Wwrite-strings -Wstrict-prototypes
+	-Wall -Wwrite-strings -Wstrict-prototypes
 
 gencharset_LDADD =
 
@@ -70,7 +70,7 @@ blassic_SOURCES = \
 
 blassic_CXXFLAGS = \
 	@SVGALIB_CFLAGS@ \
-	-Wall -pedantic -Wwrite-strings -Wstrict-prototypes
+	-Wall -Wwrite-strings -Wstrict-prototypes
 
 # Julian:
 #blassic_LDADD = -ldl -lncurses @SVGALIB_LIBS@ -L/usr/X11R6/lib -lX11

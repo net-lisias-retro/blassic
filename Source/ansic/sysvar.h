@@ -1,5 +1,5 @@
 // sysvar.h
-// Revision 17-jul-2003
+// Revision 22-aug-2003
 
 #ifndef SYSVAR_H_
 #define SYSVAR_H_
@@ -37,7 +37,8 @@ const size_t
 	Flags1= 30,	// Bit 0: LOCATE style. 0 Microsoft, 1 Amstrad CPC.
 	// 31: 1 byte reserved
 	MaxFnLevel= 32, // Max level of FN calls.
-	EndSysVar= 36;
+	DebugLevel= 36, // Level for IF_DEBUG
+	EndSysVar= 38;
 
 } // namespace sysvar
 

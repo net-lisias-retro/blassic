@@ -2408,12 +2408,12 @@ ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
 
 
 #CXXFLAGS="-g"  # default compilation options; avoids having -O2 by default
-CXXFLAGS="-O3"	# We want maximun optimization even in debugging.
+CXXFLAGS=$CXXFLAGS" -O3"	# We want maximun optimization even in debugging.
 
 # Julian: Some systems install ncurses in /opt, path to X libraries needed.
 # Julian: and some does not have the X includes default accesible.
-CPPFLAGS="-I/opt/ncurses/include -I/usr/X11R6/include"
-LDFLAGS="-L/opt/ncurses/lib -L/usr/X11R6/lib"
+CPPFLAGS=$CPPFLAGS" -I/opt/ncurses/include -I/usr/X11R6/include"
+LDFLAGS=$LDFLAGS" -L/opt/ncurses/lib -L/usr/X11R6/lib"
 
 # Julian: under cygwin and mingw, link with gdi32.dll and wsock32.dll
 case "$host" in

@@ -1,5 +1,5 @@
 // graphics.cpp
-// Revision 14-aug-2003
+// Revision 18-aug-2003
 
 #ifdef __BORLANDC__
 #pragma warn -8027
@@ -52,9 +52,10 @@ using std::endl;
 
 #include <process.h>
 #include <windows.h>
+#undef min
+#undef max
 
 #if defined __CYGWIN32__ || defined __CYGWIN__
-#undef min
 // This macros are from Anders Norlander, modified to add
 // the cast to start_proc.
 /* Macro uses args se we can cast proc to LPTHREAD_START_ROUTINE
@@ -1486,11 +1487,16 @@ inline void do_plot_points (XPoint point [], int npoints, bool limitable)
 }
 
 void printxy (int x, int y, unsigned char ch,
-	bool limitable, bool inverse= false)
+	bool limitable, bool inverse= false, bool underline= false)
 {
 	static unsigned char mask [8]= { 128, 64, 32, 16, 8, 4, 2, 1 };
 
-	charset::chardata & data= charset::data [ch];
+	//charset::chardata & data= charset::data [ch];
+
+	charset::chardata data;
+	memcpy (data, charset::data [ch], sizeof (charset::chardata) );
+	if (underline)
+		data [7]= 255;
 
 	XPoint point [64 * MAXZOOMTEXTY]; // 64 pixels * max zoom height
 	int n= 0, npoints= 0;
@@ -1551,9 +1557,11 @@ void printxy (int x, int y, unsigned char ch,
 	}
 }
 
-inline void print (int col, int row, unsigned char ch, bool inverse)
+inline void print (int col, int row, unsigned char ch,
+	bool inverse, bool underline= false)
 {
-	printxy (col * charwidth, row * charheight, ch, false, inverse);
+	printxy (col * charwidth, row * charheight, ch, false,
+		inverse, underline);
 }
 
 void setmaxtext ()
@@ -1756,7 +1764,9 @@ void graphics::setmode (int width, int height, bool inverty,
 
 void graphics::setmode (int mode)
 {
-	if (! inited)
+	TraceFunc tr ("graphics::setmode");
+
+	if (! inited && mode != text_mode)
 		throw ErrFunctionCall;
 
 	int width, height;
@@ -3436,6 +3446,14 @@ class BlWindow {
 	{
 		inverse= false;
 	}
+	void do_ESC_r ()
+	{
+		underline= true;
+	}
+	void do_ESC_u ()
+	{
+		underline= false;
+	}
 	void do_ESC_x ()
 	{
 		// set mode 24 x 80
@@ -3454,7 +3472,8 @@ public:
 		collecting_params (0),
 		fTag (false),
 		cursor_visible (true),
-		inverse (false)
+		inverse (false),
+		underline (false)
 	{
 		setdefault ();
 		defaultcolors ();
@@ -3463,7 +3482,8 @@ public:
 		collecting_params (0),
 		fTag (false),
 		cursor_visible (true),
-		inverse (false)
+		inverse (false),
+		underline (false)
 	{
 		set (x1, x2, y1, y2);
 		defaultcolors ();
@@ -3535,7 +3555,7 @@ public:
 			//cerr << "Fin de linea" << endl;
 			int yy= orgy + y;
 			for ( ; x < width; ++x)
-				print (orgx + x, yy, ' ', inverse);
+				print (orgx + x, yy, ' ', inverse, underline);
 			x= 0;
 			++y;
 		}
@@ -3543,7 +3563,7 @@ public:
 		{
 			int yy= orgy + y;
 			do {
-				print (orgx + x, yy, ' ', inverse);
+				print (orgx + x, yy, ' ', inverse, underline);
 				++x;
 			} while (x % zone);
 		}
@@ -3857,7 +3877,8 @@ public:
 				//cerr << "Fin de linea" << endl;
 				int yy= orgy + y;
 				for ( ; x < width; ++x)
-					print (orgx + x, yy, ' ', inverse);
+					print (orgx + x, yy, ' ',
+						inverse, underline);
 				x= 0;
 				++y;
 			}
@@ -3865,13 +3886,14 @@ public:
 			{
 				int yy= orgy + y;
 				do {
-					print (orgx + x, yy, ' ', inverse);
+					print (orgx + x, yy, ' ',
+						inverse, underline);
 					++x;
 				} while (x % zone);
 			}
 			break;
 		default:
-			print (orgx + x, orgy + y, c, inverse);
+			print (orgx + x, orgy + y, c, inverse, underline);
 			++x;
 		}
 		pforeground= foresave;
@@ -3883,7 +3905,7 @@ public:
 		pforeground= foreground;
 		pcolor backsave= pbackground;
 		pbackground= background;
-		print (orgx + x, orgy + y, c, inverse);
+		print (orgx + x, orgy + y, c, inverse, underline);
 		pforeground= foresave;
 		pbackground= backsave;
 		++x;
@@ -3955,6 +3977,7 @@ private:
 	bool fTag;
 	bool cursor_visible;
 	bool inverse;
+	bool underline;
 	int pen;
 	int paper;
 };
@@ -4025,8 +4048,8 @@ BlWindow::escape_t BlWindow::init_escape ()
 	aux ['o']= DefControlChar (0, true,  & BlWindow::do_ESC_o);
 	aux ['p']= DefControlChar (0, false, & BlWindow::do_ESC_p);
 	aux ['q']= DefControlChar (0, false, & BlWindow::do_ESC_q);
-	aux ['r']= ignore0; // Underline active
-	aux ['u']= ignore0; // Underline inactive
+	aux ['r']= DefControlChar (0, false, & BlWindow::do_ESC_r);
+	aux ['u']= DefControlChar (0, false, & BlWindow::do_ESC_u);
 	aux ['x']= DefControlChar (0, false, & BlWindow::do_ESC_x);
 	aux ['y']= DefControlChar (0, false, & BlWindow::do_ESC_y);
 	return aux;

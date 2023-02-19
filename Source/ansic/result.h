@@ -1,5 +1,5 @@
 // result.h
-// Revision 3-jul-2003
+// Revision 18-aug-2003
 
 #ifndef RESULT_H_
 #define RESULT_H_
@@ -26,6 +26,24 @@ public:
 	BlResult (const BlResult & br) :
 		vartype (br.vartype)
 	{
+		switch (vartype)
+		{
+		case VarString:
+			varstr= br.varstr;
+			break;
+		case VarNumber:
+			varnumber= br.varnumber;
+			break;
+		case VarInteger:
+			varinteger= br.varinteger;
+			break;
+		default:
+			;
+		}
+	}
+	void operator = (const BlResult & br)
+	{
+		vartype= br.vartype;
 		switch (vartype)
 		{
 		case VarString:

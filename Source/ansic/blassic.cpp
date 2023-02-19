@@ -1,5 +1,5 @@
 // blassic.cpp
-// Revision 13-aug-2003
+// Revision 22-aug-2003
 
 #include <assert.h>
 
@@ -294,6 +294,13 @@ int blassic (int argc, char * * argv)
 			if (++n == argc)
 				throw "Option x needs argument";
 			excludekeyword (argv [n] );
+			++n;
+		}
+		else if (strcmp (argv [n], "--debug") == 0)
+		{
+			if (++n == argc)
+				throw "Option --debug needs argument";
+			sysvar::set32 (sysvar::DebugLevel, atoi (argv [n] ) );
 			++n;
 		}
 		else
