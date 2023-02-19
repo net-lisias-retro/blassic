@@ -1,5 +1,5 @@
 // file.cpp
-// Revision 18-aug-2003
+// Revision 28-aug-2003
 
 #include "blassic.h"
 #include "file.h"
@@ -9,6 +9,7 @@
 #include "cursor.h"
 #include "edit.h"
 #include "graphics.h"
+#include "sysvar.h"
 #include "util.h"
 using util::to_string;
 
@@ -28,6 +29,10 @@ using std::endl;
 //#ifndef _Windows
 #ifndef BLASSIC_USE_WINDOWS
 #include <unistd.h> // read, write
+#include <stdlib.h> // getenv
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #else
 #include <io.h> // isatty
 #endif
@@ -287,6 +292,9 @@ void BlFile::inverse (bool)
 bool BlFile::getinverse ()
 { throw ErrFileMode; }
 
+void BlFile::setwidth (size_t )
+{ }
+
 //***********************************************
 //              BlFileConsole
 //***********************************************
@@ -302,6 +310,11 @@ BlFileConsole::BlFileConsole (std::istream & nin, std::ostream & nout) :
         , xpos (0)
         #endif
 {
+	TraceFunc tr ("BlFileConsole::BlFileConsole");
+	tr.message (std::string ("ttyin ") +
+		(ttyin ? "is" : "is not") + " a tty");
+	tr.message (std::string ("ttyout ") +
+		(ttyout ? "is" : "is not") + " a tty");
 }
 
 bool BlFileConsole::eof ()
@@ -577,7 +590,7 @@ void BlFileConsole::cls ()
 int BlFileConsole::pos ()
 {
 	//#ifdef _Windows
-	#ifndef BLASSIC_USE_WINDOWS
+	#ifdef BLASSIC_USE_WINDOWS
 	return getcursorx ();
 	#else
 	return xpos;
@@ -889,7 +902,8 @@ BlFileRegular::BlFileRegular (const std::string & name, OpenMode nmode) :
         case Output:
                 mode= ios::out; break;
         case Append:
-                mode= ios::out | ios::ate; break;
+                //mode= ios::out | ios::ate; break;
+		mode= ios::out | ios::app; break;
 	default:
 		throw ErrBlassicInternal;
         }
@@ -1110,6 +1124,7 @@ BlFilePopen::BlFilePopen (const std::string & str, OpenMode nmode) :
         }
         command+= " /C ";
         command+= str;
+        tr.message (command);
 
         HANDLE hread, hwrite;
         HANDLE hchild;
@@ -1135,18 +1150,46 @@ BlFilePopen::BlFilePopen (const std::string & str, OpenMode nmode) :
         GetStartupInfo (& start);
         start.dwFlags= STARTF_USESTDHANDLES;
         DWORD creationflags= 0;
+	HANDLE current= GetCurrentProcess ();
         switch (nmode)
         {
         case BlFile::Input:
-                hpipe= hread;
+                //hpipe= hread;
+		// Make a non inherited copy of the read part of the pipe.
+		if (! DuplicateHandle (current, hread, current, & hpipe,
+			0,
+			FALSE, // Not inherited
+			DUPLICATE_SAME_ACCESS) )
+		{
+			throw "DuplicateHandle hread failed";
+		}
+		CloseHandle (hread);
                 hchild= hwrite;
                 start.hStdInput= haux;
                 start.hStdOutput= hwrite;
                 start.hStdError= hwrite;
                 break;
         case BlFile::Output:
-        	creationflags= DETACHED_PROCESS;
-                hpipe= hwrite;
+		{
+			OSVERSIONINFO osv;
+			osv.dwOSVersionInfoSize= sizeof (OSVERSIONINFO);
+			GetVersionEx (& osv);
+			// In Windows 95 or 98 detach the process from the
+			// actual console, without that the parent process
+			// gets blocked.
+			if (osv.dwPlatformId == VER_PLATFORM_WIN32_WINDOWS)
+        			creationflags|= DETACHED_PROCESS;
+		}
+                //hpipe= hwrite;
+		// Make a non inherited copy of the write part of the pipe.
+		if (! DuplicateHandle (current, hwrite, current, & hpipe,
+			0,
+			FALSE, // Not inherited.
+			DUPLICATE_SAME_ACCESS) )
+		{
+			throw "DuplicateHandle hwrite failed";
+		}
+		CloseHandle (hwrite);
                 hchild= hread;
                 start.hStdInput= hread;
                 start.hStdOutput= haux;
@@ -1190,6 +1233,7 @@ BlFilePopen::BlFilePopen (const std::string & str, OpenMode nmode) :
 		cerr << "Bad file mode in popen" << endl;
 		throw ErrBlassicInternal;
 	}
+	tr.message (str);
 	hpipe= popen (str.c_str (), type);
         if (hpipe == NULL)
                 throw "Cuernos";
@@ -1369,6 +1413,402 @@ void BlFileSocket::outstring (const std::string & str)
 void BlFileSocket::outchar (char c)
 {
 	socket.write (& c, 1);
+}
+
+//***********************************************
+//              BlFilePrinter::Internal
+//***********************************************
+
+#ifdef BLASSIC_USE_WINDOWS
+namespace {
+
+class GuardCharp {
+public:
+	GuardCharp (char * pc) :
+		pc (pc)
+	{ }
+	~GuardCharp ()
+	{
+		delete [] pc;
+	}
+private:
+	char * pc;
+};
+
+class GuardHMODULE {
+public:
+	GuardHMODULE (HMODULE h) :
+		h (h)
+	{ }
+	~GuardHMODULE ()
+	{
+		FreeLibrary (h);
+	}
+private:
+	HMODULE h;
+};
+
+class GuardHPRINTER {
+public:
+	GuardHPRINTER (HANDLE h) :
+		h (h)
+	{ }
+	~GuardHPRINTER ()
+	{
+		ClosePrinter (h);
+	}
+private:
+	HANDLE h;
+};
+
+void showlasterror ()
+{
+	char * lpMsgBuf;
+	FormatMessage (
+		FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
+		NULL,
+		GetLastError (),
+		MAKELANGID (LANG_NEUTRAL, SUBLANG_DEFAULT),
+		(char *) & lpMsgBuf,
+		0,
+		NULL);
+	cerr << lpMsgBuf << endl;
+}
+
+std::string getdefaultprinter ()
+{
+	// This routine is based in several founded on the web,
+	// correcting several errors and adapted to C++.
+	OSVERSIONINFO osv;
+	osv.dwOSVersionInfoSize= sizeof (OSVERSIONINFO);
+	GetVersionEx (& osv);
+	switch (osv.dwPlatformId)
+	{
+	case VER_PLATFORM_WIN32_WINDOWS:
+		// Windows 95 or 98, use EnumPrinters
+		{
+			SetLastError (0);
+			DWORD dwNeeded= 0, dwReturned= 0;
+			EnumPrinters (PRINTER_ENUM_DEFAULT, NULL, 2,
+				NULL, 0, & dwNeeded, & dwReturned);
+			if (GetLastError () != ERROR_INSUFFICIENT_BUFFER ||
+				dwNeeded == 0)
+			{
+				cerr << "EnumPrinters get buffer failed" <<
+					endl;
+				showlasterror ();
+				throw ErrBlassicInternal; // Provisional
+			}
+			char * aux= new char [dwNeeded];
+			GuardCharp guardcharp (aux);
+			PRINTER_INFO_2 * ppi2=
+				reinterpret_cast <PRINTER_INFO_2 *> (aux);
+			if (! EnumPrinters (PRINTER_ENUM_DEFAULT, NULL, 2,
+				(LPBYTE) ppi2, dwNeeded,
+				&dwNeeded, & dwReturned) )
+			{
+				cerr << "EnumPrinters failed" << endl;
+				showlasterror ();
+				throw ErrBlassicInternal; // Provisional
+			}
+			return ppi2->pPrinterName;
+		}
+	case VER_PLATFORM_WIN32_NT:
+		if (osv.dwMajorVersion >= 5) // Windows 2000 or later
+		{
+			HMODULE hWinSpool= LoadLibrary ("winspool.drv");
+			if (! hWinSpool)
+			{
+				cerr << "LoadLibrary failed" << endl;
+				throw ErrBlassicInternal;
+			}
+			GuardHMODULE guardh (hWinSpool);
+			#ifdef UNICODE
+			static const TCHAR GETDEFAULTPRINTER []=
+				"GetDefaultPrinterW";
+			#else
+			static const TCHAR GETDEFAULTPRINTER []=
+				"GetDefaultPrinterA";
+			#endif
+			PROC fnGetDefaultPrinter= GetProcAddress (hWinSpool,
+				GETDEFAULTPRINTER);
+			if (! fnGetDefaultPrinter)
+			{
+				cerr << "GetProcAddress failed" << endl;
+				throw ErrBlassicInternal;
+			}
+			typedef BOOL (* GetDefaultPrinter_t) (LPTSTR, LPDWORD);
+			GetDefaultPrinter_t callGetDefaultPrinter=
+				(GetDefaultPrinter_t) fnGetDefaultPrinter;
+			DWORD dwBufferLength= 0;
+			SetLastError (0);
+			callGetDefaultPrinter (NULL, & dwBufferLength);
+			if (GetLastError () != ERROR_INSUFFICIENT_BUFFER)
+			{
+				cerr << "GetDefaultPrinter get buffer "
+					"failed" << endl;
+				throw ErrBlassicInternal;
+			}
+			char * buffer= new char [dwBufferLength];
+			GuardCharp guardcharp (buffer);
+			if (! callGetDefaultPrinter
+				(buffer, & dwBufferLength) )
+			{
+				cerr << "GetDefaultPrinter failed" << endl;
+				throw ErrBlassicInternal;
+			}
+			return std::string (buffer);
+		}
+		else // NT 4.0 or earlier
+		{
+			const DWORD MAXBUFFERSIZE= 250;
+			TCHAR cBuffer [MAXBUFFERSIZE];
+			if (GetProfileString ("windows", "device", ",,,",
+				cBuffer, MAXBUFFERSIZE) <= 0)
+			{
+				cerr << "GetProfileString failed" << endl;
+				throw ErrBlassicInternal;
+			}
+			strtok (cBuffer, ",");
+			return std::string (cBuffer);
+		}
+	default:
+		ASSERT (false);
+		return std::string (); // Make the compiler happy.
+	}
+}
+
+} // namespace
+#endif
+
+class BlFilePrinter::Internal {
+public:
+	Internal () :
+		pos (0),
+		width (80)
+	{ }
+	~Internal ();
+	void close ();
+	void tab ();
+	void tab (size_t n);
+	void endline ();
+	void outstring (std::string str);
+	void outchar (char c);
+	void setwidth (size_t w)
+	{ width= w; }
+private:
+	std::string text;
+	size_t pos;
+	size_t width;
+};
+
+BlFilePrinter::Internal::~Internal ()
+{
+	TraceFunc tr ("BlFilePrinter::Internal::~Internal");
+}
+
+void BlFilePrinter::Internal::close ()
+{
+	TraceFunc tr ("BlFilePrinter::Internal::close");
+
+	static const char blassic_print_command []= "BLASSIC_PRINT_COMMAND";
+
+	// Print only if there is somethnig to print.
+	if (text.empty () )
+	{
+		tr.message ("Nothing to print.");
+		return;
+	}
+	tr.message ("Begin printing");
+
+	const char * printcommand= getenv (blassic_print_command);
+
+	#ifdef BLASSIC_USE_WINDOWS
+
+	if (printcommand != NULL)
+	{
+		tr.message (std::string ("Popening to ") + printcommand);
+		BlFilePopen bfp (printcommand, Output);
+		bfp << text;
+		return;
+	}
+
+	std::string printername= getdefaultprinter ();
+	tr.message (std::string ("Printer is ") + printername);
+
+	HANDLE hPrinter;
+	if (! OpenPrinter ( (char *) printername.c_str (), & hPrinter, NULL) )
+	{
+		cerr << "OpenPrinter failed" << endl;
+		throw ErrBlassicInternal;
+	}
+	GuardHPRINTER guardhprinter (hPrinter);
+	DOC_INFO_1 doc_info;
+	doc_info.pDocName= (char *) "Blassic printing output";
+	doc_info.pOutputFile= NULL;
+	doc_info.pDatatype= NULL;
+	DWORD jobid= StartDocPrinter (hPrinter, 1, (LPBYTE) & doc_info);
+	if (jobid == 0)
+	{
+		cerr << "StartDocPrinter failed" << endl;
+		throw ErrBlassicInternal;
+	}
+	DWORD written= 0;
+	WritePrinter (hPrinter, (void *) text.data (), text.size (),
+		& written);
+	if (written != text.size () )
+	{
+		cerr << "WritePrinter failed" << endl;
+		throw ErrBlassicInternal;
+	}
+	EndDocPrinter (hPrinter);
+	// ClosePrinter is done by the guard.
+
+	#else
+
+	if (printcommand == NULL)
+		printcommand= "lp";
+	int savestdout= dup (STDOUT_FILENO);
+	int savestderr= dup (STDERR_FILENO);
+	int newstd= open ("/dev/null", O_RDWR);
+	if (newstd == -1)
+		throw "Al diablo";
+	dup2 (newstd, STDOUT_FILENO);
+	dup2 (newstd, STDERR_FILENO);
+	::close (newstd);
+	FILE * f= popen (printcommand, "w");
+	dup2 (savestdout, STDOUT_FILENO);
+	dup2 (savestderr, STDERR_FILENO);
+	::close (savestdout);
+	::close (savestderr);
+	if (f == NULL)
+	{
+		cerr << "Error in popen" << endl;
+		throw ErrBlassicInternal;
+	}
+	write (fileno (f), text.data (), text.size () );
+	pclose (f);
+
+	#endif
+}
+
+void BlFilePrinter::Internal::tab ()
+{
+	size_t zone= sysvar::get16 (sysvar::Zone);
+	if (zone == 0)
+	{
+		outchar ('\t');
+		return;
+	}
+	if (width > 0 && pos >= (width / zone) * zone)
+		endline ();
+	else
+	{
+		do
+		{
+			outchar (' ');
+		} while (pos % zone);
+	}
+}
+
+void BlFilePrinter::Internal::tab (size_t n)
+{
+	if (pos > n)
+		endline ();
+	size_t maxpos= std::min (width, n);
+	while (pos < maxpos)
+		outchar (' ');
+}
+
+void BlFilePrinter::Internal::endline ()
+{
+	switch (sysvar::get (sysvar::PrinterLine) )
+	{
+	case 0:
+		text+= '\n'; break;
+	case 1:
+		text+= "\r\n"; break;
+	case 2:
+		text+= '\r'; break;
+	}
+	pos= 0;
+}
+
+void BlFilePrinter::Internal::outstring (std::string str)
+{
+	if (width > 0)
+	{
+		size_t l= str.size ();
+		while (pos + l > width)
+		{
+			text+= str.substr (0, width - pos);
+			str.erase (0, width - pos);
+			endline ();
+			l= str.size ();
+		}
+	}
+	text+= str;
+	pos+= str.size ();
+}
+
+void BlFilePrinter::Internal::outchar (char c)
+{
+	if (width > 0 && pos>= width)
+		endline ();
+	text+= c;
+	++pos;
+}
+
+//***********************************************
+//              BlFilePrinter
+//***********************************************
+
+BlFilePrinter::BlFilePrinter () :
+	BlFile (Output),
+	pi (new Internal)
+{
+}
+
+BlFilePrinter::~BlFilePrinter ()
+{
+	TraceFunc tr ("BlFilePrinter::~BlFilePrinter");
+
+	pi->close ();
+	delete pi;
+}
+
+void BlFilePrinter::flush ()
+{
+}
+
+void BlFilePrinter::tab ()
+{
+	pi->tab ();
+}
+
+void BlFilePrinter::tab (size_t n)
+{
+	pi->tab (n);
+}
+
+void BlFilePrinter::endline ()
+{
+	pi->endline ();
+}
+
+void BlFilePrinter::outstring (const std::string & str)
+{
+	pi->outstring (str);
+}
+
+void BlFilePrinter::outchar (char c)
+{
+	pi->outchar (c);
+}
+
+void BlFilePrinter::setwidth (size_t w)
+{
+	pi->setwidth (w);
 }
 
 // Fin de file.cpp

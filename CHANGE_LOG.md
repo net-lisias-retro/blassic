@@ -1,5 +1,12 @@
 # Blassic :: Change Log
 
+* 2003-0828: 0.7.0 (Julián Albo)
+	+ USR "Spectrum graphic characters style".
+	+ Corrected bug with APPEND mode.
+	+ Printer support with LPRINT and LLIST.
+	+ WIDTH LPRINT instruction.
+	+ ZONE implemented at least!
+	+ Solved problems with popen under Windows (I hope).
 * 2003-0822: 0.6.1 (Julián Albo)
 	+ MODE 0 when graphics not available now is not an error.
 	+ Added underline mode to console emulation in graphics mode.

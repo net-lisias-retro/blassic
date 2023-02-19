@@ -1,5 +1,5 @@
 // keyword.h
-// Revision 22-aug-2003
+// Revision 27-aug-2003
 
 #ifndef INCLUDE_KEYWORD_H_
 #define INCLUDE_KEYWORD_H_
@@ -126,6 +126,9 @@ const BlCode
 	keyRAD=               0x0175,
 	keyINVERSE=           0x0176,
 	keyIF_DEBUG=          0x0177,
+	keyLPRINT=            0x0178,
+	keyLLIST=             0x0179,
+	keyWIDTH=             0x017A,
 
 	keyMID_S=             0x0201,
 	keyLEFT_S=            0x0202,

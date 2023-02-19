@@ -1,3 +1,17 @@
+Version 0.7.0
+
+	USR "Spectrum graphic characters style".
+
+	Corrected bug with APPEND mode.
+
+	Printer support with LPRINT and LLIST.
+
+	WIDTH LPRINT instruction.
+
+	ZONE implemented at least!
+
+	Solved problems with popen under Windows (I hope).
+
 Version 0.6.1
 
 	MODE 0 when graphics not available now is not an error.

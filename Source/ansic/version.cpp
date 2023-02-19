@@ -7,7 +7,7 @@
 
 const unsigned short
 	version::Major= 0,
-	version::Minor= 6,
-	version::Release= 1;
+	version::Minor= 7,
+	version::Release= 0;
 
 // End of version.cpp

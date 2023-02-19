@@ -84,13 +84,13 @@ yy2= peek (d + 2) + 256 * peek (d + 3) -1
 
 rem Initial values for zoom
 rem inix= xx2 / 4
-width= xx2 / 2
+wid= xx2 / 2
 rem iniy= yy2 / 4
 height= yy2 / 2
 
 label showfunction
 
-inix= (xx2 - width) / 2
+inix= (xx2 - wid) / 2
 iniy= (yy2 - height) / 2
 
 label redraw
@@ -152,8 +152,8 @@ gosub modenormal
 
 if a$ = "O" or a$ = "LEFT" then inix= inix - 1 : goto tecla
 if a$ = "P" or a$ = "RIGHT" then inix= inix + 1 : goto tecla
-if a$ = "I" then width= width + 1 : goto tecla
-if a$ = "U" then width= width - 1 : goto tecla
+if a$ = "I" then wid= wid + 1 : goto tecla
+if a$ = "U" then wid= wid - 1 : goto tecla
 
 if a$ = "Z" or a$ = "DOWN" then iniy= iniy + 1 : goto tecla
 if a$ = "A" or a$ = "UP" then iniy= iniy - 1 : goto tecla
@@ -161,7 +161,7 @@ if a$ = "X" then height= height + 1 : goto tecla
 if a$ = "S" then height= height - 1 : goto tecla
 
 if a$ = "HOME" then inix= 0: goto tecla
-if a$ = "END" then inix= xx2 - width: goto tecla
+if a$ = "END" then inix= xx2 - wid: goto tecla
 
 if a$ = "PAGEUP" then iniy= 0: goto tecla
 if a$ = "PAGEDOWN" then iniy= yy2 - height: goto tecla
@@ -177,7 +177,7 @@ if a$ = "CLICK" then gosub mousedraw: goto tecla
 if a$ <> " " then goto tecla
 
 xs1= fn calculx (inix)
-xs2= fn calculx (inix + width)
+xs2= fn calculx (inix + wid)
 
 ys1= fn calculy (yy2 - (iniy + height) )
 ys2= fn calculy (yy2 - iniy)
@@ -194,22 +194,22 @@ label mousedraw
 
 gosub modexor
 
-oinix= inix: oiniy= iniy: oheight= height: owidth= width
+oinix= inix: oiniy= iniy: oheight= height: owid= wid
 
-inix= xmouse: iniy= ymouse: height= 0: width= 0
+inix= xmouse: iniy= ymouse: height= 0: wid= 0
 gosub recuadro
 
 repeat
 	nw= xmouse - inix: nh= ymouse - iniy
-	if width <> nw or height <> nh then gosub recuadro : width= nw: height= nh: gosub recuadro
+	if wid <> nw or height <> nh then gosub recuadro : wid= nw: height= nh: gosub recuadro
 	a$= inkey$
 until a$ <> ""
 
 gosub recuadro
 
-if a$ = esc$ then inix= oinix: iniy= oiniy: width= owidth: height= oheight
+if a$ = esc$ then inix= oinix: iniy= oiniy: wid= owid: height= oheight
 
-if width < 0 then inix= inix + width: width= -width
+if wid < 0 then inix= inix + wid: wid= -wid
 
 if height < 0 then iniy= iniy + height: height= - height
 
@@ -218,7 +218,7 @@ gosub modenormal
 return
 
 label recuadro
-plot inix, iniy to inix, iniy + height to inix + width, iniy + height to inix + width, iniy to inix, iniy
+plot inix, iniy to inix, iniy + height to inix + wid, iniy + height to inix + wid, iniy to inix, iniy
 return
 
 label modenormal

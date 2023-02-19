@@ -170,7 +170,7 @@ for i= 1 to maxbomb
 		if xboat (j) = 0 then goto nextbombboat
 		touch= killpos - xboat (j)
 		if touch >= 0 and touch <= 2 then killboat= j: j= maxboat
-		
+
 		label nextbombboat
 	next
 	if killboat = 0 then goto nextbomb

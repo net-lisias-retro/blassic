@@ -1,5 +1,5 @@
 // blassic.h
-// Revision 13-ago-2003
+// Revision 26-ago-2003
 
 #ifndef BLASSIC_H_
 #define BLASSIC_H_
@@ -91,6 +91,8 @@ const BlLineNumber BlMaxLineNumber= BlIntegerMax;
 typedef unsigned short BlChunk;
 typedef unsigned short BlErrNo;
 typedef unsigned short BlChannel;
+
+const BlChannel PrinterChannel= 65535;
 
 class ProgramPos {
 public:

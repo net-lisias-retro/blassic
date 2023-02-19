@@ -1,5 +1,5 @@
 // runner.h
-// Revision 17-ago-2003
+// Revision 26-ago-2003
 
 #ifndef RUNNER_H_
 #define RUNNER_H_
@@ -50,6 +50,7 @@ public:
 	BlFile & getfile (BlChannel channel);
 	void setfile (BlChannel channel, BlFile * npfile);
 	void resetfile0 ();
+	void resetfileprinter ();
 	void close_all ();
 	void destroy_windows ();
 	void closechannel (BlChannel channel);

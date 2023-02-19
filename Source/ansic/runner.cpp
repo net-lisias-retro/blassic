@@ -76,6 +76,7 @@ GlobalRunner::GlobalRunner (Program & prog) :
 	TraceFunc tr ("GlobalRunner::GlobalRunner");
 
 	resetfile0 ();
+	resetfileprinter ();
 	trigonometric_default ();
 }
 
@@ -108,6 +109,11 @@ void GlobalRunner::resetfile0 ()
 			(new BlFileConsole (std::cin, std::cout) ) );
 }
 
+void GlobalRunner::resetfileprinter ()
+{
+	setfile (PrinterChannel, new BlFilePrinter);
+}
+
 void GlobalRunner::close_all ()
 {
 	#if 0
@@ -120,6 +126,7 @@ void GlobalRunner::close_all ()
 		deletefileifnotzero);
 	chanfile.clear ();
 	chanfile [0]= bfsave;
+	resetfileprinter ();
 	#endif
 }
 
@@ -154,12 +161,17 @@ void GlobalRunner::destroy_windows ()
 
 void GlobalRunner::closechannel (BlChannel channel)
 {
-        ChanFile::iterator it= chanfile.find (channel);
-        if (it != chanfile.end () )
-        {
-                delete it->second;
-                chanfile.erase (it);
-        }
+	if (channel == PrinterChannel)
+		resetfileprinter ();
+	else
+	{
+		ChanFile::iterator it= chanfile.find (channel);
+		if (it != chanfile.end () )
+		{
+			delete it->second;
+			chanfile.erase (it);
+		}
+	}
 }
 
 void GlobalRunner::windowswap (BlChannel ch1, BlChannel ch2)

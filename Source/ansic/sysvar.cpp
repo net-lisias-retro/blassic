@@ -1,5 +1,5 @@
 // sysvar.cpp
-// Revision 22-aug-2003
+// Revision 27-aug-2003
 
 #include "blassic.h"
 #include "sysvar.h"
@@ -29,8 +29,15 @@ void sysvar::init ()
 	set (TypeOfDimCheck, 0); // Need erase before dim already dimensioned
 	set16 (MaxHistory, 100);
 	set (Flags1, 0); // LOCATE style Microsoft (row, col).
+	#ifdef BLASSIC_USE_WINDOWS
+	const short defaultprinterline= 1;
+	#else
+	const short defaultprinterline= 0;
+	#endif
+	set (PrinterLine, defaultprinterline);
 	set32 (MaxFnLevel, 1000); // Seems a good limit.
 	set16 (DebugLevel, 0);
+	set16 (Zone, 8);
 }
 
 size_t sysvar::address ()

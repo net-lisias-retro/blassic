@@ -3167,8 +3167,6 @@ std::string graphics::getkey ()
 
 namespace {
 
-int zone= 8;
-
 int symbol_after_is;
 
 class BlWindow {
@@ -3550,6 +3548,9 @@ public:
 	void tab ()
 	{
 		forcelegalposition ();
+		int zone= sysvar::get16 (sysvar::Zone);
+		if (zone == 0)
+			zone= 8;
 		if (x >= (width / zone) * zone)
 		{
 			//cerr << "Fin de linea" << endl;
@@ -3859,6 +3860,7 @@ public:
 		pforeground= foreground;
 		pcolor backsave= pbackground;
 		pbackground= background;
+		#if 0
 		switch (c)
 		{
 		case '\n':
@@ -3893,9 +3895,12 @@ public:
 			}
 			break;
 		default:
+		#endif
 			print (orgx + x, orgy + y, c, inverse, underline);
 			++x;
+		#if 0
 		}
+		#endif
 		pforeground= foresave;
 		pbackground= backsave;
 	}
@@ -4097,26 +4102,31 @@ inline void do_charout (char c)
 		tcol= 0;
 		return;
 	case '\t':
-		if (tcol >= (maxtcol / zone) * zone)
 		{
-			//cerr << "Fin de linea" << endl;
-			for ( ; tcol < maxtcol; ++tcol)
-				print (tcol, trow, ' ', false);
-			tcol= 0;
-			if (++trow >= maxtrow)
+			int zone= sysvar::get16 (sysvar::Zone);
+			if (zone == 0)
+				zone= 8;
+			if (tcol >= (maxtcol / zone) * zone)
 			{
-				textscroll ();
-				trow= maxtrow - 1;
+				//cerr << "Fin de linea" << endl;
+				for ( ; tcol < maxtcol; ++tcol)
+					print (tcol, trow, ' ', false);
+				tcol= 0;
+				if (++trow >= maxtrow)
+				{
+					textscroll ();
+					trow= maxtrow - 1;
+				}
 			}
+			else
+			{
+				do {
+					print (tcol, trow, ' ', false);
+					++tcol;
+				} while (tcol % zone);
+			}
+			return;
 		}
-		else
-		{
-			do {
-				print (tcol, trow, ' ', false);
-				++tcol;
-			} while (tcol % zone);
-		}
-		return;
 	}
         print (tcol, trow, c, false);
         if (++tcol >= maxtcol)

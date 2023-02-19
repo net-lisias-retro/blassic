@@ -1,5 +1,5 @@
 // runnerline.cpp
-// Revision 22-aug-2003
+// Revision 28-aug-2003
 
 #include "runnerline.h"
 
@@ -273,6 +273,11 @@ RunnerLine::mapfunc_t RunnerLine::initmapfunc ()
 	m [keyRAD]=          & RunnerLine::do_deg_rad;
 	m [keyINVERSE]=      & RunnerLine::do_inverse;
 	m [keyIF_DEBUG]=     & RunnerLine::do_if_debug;
+	// LPRINT and PRINT use same function.
+	m [keyLPRINT]=       & RunnerLine::do_print;
+	// LLIST and LIST use same function.
+	m [keyLLIST]=        & RunnerLine::do_list;
+	m [keyWIDTH]=        & RunnerLine::do_width;
 	return m;
 }
 
@@ -840,13 +845,41 @@ void RunnerLine::valusr (BlResult & result)
 	case VarString:
 		{
 			std::string libname= result.str ();
-                        requiretoken (',');
+                        //requiretoken (',');
+			switch (token.code)
+			{
+			case ',':
+				break;
+			case ')':
+				// Spectrum USR character.
+				if (libname.size () != 1)
+					throw ErrImproperArgument;
+				{
+				unsigned char c= libname [0];
+				const unsigned char base= 144;
+				if (c >= 'a' && c <= 'u')
+					c= static_cast <unsigned char>
+						(c - 'a' + base);
+				else if (c >= 'A' && c <= 'U')
+					c= static_cast <unsigned char>
+						(c - 'A' + base);
+				else if (c >= 144 && c <= 164)
+					throw ErrImproperArgument;
+				result= sysvar::get32 (sysvar::CharGen) +
+					c * 8;
+				}
+				gettoken ();
+				return;
+			default:
+				throw ErrSyntax;
+			}
 			std::string funcname= expectstring ();
                         libhandle= dynamicload (libname);
 			if (! libhandle)
 				throw ErrNoDynamicLibrary;
                         symaddr= dynamicaddr (libhandle, funcname);
-                        #ifdef _Windows
+                        //#ifdef _Windows
+                        #ifdef BLASSIC_USE_WINDOWS
                         if (! symaddr)
                         {
                                 funcname= std::string (1, '_') + funcname;
@@ -2393,8 +2426,11 @@ bool RunnerLine::do_end ()
 
 bool RunnerLine::do_list ()
 {
+	// Same function used for LIST and LLIST, differing only
+	// in the default channel.
+	BlChannel nfile= (token.code == keyLLIST) ?
+		PrinterChannel : BlChannel (0);
 	gettoken ();
-	BlChannel nfile= 0;
 	if (token.code == '#')
         {
 		nfile= expectchannel ();
@@ -2723,9 +2759,12 @@ public:
 
 bool RunnerLine::do_print ()
 {
+	// Same function used for PRINT and LPRINT, differing only
+	// in the default channel.
+	BlChannel channel= (token.code == keyLPRINT) ?
+		PrinterChannel : BlChannel (0);
 	gettoken ();
-        BlChannel channel= 0;
-        if (token.code == '#')
+	if (token.code == '#')
 	{
                 channel= expectchannel ();
 		if (token.code == ',')
@@ -3990,7 +4029,7 @@ bool RunnerLine::do_error ()
 bool RunnerLine::do_open ()
 {
         BlCode op= token.code;
-        BlChannel channel;
+        BlChannel channel= 0;
         std::string filename;
         BlFile::OpenMode mode= BlFile::Input;
 	size_t record_len= 128;
@@ -4032,23 +4071,33 @@ bool RunnerLine::do_open ()
 			case keyRANDOM:
 				mode= BlFile::Random;
 				break;
+			case keyLPRINT:
+				if (op != keyOPEN)
+					throw ErrSyntax;
+				mode= BlFile::Append;
+				channel= PrinterChannel;
+				gettoken ();
+				break;
 			default:
 				throw ErrSyntax;
 			}
-			expecttoken (keyAS);
-			gettoken ();
-			if (token.code == '#')
+			if (channel == 0)
+			{
+				expecttoken (keyAS);
 				gettoken ();
-			channel= evalchannel ();
+				if (token.code == '#')
+					gettoken ();
+				channel= evalchannel ();
 
-			if (token.code == keyLEN)
-                        {
-				expecttoken ('=');
-				gettoken ();
-				BlNumber bn= evalnum ();
-				record_len= size_t (bn);
-				if (mode != BlFile::Random)
-					throw ErrFileMode;
+				if (token.code == keyLEN)
+				{
+					expecttoken ('=');
+					gettoken ();
+					BlNumber bn= evalnum ();
+					record_len= size_t (bn);
+					if (mode != BlFile::Random)
+						throw ErrFileMode;
+				}
 			}
 			break;
 		case ',':
@@ -4121,9 +4170,18 @@ bool RunnerLine::do_close ()
 	}
 	for (;;)
 	{
-		if (token.code == '#')
+		BlChannel channel;
+		if (token.code == keyLPRINT)
+		{
+			channel= PrinterChannel;
 			gettoken ();
-		BlChannel channel= evalchannel ();
+		}
+		else
+		{
+			if (token.code == '#')
+				gettoken ();
+			channel= evalchannel ();
+		}
 		if (channel == 0)
 			throw ErrFileNumber;
 		runner.closechannel (channel);
@@ -5148,7 +5206,10 @@ bool RunnerLine::do_symbol ()
 
 bool RunnerLine::do_zone ()
 {
-	throw ErrNotImplemented;
+	BlInteger z= expectinteger ();
+	require_endsentence ();
+	sysvar::set16 (sysvar::Zone, static_cast <short> (z) );
+	return false;
 }
 
 bool RunnerLine::do_pop ()
@@ -6018,6 +6079,15 @@ bool RunnerLine::do_if_debug ()
 	// If the parameter is lower than the current debug level,
 	// ignore the rest of the line.
 	return n > sysvar::get16 (sysvar::DebugLevel);
+}
+
+bool RunnerLine::do_width ()
+{
+	expecttoken (keyLPRINT);
+	BlInteger w= expectinteger ();
+	require_endsentence ();
+	getfile (PrinterChannel).setwidth (w);
+	return false;
 }
 
 void RunnerLine::execute ()

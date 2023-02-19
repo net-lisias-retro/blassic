@@ -1,5 +1,5 @@
 // runnerline.h
-// Revision 22-aug-2003
+// Revision 27-aug-2003
 
 #ifndef RUNNERLINE_H_
 
@@ -288,6 +288,7 @@ private:
 	bool do_deg_rad ();
 	bool do_inverse ();
 	bool do_if_debug ();
+	bool do_width ();
 };
 
 #endif

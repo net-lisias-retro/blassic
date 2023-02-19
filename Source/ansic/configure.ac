@@ -50,10 +50,11 @@ CPPFLAGS=$CPPFLAGS" -I/opt/ncurses/include -I/usr/X11R6/include"
 LDFLAGS=$LDFLAGS" -L/opt/ncurses/lib -L/usr/X11R6/lib"
 
 # Julian: under cygwin and mingw, link with gdi32.dll and wsock32.dll
+# Julian: 27-aug-2003 Added winspool to support LPRINT.
 case "$host" in
 *-*-cygwin*|*mingw*)
 	#LDFLAGS=-lgdi32
-	AC_SUBST(CYGWIN_FLAGS,"-lgdi32 -lwsock32")
+	AC_SUBST(CYGWIN_FLAGS,"-lgdi32 -lwsock32 -lwinspool")
 	;;
 *)
 	AC_SUBST(CYGWIN_FLAGS)

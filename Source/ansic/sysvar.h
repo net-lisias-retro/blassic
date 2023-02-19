@@ -1,5 +1,5 @@
 // sysvar.h
-// Revision 22-aug-2003
+// Revision 27-aug-2003
 
 #ifndef SYSVAR_H_
 #define SYSVAR_H_
@@ -35,10 +35,14 @@ const size_t
 				// 1: Silently redim
 	MaxHistory= 28,	// Max size of history buffer.
 	Flags1= 30,	// Bit 0: LOCATE style. 0 Microsoft, 1 Amstrad CPC.
-	// 31: 1 byte reserved
+	PrinterLine=  31, 	// Type of printer line feed.
+				// 0 LF only.
+				// 1 CR + LF
+				// 2 CR only.
 	MaxFnLevel= 32, // Max level of FN calls.
 	DebugLevel= 36, // Level for IF_DEBUG
-	EndSysVar= 38;
+	Zone= 38,	// Size of zone for the , separator of PRINT.
+	EndSysVar= 40;
 
 } // namespace sysvar
 

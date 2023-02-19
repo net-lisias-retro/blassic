@@ -1,5 +1,5 @@
 // result.h
-// Revision 18-aug-2003
+// Revision 25-aug-2003
 
 #ifndef RESULT_H_
 #define RESULT_H_
@@ -147,6 +147,11 @@ public:
 		varinteger= inum;
 		//varstr.erase ();
 		//return * this;
+	}
+	void operator = (unsigned long inum)
+	{
+		vartype= VarInteger;
+		varinteger= inum;
 	}
 	/*BlResult & */ void operator = (int inum)
 	{

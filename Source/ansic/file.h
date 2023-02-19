@@ -1,5 +1,5 @@
 // file.h
-// Revision 18-aug-2003
+// Revision 28-aug-2003
 
 #ifndef INCLUDE_FILE_H_
 #define INCLUDE_FILE_H_
@@ -92,6 +92,7 @@ public:
 	virtual bool istagactive ();
 	virtual void inverse (bool active);
 	virtual bool getinverse ();
+	virtual void setwidth (size_t w);
 private:
         virtual void outstring (const std::string & str);
         virtual void outchar (char c);
@@ -137,7 +138,8 @@ private:
         std::istream & in;
         std::ostream & out;
         bool ttyin, ttyout;
-        #ifndef _Windows
+        //#ifndef _Windows
+	#ifndef BLASSIC_USE_WINDOWS
         int xpos;
         #endif
 };
@@ -296,6 +298,23 @@ private:
 	
 	TcpSocketClient socket;
 };
+
+class BlFilePrinter : public BlFile {
+public:
+	BlFilePrinter ();
+	~BlFilePrinter ();
+	void flush ();
+	void tab ();
+	void tab (size_t n);
+	void endline ();
+	void setwidth (size_t w);
+private:
+	void outstring (const std::string & str);
+	void outchar (char c);
+	class Internal;
+	Internal * pi;
+};
+
 
 #endif
 
